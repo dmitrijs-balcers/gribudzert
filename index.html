@@ -5,7 +5,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Map of Riga (Leaflet + OpenStreetMap)</title>
 
-        <!-- Leaflet CSS (open-source, free) -->
+        <link rel="manifest" href="manifest.json" />
+        <!-- Leaflet CSS -->
         <link
             rel="stylesheet"
             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -13,7 +14,6 @@
         />
 
         <style>
-            /* Make the page and map fill the viewport */
             html,
             body {
                 height: 100%;
@@ -26,17 +26,17 @@
                     "Helvetica Neue",
                     Arial;
                 background: #f7f7f7;
+            }
 
-            /* Map container full height */
+            /* Map fills viewport */
             #map {
                 height: 100vh;
                 width: 100%;
             }
 
-            /* Simple info overlay */
             .info {
                 position: absolute;
-                top: 12px;
+                bottom: 12px;
                 right: 12px;
                 z-index: 1000;
                 background: rgba(255, 255, 255, 0.95);
@@ -45,6 +45,7 @@
                 box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
                 font-size: 13px;
                 line-height: 1.2;
+                opacity: 0.9;
             }
 
             .info a {
@@ -52,7 +53,7 @@
                 text-decoration: none;
             }
 
-            /* Small adjustments for leaflet built-in controls when using the locate button */
+            /* Adjust default leafet control button appearance */
             .leaflet-bar a {
                 display: inline-flex;
                 align-items: center;
@@ -61,13 +62,21 @@
                 height: 34px;
                 font-size: 18px;
             }
-            /* Position the locate control in the middle right */
-            .leaflet-bar.locate-control-rightmid {
-                position: absolute !important;
-                right: 10px;
+
+            /* Position the locate control in the vertical middle on the right */
+            .leaflet-top.leaflet-right .locate-control {
                 top: 50% !important;
                 transform: translateY(-50%);
+                right: 8px;
+                position: absolute !important;
                 z-index: 1000;
+            }
+
+            /* Make layer control less obtrusive on small screens */
+            @media (max-width: 600px) {
+                .leaflet-control-layers {
+                    font-size: 13px;
+                }
             }
         </style>
     </head>
@@ -92,43 +101,210 @@
             </div>
         </noscript>
 
-        <!-- Leaflet JS (open-source, free) -->
+        <!-- Leaflet JS -->
         <script
             src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             crossorigin=""
         ></script>
 
         <script>
-            // Coordinates for Riga, Latvia
+            // Basic map setup
             const rigaLatLng = [56.9496, 24.1052];
-
-            // Initialize the map and set view to Riga
             const map = L.map("map", {
                 center: rigaLatLng,
                 zoom: 13,
                 zoomControl: true,
-                attributionControl: true,
             });
 
-            // OpenStreetMap tile layer (no API key required)
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                 maxZoom: 19,
                 attribution:
                     '&copy; <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
             }).addTo(map);
 
-            // Marker removed per request — map remains centered on Riga without a marker
-
-            // Add a scale control (metric)
             L.control.scale({ metric: true, imperial: false }).addTo(map);
 
-            // Ensure the map correctly sizes if container size changes
-            window.addEventListener("resize", () => map.invalidateSize());
+            // Colour map for 'colour' tag values
+            const colourMap = {
+                teal: "#2A93EE",
+                blue: "#1E90FF",
+                red: "#E53935",
+                beige: "#D7C7A1",
+                default: "#0078ff",
+            };
 
-            // Optional: locate button to show user's position (uses navigator.geolocation)
+            // Layer to hold the points from points.xml
+            const pointsLayer = L.featureGroup().addTo(map);
+
+            // Parse OSM XML Document into node objects
+            function parseOsmDoc(xmlDoc) {
+                const nodeEls = Array.from(xmlDoc.getElementsByTagName("node"));
+                return nodeEls.map((nodeEl) => {
+                    const id = nodeEl.getAttribute("id");
+                    const lat = parseFloat(nodeEl.getAttribute("lat"));
+                    const lon = parseFloat(nodeEl.getAttribute("lon"));
+                    const tagEls = Array.from(
+                        nodeEl.getElementsByTagName("tag"),
+                    );
+                    const tags = {};
+                    tagEls.forEach((t) => {
+                        const k = t.getAttribute("k");
+                        const v = t.getAttribute("v");
+                        tags[k] = v;
+                    });
+                    return { id, lat, lon, tags };
+                });
+            }
+
+            // Create circle markers for nodes and add to the provided layer
+            function addNodesToLayer(nodes, layer) {
+                nodes.forEach((n) => {
+                    if (!isFinite(n.lat) || !isFinite(n.lon)) return;
+
+                    const cTag = (n.tags.colour || "").toLowerCase();
+                    const color = colourMap[cTag] || colourMap.default;
+                    const seasonal =
+                        (n.tags.seasonal || "").toLowerCase() === "yes";
+
+                    let radius = 6;
+                    if ((n.tags.bottle || "") === "yes") radius = 7;
+                    if ((n.tags.wheelchair || "") === "yes") radius = 8;
+
+                    const circle = L.circleMarker([n.lat, n.lon], {
+                        radius,
+                        color: "#333",
+                        weight: 1,
+                        fillColor: color,
+                        fillOpacity: seasonal ? 0.35 : 0.75,
+                    }).addTo(layer);
+
+                    const popupParts = [];
+                    popupParts.push(`<strong>water_tap (id: ${n.id})</strong>`);
+                    if (n.tags.operator)
+                        popupParts.push(
+                            `<div>Operator: ${escapeHtml(n.tags.operator)}</div>`,
+                        );
+                    if (n.tags.note)
+                        popupParts.push(
+                            `<div>Note: ${escapeHtml(n.tags.note)}</div>`,
+                        );
+                    if (n.tags.seasonal)
+                        popupParts.push(
+                            `<div>Seasonal: ${escapeHtml(n.tags.seasonal)}</div>`,
+                        );
+                    if (n.tags.bottle)
+                        popupParts.push(
+                            `<div>Bottle refill: ${escapeHtml(n.tags.bottle)}</div>`,
+                        );
+                    if (n.tags.wheelchair)
+                        popupParts.push(
+                            `<div>Wheelchair: ${escapeHtml(n.tags.wheelchair)}</div>`,
+                        );
+                    popupParts.push(
+                        `<div><a target="_blank" rel="noreferrer" href="https://www.openstreetmap.org/node/${n.id}">OpenStreetMap node ${n.id}</a></div>`,
+                    );
+
+                    circle.bindPopup(popupParts.join(""));
+                });
+            }
+
+            // Basic HTML escaping for popup text
+            function escapeHtml(str) {
+                return String(str)
+                    .replace(/&/g, "&amp;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#39;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+            }
+
+            // Load external points.xml (must be served via http(s) or localhost)
+            function loadPointsXml(url = "points.xml") {
+                return fetch(url, { cache: "no-cache" })
+                    .then((response) => {
+                        if (!response.ok)
+                            throw new Error(
+                                "Failed to fetch points.xml: " +
+                                    response.status,
+                            );
+                        return response.text();
+                    })
+                    .then((text) => {
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(
+                            text,
+                            "application/xml",
+                        );
+
+                        // detect parse errors
+                        const parsererror =
+                            xmlDoc.getElementsByTagName("parsererror");
+                        if (parsererror.length > 0) {
+                            throw new Error(
+                                "Failed to parse points.xml as XML.",
+                            );
+                        }
+                        return xmlDoc;
+                    });
+            }
+
+            // Fetch and render points
+            (function initPoints() {
+                loadPointsXml("points.xml")
+                    .then((xmlDoc) => {
+                        const nodes = parseOsmDoc(xmlDoc);
+                        if (nodes.length === 0) {
+                            console.warn("No nodes found in points.xml");
+                            return;
+                        }
+
+                        addNodesToLayer(nodes, pointsLayer);
+
+                        // Add layer control
+                        L.control
+                            .layers(
+                                null,
+                                { "Water taps": pointsLayer },
+                                { collapsed: false },
+                            )
+                            .addTo(map);
+
+                        // Fit bounds to points if available
+                        const bounds = pointsLayer.getBounds();
+                        if (bounds.isValid()) {
+                            map.fitBounds(bounds.pad(0.15), { maxZoom: 15 });
+                        }
+                    })
+                    .catch((err) => {
+                        console.error("Error loading points.xml:", err);
+                        // Inform the user in a non-blocking way
+                        const info = document.querySelector(".info");
+                        if (info) {
+                            const p = document.createElement("div");
+                            p.style.marginTop = "6px";
+                            p.style.color = "#b33";
+                            p.textContent =
+                                "Failed to load points.xml: " + err.message;
+                            info.appendChild(p);
+                        }
+                    });
+            })();
+
+            // Locate control (right middle)
             function locateMe() {
-                if (!navigator.geolocation) {
-                    alert("Geolocation is not supported by your browser.");
+                if (!("geolocation" in navigator)) {
+                    alert("Geolocation is not available in this browser.");
+                    return;
+                }
+
+                const isSecure =
+                    location.protocol === "https:" ||
+                    location.hostname === "localhost" ||
+                    location.hostname === "127.0.0.1";
+                if (!isSecure) {
+                    alert(
+                        "Geolocation requires a secure context (HTTPS) or localhost. Serve the page from http://localhost or via HTTPS to enable location.",
+                    );
                     return;
                 }
 
@@ -138,7 +314,6 @@
                         const lon = pos.coords.longitude;
                         const accuracy = pos.coords.accuracy;
 
-                        // Add a circle showing accuracy and move view
                         const userCircle = L.circle([lat, lon], {
                             radius: Math.max(10, accuracy),
                             color: "#136AEC",
@@ -146,7 +321,6 @@
                             fillOpacity: 0.25,
                         }).addTo(map);
 
-                        // Add a marker so it's easier to see on the map
                         const userMarker = L.marker([lat, lon]).addTo(map);
                         userMarker
                             .bindPopup("You are here (approx.)")
@@ -155,21 +329,33 @@
                         map.setView([lat, lon], 13);
                     },
                     (err) => {
-                        alert(
-                            "Unable to retrieve your location: " + err.message,
-                        );
+                        if (err.code === err.PERMISSION_DENIED) {
+                            alert(
+                                "Permission to access location was denied. Check your browser site settings and allow location access.",
+                            );
+                        } else if (err.code === err.POSITION_UNAVAILABLE) {
+                            alert("Location information is unavailable.");
+                        } else if (err.code === err.TIMEOUT) {
+                            alert("Location request timed out. Try again.");
+                        } else {
+                            alert(
+                                "Unable to retrieve your location: " +
+                                    err.message,
+                            );
+                        }
                     },
                     { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
                 );
             }
 
-            // Add a simple locate control in the bottom-left
-            const locateControl = L.control({ position: "bottomleft" });
+            // Add locate control to topright, then adjust via CSS to vertical center
+            const locateControl = L.control({ position: "topright" });
             locateControl.onAdd = function () {
                 const container = L.DomUtil.create(
                     "div",
-                    "leaflet-bar leaflet-control",
+                    "leaflet-bar leaflet-control locate-control",
                 );
+                container.classList.add("locate-control"); // used by CSS selector
                 const link = L.DomUtil.create("a", "", container);
                 link.href = "#";
                 link.title = "Show my location";
@@ -182,25 +368,33 @@
             };
             locateControl.addTo(map);
 
-            // Improve keyboard accessibility: allow Enter/Space to activate locate button
-            (function makeLocateKeyboardFriendly() {
-                // Wait until controls are added to DOM
-                setTimeout(() => {
-                    const controls = document.querySelectorAll(
-                        '.leaflet-bar a[title="Show my location"]',
-                    );
-                    controls.forEach((a) => {
-                        a.setAttribute("role", "button");
-                        a.setAttribute("tabindex", "0");
-                        a.addEventListener("keydown", (e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                a.click();
-                            }
-                        });
+            // keyboard accessibility for locate control
+            setTimeout(() => {
+                const el = document.querySelector(
+                    '.leaflet-bar a[title="Show my location"]',
+                );
+                if (el) {
+                    el.setAttribute("role", "button");
+                    el.setAttribute("tabindex", "0");
+                    el.addEventListener("keydown", (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            el.click();
+                        }
                     });
-                }, 50);
-            })();
+                }
+            }, 100);
+
+            // Try registering service worker for offline (if present)
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.register("sw.js").catch((err) => {
+                    // registration failure is non-fatal — log for debugging
+                    console.info(
+                        "Service worker registration failed:",
+                        err && err.message,
+                    );
+                });
+            }
         </script>
     </body>
 </html>

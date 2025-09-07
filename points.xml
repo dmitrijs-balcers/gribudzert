@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="Overpass API 0.7.62.8 e802775f">
+<note>The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.</note>
+<meta osm_base="2025-09-07T13:13:45Z"/>
+
+  <node id="1058595895" lat="56.9665533" lon="24.1334627">
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="man_made" v="water_tap"/>
+  </node>
+  <node id="7685815249" lat="56.9474921" lon="24.1066144">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="turned off during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="no"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="9717369191" lat="56.9555372" lon="24.1147458">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="mapillary" v="125816270074414"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="start_date" v="2022-06"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="9717369192" lat="56.9511714" lon="24.1203487">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="operator:wikidata" v="Q124713902"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="start_date" v="2022-06"/>
+  </node>
+  <node id="9813901577" lat="56.9357284" lon="24.0712399">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="colour" v="red"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="indoor" v="no"/>
+    <tag k="level" v="0"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="operator:wikidata" v="Q124713902"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="start_date" v="2022"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="9962237083" lat="56.9797643" lon="24.1010358">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="colour" v="blue"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="mapillary" v="781208389265957"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="operator:wikidata" v="Q124713902"/>
+    <tag k="seasonal" v="no"/>
+  </node>
+  <node id="10877636923" lat="56.9572986" lon="24.1400313">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="10877636924" lat="56.9621787" lon="24.1437583">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="start_date" v="2023-05"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="10992263825" lat="56.9581998" lon="24.1528333">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="11021994820" lat="56.9598355" lon="24.1275871">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="beige"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="height" v="0.5"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="no"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="11021995971" lat="56.9772477" lon="24.1441475">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="colour" v="teal"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+  </node>
+  <node id="11023641978" lat="56.9538536" lon="24.1091954">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="fixme" v="approx."/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+  </node>
+  <node id="11026508056" lat="56.9483199" lon="24.1177672">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="no"/>
+  </node>
+  <node id="11054464779" lat="56.9785114" lon="24.1853548">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+  </node>
+  <node id="11986146077" lat="56.9430542" lon="24.1123943">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="beige"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="height" v="0.5"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="12065982282" lat="56.9442093" lon="24.1165351">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="fixme" v="exact position?"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="start_date" v="2024-07"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="12085185300" lat="56.9626726" lon="24.0999836">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="colour" v="teal"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+  </node>
+  <node id="12091637672" lat="56.9347448" lon="24.0857657">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="operator:wikidata" v="Q124713902"/>
+    <tag k="seasonal" v="yes"/>
+  </node>
+  <node id="12091637673" lat="56.9367981" lon="24.0847280">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+  </node>
+  <node id="12106072204" lat="56.9678297" lon="24.1974945">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="operator:wikidata" v="Q124713902"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="start_date" v="2024"/>
+  </node>
+  <node id="12116870243" lat="56.9502475" lon="24.1124663">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="start_date" v="2024"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+  <node id="12382085643" lat="56.9353065" lon="24.1523224">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="operator:wikidata" v="Q124713902"/>
+    <tag k="seasonal" v="yes"/>
+  </node>
+  <node id="12396166263" lat="56.9288833" lon="24.0768546">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="colour" v="teal"/>
+    <tag k="dog" v="yes"/>
+    <tag k="drinking_water" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="note" v="dismantled during winter"/>
+    <tag k="operator" v="Rīgas ūdens"/>
+    <tag k="operator:wikidata" v="Q124713902"/>
+    <tag k="seasonal" v="yes"/>
+    <tag k="start_date" v="2024"/>
+  </node>
+  <node id="12415577937" lat="56.9747437" lon="24.1237155">
+    <tag k="access" v="yes"/>
+    <tag k="amenity" v="drinking_water"/>
+    <tag k="bottle" v="yes"/>
+    <tag k="covered" v="no"/>
+    <tag k="dog" v="yes"/>
+    <tag k="fee" v="no"/>
+    <tag k="fixme" v="is operator Rīgas ūdens? they don't list it as theirs"/>
+    <tag k="man_made" v="water_tap"/>
+    <tag k="seasonal" v="no"/>
+    <tag k="start_date" v="2024"/>
+    <tag k="wheelchair" v="yes"/>
+  </node>
+
+</osm>
