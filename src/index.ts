@@ -1,4 +1,5 @@
 import * as L from "leaflet";
+import points from "./points.xml?raw";
 
 // Basic map setup
 const rigaLatLng: L.LatLngTuple = [56.9496, 24.1052];
@@ -98,7 +99,7 @@ function addNodesToLayer(nodes: Node[], layer: L.FeatureGroup<any>) {
   nodes.forEach((n) => {
     if (!isFinite(n.lat) || !isFinite(n.lon)) return;
 
-    const cTag = (n.tags.colour || "default").toLowerCase();
+    const cTag = (n.tags.colour || "").toLowerCase();
     const color = colourMap[cTag] || colourMap.default;
     const seasonal = (n.tags.seasonal || "").toLowerCase() === "yes";
 
@@ -153,17 +154,9 @@ function addNodesToLayer(nodes: Node[], layer: L.FeatureGroup<any>) {
 
           navBtn.addEventListener("click", (ev) => {
             ev.preventDefault();
-            const lat = navBtn.getAttribute("data-lat");
-            const lon = navBtn.getAttribute("data-lon");
+            const lat = navBtn.getAttribute("data-lat") as string;
+            const lon = navBtn.getAttribute("data-lon") as string;
             openNavigation(lat, lon, `water_tap ${n.id}`);
-          });
-
-          // Allow keyboard activation via Enter or Space when the button has focus
-          navBtn.addEventListener("keydown", (ev) => {
-            if (ev.key === "Enter" || ev.key === " ") {
-              ev.preventDefault();
-              navBtn.click();
-            }
           });
 
           // Make sure the button is reachable by keyboard/tab
@@ -189,61 +182,38 @@ function addNodesToLayer(nodes: Node[], layer: L.FeatureGroup<any>) {
 }
 
 // Load external points.xml (must be served via http(s) or localhost)
-function loadPointsXml(url = "points.xml") {
-  return fetch(url, { cache: "no-cache" })
-    .then((response) => {
-      if (!response.ok)
-        throw new Error("Failed to fetch points.xml: " + response.status);
-      return response.text();
-    })
-    .then((text) => {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(text, "application/xml");
+function loadPointsXml() {
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(points, "application/xml");
 
-      // detect parse errors
-      const parsererror = xmlDoc.getElementsByTagName("parsererror");
-      if (parsererror.length > 0) {
-        throw new Error("Failed to parse points.xml as XML.");
-      }
-      return xmlDoc;
-    });
+  // detect parse errors
+  const parsererror = xmlDoc.getElementsByTagName("parsererror");
+  if (parsererror.length > 0) {
+    throw new Error("Failed to parse points.xml as XML.");
+  }
+  return xmlDoc;
 }
 
 // Fetch and render points
 (function initPoints() {
-  loadPointsXml("points.xml")
-    .then((xmlDoc: Document) => {
-      const nodes = parseOsmDoc(xmlDoc);
-      if (nodes.length === 0) {
-        console.warn("No nodes found in points.xml");
-        return;
-      }
+  const nodes = parseOsmDoc(loadPointsXml());
+  if (nodes.length === 0) {
+    console.warn("No nodes found in points.xml");
+    return;
+  }
 
-      addNodesToLayer(nodes, pointsLayer);
+  addNodesToLayer(nodes, pointsLayer);
 
-      // Add layer control
-      L.control
-        .layers(null, { "Water taps": pointsLayer }, { collapsed: false })
-        .addTo(map);
+  // Add layer control
+  L.control
+    .layers(undefined, { "Water taps": pointsLayer }, { collapsed: false })
+    .addTo(map);
 
-      // Fit bounds to points if available
-      const bounds = pointsLayer.getBounds();
-      if (bounds.isValid()) {
-        map.fitBounds(bounds.pad(0.01), { maxZoom: 15 });
-      }
-    })
-    .catch((err) => {
-      console.error("Error loading points.xml:", err);
-      // Inform the user in a non-blocking way
-      const info = document.querySelector(".info");
-      if (info) {
-        const p = document.createElement("div");
-        p.style.marginTop = "6px";
-        p.style.color = "#b33";
-        p.textContent = "Failed to load points.xml: " + err.message;
-        info.appendChild(p);
-      }
-    });
+  // Fit bounds to points if available
+  const bounds = pointsLayer.getBounds();
+  if (bounds.isValid()) {
+    map.fitBounds(bounds.pad(0.01), { maxZoom: 15 });
+  }
 })();
 
 // Locate control (right middle)
