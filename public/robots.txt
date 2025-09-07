@@ -1,0 +1,8 @@
+# robots.txt for gribudzert.surge.sh
+# Permissive rules: allow all well-behaved crawlers to index the site.
+
+User-agent: *
+Allow: /
+
+# If you generate a sitemap, update the URL below so crawlers can find it.
+Sitemap: https://gribudzert.surge.sh/sitemap.xml
