@@ -26,6 +26,8 @@
                     "Helvetica Neue",
                     Arial;
                 background: #f7f7f7;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
             }
 
             /* Map fills viewport */
@@ -77,6 +79,81 @@
             @media (max-width: 600px) {
                 .leaflet-control-layers {
                     font-size: 13px;
+                }
+            }
+
+            /* Popup Navigate button styles - prominent & accessible */
+            .leaflet-popup-content-wrapper {
+                font-size: 14px;
+            }
+
+            .popup-actions {
+                margin-top: 8px;
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+
+            .navigate-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 10px;
+                border-radius: 8px;
+                border: 0;
+                background: linear-gradient(180deg, #0078ff, #0063d1);
+                color: white;
+                box-shadow: 0 3px 8px rgba(3, 102, 214, 0.2);
+                font-weight: 600;
+                text-decoration: none;
+                cursor: pointer;
+                transition:
+                    transform 120ms ease,
+                    box-shadow 120ms ease,
+                    opacity 120ms ease;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            .navigate-btn:active {
+                transform: translateY(1px) scale(0.995);
+            }
+
+            .navigate-btn:focus {
+                outline: 3px solid rgba(0, 120, 255, 0.25);
+                outline-offset: 2px;
+            }
+
+            .navigate-btn .icon {
+                display: inline-block;
+                width: 18px;
+                height: 18px;
+                line-height: 18px;
+                text-align: center;
+                font-size: 14px;
+            }
+
+            /* Secondary action styles (OpenStreetMap link) kept minimal */
+            .popup-secondary {
+                background: transparent;
+                border: none;
+                color: #0078ff;
+                text-decoration: underline;
+                font-size: 13px;
+                cursor: pointer;
+                padding: 0;
+            }
+
+            /* Make popups more comfortable on small screens */
+            @media (max-width: 420px) {
+                .navigate-btn {
+                    width: 100%;
+                    justify-content: center;
+                }
+                .popup-actions {
+                    flex-direction: column;
+                    align-items: stretch;
                 }
             }
         </style>
@@ -136,6 +213,53 @@
 
             // Layer to hold the points from points.xml
             const pointsLayer = L.featureGroup().addTo(map);
+
+            // Platform-aware navigation opener (global helper)
+            function openNavigation(lat, lon, label) {
+                const latStr = Number(lat).toFixed(6);
+                const lonStr = Number(lon).toFixed(6);
+                const labelEnc = encodeURIComponent(label || "Destination");
+
+                const geoUri = `geo:${latStr},${lonStr}?q=${latStr},${lonStr}(${labelEnc})`;
+                const appleUri = `https://maps.apple.com/?daddr=${latStr},${lonStr}&q=${labelEnc}`;
+                const googleUri = `https://www.google.com/maps/dir/?api=1&destination=${latStr},${lonStr}&travelmode=walking`;
+
+                const ua = navigator.userAgent || "";
+                const isAndroid = /Android/i.test(ua);
+                const isIOS =
+                    /iP(hone|od|ad)/i.test(ua) ||
+                    (navigator.platform &&
+                        /iP(hone|od|ad)/.test(navigator.platform));
+
+                if (isAndroid) {
+                    alert("Android");
+                    // // try geo: first to open native app
+                    window.location.href = geoUri;
+                    return;
+                }
+
+                if (isIOS) {
+                    alert("iOS");
+                    // prefer Apple Maps on iOS
+                    window.location.href = appleUri;
+                    return;
+                }
+
+                alert("Desktop");
+
+                // Desktop / other: open Google Maps directions in a new tab
+                window.open(googleUri, "_blank", "noopener");
+            }
+
+            // Basic HTML escaping for popup text
+            function escapeHtml(str) {
+                return String(str)
+                    .replace(/&/g, "&amp;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#39;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+            }
 
             // Parse OSM XML Document into node objects
             function parseOsmDoc(xmlDoc) {
@@ -201,22 +325,70 @@
                         popupParts.push(
                             `<div>Wheelchair: ${escapeHtml(n.tags.wheelchair)}</div>`,
                         );
+
+                    // Actions container: prominent Navigate button + OSM link
                     popupParts.push(
-                        `<div><a target="_blank" rel="noreferrer" href="https://www.openstreetmap.org/node/${n.id}">OpenStreetMap node ${n.id}</a></div>`,
+                        `<div class="popup-actions">` +
+                            // Navigate button (prominent)
+                            `<button type="button" class="navigate-btn" data-lat="${n.lat}" data-lon="${n.lon}" aria-label="Navigate to water tap ${n.id}"><span class="icon" aria-hidden="true">🧭</span><span class="label">Navigate</span></button>` +
+                            // secondary OpenStreetMap link
+                            `<a class="popup-secondary" target="_blank" rel="noreferrer" href="https://www.openstreetmap.org/node/${n.id}">Open node on OpenStreetMap</a>` +
+                            `</div>`,
                     );
 
                     circle.bindPopup(popupParts.join(""));
-                });
-            }
 
-            // Basic HTML escaping for popup text
-            function escapeHtml(str) {
-                return String(str)
-                    .replace(/&/g, "&amp;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#39;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;");
+                    // Attach handler on popupopen for accessibility and to avoid inline handlers
+                    circle.on("popupopen", (e) => {
+                        try {
+                            const popupEl = e.popup.getElement();
+                            if (!popupEl) return;
+
+                            const navBtn =
+                                popupEl.querySelector(".navigate-btn");
+                            if (navBtn && !navBtn.__bound) {
+                                navBtn.__bound = true;
+
+                                navBtn.addEventListener("click", (ev) => {
+                                    ev.preventDefault();
+                                    const lat = navBtn.getAttribute("data-lat");
+                                    const lon = navBtn.getAttribute("data-lon");
+                                    openNavigation(
+                                        lat,
+                                        lon,
+                                        `water_tap ${n.id}`,
+                                    );
+                                });
+
+                                // Allow keyboard activation via Enter or Space when the button has focus
+                                navBtn.addEventListener("keydown", (ev) => {
+                                    if (ev.key === "Enter" || ev.key === " ") {
+                                        ev.preventDefault();
+                                        navBtn.click();
+                                    }
+                                });
+
+                                // Make sure the button is reachable by keyboard/tab
+                                navBtn.setAttribute("tabindex", "0");
+                                navBtn.setAttribute("role", "button");
+                            }
+
+                            // Also make the OSM link keyboard friendly (it's already a link but ensure focusability)
+                            const osmLink =
+                                popupEl.querySelector(".popup-secondary");
+                            if (osmLink) {
+                                osmLink.setAttribute("role", "link");
+                                osmLink.setAttribute("tabindex", "0");
+                            }
+                        } catch (err) {
+                            // non-fatal
+                            console.info(
+                                "Failed to attach popup action handlers:",
+                                err && err.message,
+                            );
+                        }
+                    });
+                });
             }
 
             // Load external points.xml (must be served via http(s) or localhost)
@@ -273,7 +445,7 @@
                         // Fit bounds to points if available
                         const bounds = pointsLayer.getBounds();
                         if (bounds.isValid()) {
-                            map.fitBounds(bounds.pad(0.15), { maxZoom: 15 });
+                            map.fitBounds(bounds.pad(0.01), { maxZoom: 15 });
                         }
                     })
                     .catch((err) => {
