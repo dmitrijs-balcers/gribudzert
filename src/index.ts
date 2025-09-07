@@ -1,5 +1,7 @@
+import * as L from "leaflet";
+
 // Basic map setup
-const rigaLatLng = [56.9496, 24.1052];
+const rigaLatLng: L.LatLngTuple = [56.9496, 24.1052];
 const map = L.map("map", {
   center: rigaLatLng,
   zoom: 13,
@@ -21,13 +23,13 @@ const colourMap = {
   red: "#E53935",
   beige: "#D7C7A1",
   default: "#0078ff",
-};
+} as const;
 
 // Layer to hold the points from points.xml
-const pointsLayer = L.featureGroup().addTo(map);
+const pointsLayer: L.FeatureGroup<any> = L.featureGroup().addTo(map);
 
 // Platform-aware navigation opener (global helper)
-function openNavigation(lat, lon, label) {
+function openNavigation(lat: string, lon: string, label: string) {
   const latStr = Number(lat).toFixed(6);
   const lonStr = Number(lon).toFixed(6);
   const labelEnc = encodeURIComponent(label || "Destination");
@@ -57,7 +59,7 @@ function openNavigation(lat, lon, label) {
 }
 
 // Basic HTML escaping for popup text
-function escapeHtml(str) {
+function escapeHtml(str: string) {
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
@@ -66,18 +68,25 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;");
 }
 
+type Node = {
+  id: string;
+  lat: number;
+  lon: number;
+  tags: Record<string, string>;
+};
+
 // Parse OSM XML Document into node objects
-function parseOsmDoc(xmlDoc) {
+function parseOsmDoc(xmlDoc: Document) {
   const nodeEls = Array.from(xmlDoc.getElementsByTagName("node"));
-  return nodeEls.map((nodeEl) => {
-    const id = nodeEl.getAttribute("id");
-    const lat = parseFloat(nodeEl.getAttribute("lat"));
-    const lon = parseFloat(nodeEl.getAttribute("lon"));
+  return nodeEls.map((nodeEl: Element): Node => {
+    const id = nodeEl.getAttribute("id") as string;
+    const lat = parseFloat(nodeEl.getAttribute("lat") as string);
+    const lon = parseFloat(nodeEl.getAttribute("lon") as string);
     const tagEls = Array.from(nodeEl.getElementsByTagName("tag"));
-    const tags = {};
+    const tags: Record<string, string> = {};
     tagEls.forEach((t) => {
-      const k = t.getAttribute("k");
-      const v = t.getAttribute("v");
+      const k = t.getAttribute("k") as string;
+      const v = t.getAttribute("v") as string;
       tags[k] = v;
     });
     return { id, lat, lon, tags };
@@ -85,11 +94,11 @@ function parseOsmDoc(xmlDoc) {
 }
 
 // Create circle markers for nodes and add to the provided layer
-function addNodesToLayer(nodes, layer) {
+function addNodesToLayer(nodes: Node[], layer: L.FeatureGroup<any>) {
   nodes.forEach((n) => {
     if (!isFinite(n.lat) || !isFinite(n.lon)) return;
 
-    const cTag = (n.tags.colour || "").toLowerCase();
+    const cTag = (n.tags.colour || "default").toLowerCase();
     const color = colourMap[cTag] || colourMap.default;
     const seasonal = (n.tags.seasonal || "").toLowerCase() === "yes";
 
@@ -203,7 +212,7 @@ function loadPointsXml(url = "points.xml") {
 // Fetch and render points
 (function initPoints() {
   loadPointsXml("points.xml")
-    .then((xmlDoc) => {
+    .then((xmlDoc: Document) => {
       const nodes = parseOsmDoc(xmlDoc);
       if (nodes.length === 0) {
         console.warn("No nodes found in points.xml");
