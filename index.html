@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Map of Riga (Leaflet + OpenStreetMap)</title>
+
+        <!-- Leaflet CSS (open-source, free) -->
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+            crossorigin=""
+        />
+
+        <style>
+            /* Make the page and map fill the viewport */
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    "Segoe UI",
+                    Roboto,
+                    "Helvetica Neue",
+                    Arial;
+                background: #f7f7f7;
+
+            /* Map container full height */
+            #map {
+                height: 100vh;
+                width: 100%;
+            }
+
+            /* Simple info overlay */
+            .info {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                z-index: 1000;
+                background: rgba(255, 255, 255, 0.95);
+                padding: 8px 12px;
+                border-radius: 6px;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+                font-size: 13px;
+                line-height: 1.2;
+            }
+
+            .info a {
+                color: #0078ff;
+                text-decoration: none;
+            }
+
+            /* Small adjustments for leaflet built-in controls when using the locate button */
+            .leaflet-bar a {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 34px;
+                height: 34px;
+                font-size: 18px;
+            }
+            /* Position the locate control in the middle right */
+            .leaflet-bar.locate-control-rightmid {
+                position: absolute !important;
+                right: 10px;
+                top: 50% !important;
+                transform: translateY(-50%);
+                z-index: 1000;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="map" aria-label="Map centered on Riga"></div>
+
+        <div class="info" aria-hidden="true">
+            Centered on: <strong>Riga, Latvia</strong><br />
+            Tiles: OpenStreetMap • Map engine: Leaflet<br />
+            <a
+                href="https://www.openstreetmap.org"
+                target="_blank"
+                rel="noreferrer"
+                >openstreetmap.org</a
+            >
+        </div>
+
+        <noscript>
+            <div style="padding: 1rem; text-align: center">
+                JavaScript is required to display the map. Please enable
+                JavaScript in your browser.
+            </div>
+        </noscript>
+
+        <!-- Leaflet JS (open-source, free) -->
+        <script
+            src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            crossorigin=""
+        ></script>
+
+        <script>
+            // Coordinates for Riga, Latvia
+            const rigaLatLng = [56.9496, 24.1052];
+
+            // Initialize the map and set view to Riga
+            const map = L.map("map", {
+                center: rigaLatLng,
+                zoom: 13,
+                zoomControl: true,
+                attributionControl: true,
+            });
+
+            // OpenStreetMap tile layer (no API key required)
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution:
+                    '&copy; <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
+            }).addTo(map);
+
+            // Marker removed per request — map remains centered on Riga without a marker
+
+            // Add a scale control (metric)
+            L.control.scale({ metric: true, imperial: false }).addTo(map);
+
+            // Ensure the map correctly sizes if container size changes
+            window.addEventListener("resize", () => map.invalidateSize());
+
+            // Optional: locate button to show user's position (uses navigator.geolocation)
+            function locateMe() {
+                if (!navigator.geolocation) {
+                    alert("Geolocation is not supported by your browser.");
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const lat = pos.coords.latitude;
+                        const lon = pos.coords.longitude;
+                        const accuracy = pos.coords.accuracy;
+
+                        // Add a circle showing accuracy and move view
+                        const userCircle = L.circle([lat, lon], {
+                            radius: Math.max(10, accuracy),
+                            color: "#136AEC",
+                            fillColor: "#2A93EE",
+                            fillOpacity: 0.25,
+                        }).addTo(map);
+
+                        // Add a marker so it's easier to see on the map
+                        const userMarker = L.marker([lat, lon]).addTo(map);
+                        userMarker
+                            .bindPopup("You are here (approx.)")
+                            .openPopup();
+
+                        map.setView([lat, lon], 13);
+                    },
+                    (err) => {
+                        alert(
+                            "Unable to retrieve your location: " + err.message,
+                        );
+                    },
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+                );
+            }
+
+            // Add a simple locate control in the bottom-left
+            const locateControl = L.control({ position: "bottomleft" });
+            locateControl.onAdd = function () {
+                const container = L.DomUtil.create(
+                    "div",
+                    "leaflet-bar leaflet-control",
+                );
+                const link = L.DomUtil.create("a", "", container);
+                link.href = "#";
+                link.title = "Show my location";
+                link.setAttribute("aria-label", "Show my location");
+                link.innerHTML = "📍";
+                L.DomEvent.on(link, "click", L.DomEvent.stopPropagation)
+                    .on(link, "click", L.DomEvent.preventDefault)
+                    .on(link, "click", locateMe);
+                return container;
+            };
+            locateControl.addTo(map);
+
+            // Improve keyboard accessibility: allow Enter/Space to activate locate button
+            (function makeLocateKeyboardFriendly() {
+                // Wait until controls are added to DOM
+                setTimeout(() => {
+                    const controls = document.querySelectorAll(
+                        '.leaflet-bar a[title="Show my location"]',
+                    );
+                    controls.forEach((a) => {
+                        a.setAttribute("role", "button");
+                        a.setAttribute("tabindex", "0");
+                        a.addEventListener("keydown", (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                a.click();
+                            }
+                        });
+                    });
+                }, 50);
+            })();
+        </script>
+    </body>
+</html>
