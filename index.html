@@ -232,20 +232,14 @@
                         /iP(hone|od|ad)/.test(navigator.platform));
 
                 if (isAndroid) {
-                    alert("Android");
-                    // // try geo: first to open native app
                     window.location.href = geoUri;
                     return;
                 }
 
                 if (isIOS) {
-                    alert("iOS");
-                    // prefer Apple Maps on iOS
                     window.location.href = appleUri;
                     return;
                 }
-
-                alert("Desktop");
 
                 // Desktop / other: open Google Maps directions in a new tab
                 window.open(googleUri, "_blank", "noopener");
