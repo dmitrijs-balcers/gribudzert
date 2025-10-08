@@ -210,19 +210,19 @@ Single project structure with paths at repository root: `src/`, `tests/`
 
 ### UI Infrastructure
 
-- [ ] T082 [P] [P3] Create `src/ui/notifications.ts` with `showNotification(message, type)` function
-- [ ] T083 [P3] Implement toast/snackbar component in notifications.ts with accessibility (role="status", aria-live)
-- [ ] T084 [P3] Add CSS for toast notifications in index.html <style> section
-- [ ] T085 [P] [P3] Create `src/ui/loading.ts` with `showLoading()` and `hideLoading()` functions
-- [ ] T086 [P3] Implement loading spinner component in loading.ts
-- [ ] T087 [P3] Add CSS for loading spinner in index.html <style> section
+- [x] T082 [P] [P3] Create `src/ui/notifications.ts` with `showNotification(message, type)` function
+- [x] T083 [P3] Implement toast/snackbar component in notifications.ts with accessibility (role="status", aria-live)
+- [x] T084 [P3] Add CSS for toast notifications in index.html <style> section
+- [x] T085 [P] [P3] Create `src/ui/loading.ts` with `showLoading()` and `hideLoading()` functions
+- [x] T086 [P3] Implement loading spinner component in loading.ts
+- [x] T087 [P3] Add CSS for loading spinner in index.html <style> section
 
 ### Entry Point Cleanup
 
-- [ ] T088 [P3] Refactor `src/index.ts` to import and orchestrate modules only (target <100 lines)
-- [ ] T089 [P3] Add error boundary in index.ts wrapping initialization with Result type handling
-- [ ] T090 [P3] Replace all remaining `alert()` calls with `showNotification()` throughout codebase
-- [ ] T091 [P3] Add proper error messages for all error cases using notification system
+- [x] T088 [P3] Refactor `src/index.ts` to import and orchestrate modules only (target <100 lines)
+- [x] T089 [P3] Add error boundary in index.ts wrapping initialization with Result type handling
+- [x] T090 [P3] Replace all remaining `alert()` calls with `showNotification()` throughout codebase
+- [x] T091 [P3] Add proper error messages for all error cases using notification system
 
 **Checkpoint**: Clean architecture, no file >150 lines, app works with better UX
 
@@ -236,31 +236,31 @@ Single project structure with paths at repository root: `src/`, `tests/`
 
 ### Notification System Integration
 
-- [ ] T092 [P] [P4] Replace geolocation alerts with notifications in `src/features/location/geolocation.ts`
-- [ ] T093 [P] [P4] Add helpful error messages for each GeolocationError type
-- [ ] T094 [P4] Add notification for successful location acquisition
-- [ ] T095 [P4] Add notification when data fetch fails with recovery instructions
+- [x] T092 [P] [P4] Replace geolocation alerts with notifications in `src/features/location/geolocation.ts`
+- [x] T093 [P] [P4] Add helpful error messages for each GeolocationError type
+- [x] T094 [P4] Add notification for successful location acquisition
+- [x] T095 [P4] Add notification when data fetch fails with recovery instructions
 
 ### Loading States
 
-- [ ] T096 [P4] Add loading indicator when fetching water points data in `src/index.ts`
-- [ ] T097 [P4] Show loading state in geolocation during position acquisition
-- [ ] T098 [P4] Ensure loading appears after 200ms delay to avoid flashing
-- [ ] T099 [P4] Hide loading spinner on success or error
+- [x] T096 [P4] Add loading indicator when fetching water points data in `src/index.ts`
+- [x] T097 [P4] Show loading state in geolocation during position acquisition
+- [x] T098 [P4] Ensure loading appears after 200ms delay to avoid flashing
+- [x] T099 [P4] Hide loading spinner on success or error
 
 ### Error Boundaries
 
-- [ ] T100 [P4] Add error boundary for map initialization failure in `src/index.ts`
-- [ ] T101 [P4] Show helpful error message with troubleshooting steps for map init errors
-- [ ] T102 [P4] Add empty state handling when no water points are returned from API
-- [ ] T103 [P4] Show message "No water points found" with refresh option
+- [x] T100 [P4] Add error boundary for map initialization failure in `src/index.ts`
+- [x] T101 [P4] Show helpful error message with troubleshooting steps for map init errors
+- [x] T102 [P4] Add empty state handling when no water points are returned from API
+- [x] T103 [P4] Show message "No water points found" with refresh option
 
 ### Accessibility Improvements
 
-- [ ] T104 [P] [P4] Add `@media (prefers-reduced-motion: reduce)` styles for animations
+- [x] T104 [P] [P4] Add `@media (prefers-reduced-motion: reduce)` styles for animations
 - [ ] T105 [P] [P4] Audit all keyboard navigation flows and document any issues
-- [ ] T106 [P4] Fix setTimeout hack on line 264 with proper event handling or MutationObserver
-- [ ] T107 [P4] Improve focus management: focus on notification when it appears, trap focus in popups
+- [x] T106 [P4] Fix setTimeout hack on line 264 with proper event handling or MutationObserver
+- [x] T107 [P4] Improve focus management: focus on notification when it appears, trap focus in popups
 - [ ] T108 [P4] Test with screen reader and fix any accessibility issues found
 
 **Checkpoint**: Zero `alert()` calls, loading states everywhere, accessible
@@ -365,7 +365,7 @@ Single project structure with paths at repository root: `src/`, `tests/`
 - [ ] T143 [P7] Test application with CSP enabled, fix any violations
 - [ ] T144 [P] [P7] Generate SRI hash for Leaflet CSS from unpkg.com
 - [ ] T145 [P7] Add `integrity` and `crossorigin` attributes to Leaflet CSS link in index.html
-- [ ] T146 [P] [P7] Consider bundling Leaflet CSS locally instead of CDN (copy to public/)
+- [ ] T146 [P7] Consider bundling Leaflet CSS locally instead of CDN (copy to public/)
 - [ ] T147 [P7] Review and strengthen HTML sanitization in `src/utils/html.ts`
 - [ ] T148 [P7] Add input validation for all user-controlled data (lat/lon bounds, string lengths)
 - [ ] T149 [P] [P7] Run `yarn audit` and address any high/critical vulnerabilities
@@ -409,7 +409,7 @@ Single project structure with paths at repository root: `src/`, `tests/`
 - [ ] T165 [P8] Add JSDoc comments to all exported functions in public modules
 - [ ] T166 [P8] Document Result/Option type usage patterns in `specs/001-constitution-compliance/quickstart.md`
 - [ ] T167 [P8] Document error handling strategy in `specs/001-constitution-compliance/quickstart.md`
-- [ ] T168 [P] [P8] Create migration guide for future refactoring in `specs/001-constitution-compliance/migration.md`
+- [ ] T168 [P8] Create migration guide for future refactoring in `specs/001-constitution-compliance/migration.md`
 - [ ] T169 [P8] Update constitution compliance checklist in `IMPROVEMENT_ANALYSIS.md`
 - [ ] T170 [P8] Final review: verify all checkboxes in IMPROVEMENT_ANALYSIS.md are addressed
 
@@ -602,4 +602,3 @@ Before considering phase complete:
 - **Incremental commits**: Commit after each logical task or small group
 - **Branch strategy**: Work on `001-constitution-compliance` branch, PR to main when complete
 - **Rollback safety**: Each phase leaves app in working state, can stop at any checkpoint
-

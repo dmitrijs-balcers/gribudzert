@@ -4,6 +4,8 @@
 
 import * as L from "leaflet";
 import { GEOLOCATION_OPTIONS, USER_LOCATION_STYLE } from "../../core/config";
+import { showNotification } from "../../ui/notifications";
+import { showLoading, hideLoading } from "../../ui/loading";
 
 /**
  * Check if geolocation is available and context is secure
@@ -49,13 +51,18 @@ export function locateUser(map: L.Map): void {
   // Check availability
   const availabilityError = checkGeolocationAvailability();
   if (availabilityError) {
-    alert(availabilityError);
+    showNotification(availabilityError, 'error', 5000);
     return;
   }
+
+  // Show loading state
+  showLoading(200);
 
   // Get current position
   navigator.geolocation.getCurrentPosition(
     (position) => {
+      hideLoading();
+
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
       const accuracy = position.coords.accuracy;
@@ -74,10 +81,14 @@ export function locateUser(map: L.Map): void {
 
       // Center map on user location
       map.setView([lat, lon], 13);
+
+      // Success notification
+      showNotification('Location found! Centered on your position.', 'success', 3000);
     },
     (error) => {
+      hideLoading();
       const message = getGeolocationErrorMessage(error);
-      alert(message);
+      showNotification(message, 'error', 5000);
     },
     GEOLOCATION_OPTIONS,
   );

@@ -66,10 +66,12 @@ function createMarker(element: Element): L.CircleMarker | null {
  * Add water tap markers to a layer
  * @param elements - Array of water tap elements
  * @param layer - Leaflet layer to add markers to
+ * @param map - Leaflet map instance (for popup handlers)
  */
-export function addMarkersToLayer(
+export function addMarkers(
   elements: Element[],
   layer: L.FeatureGroup<L.CircleMarker>,
+  map: L.Map,
 ): void {
   elements.forEach((element) => {
     const marker = createMarker(element);
@@ -86,3 +88,6 @@ export function addMarkersToLayer(
     attachPopupHandlers(marker, element);
   });
 }
+
+// Keep backward compatibility alias
+export const addMarkersToLayer = addMarkers;
