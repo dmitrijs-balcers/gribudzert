@@ -9,7 +9,7 @@
  * @param args - Additional arguments to log
  */
 export function info(message: string, ...args: unknown[]): void {
-  console.info(message, ...args);
+	console.info(message, ...args);
 }
 
 /**
@@ -18,7 +18,7 @@ export function info(message: string, ...args: unknown[]): void {
  * @param args - Additional arguments to log
  */
 export function warn(message: string, ...args: unknown[]): void {
-  console.warn(message, ...args);
+	console.warn(message, ...args);
 }
 
 /**
@@ -27,6 +27,5 @@ export function warn(message: string, ...args: unknown[]): void {
  * @param args - Additional arguments to log
  */
 export function error(message: string, ...args: unknown[]): void {
-  console.error(message, ...args);
+	console.error(message, ...args);
 }
-

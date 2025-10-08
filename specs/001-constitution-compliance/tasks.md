@@ -7,7 +7,7 @@
 ## Format: `[ID] [P?] [Phase] Description`
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Phase]**: Phase number (P0, P1, P2, etc.)
-- Include exact file paths in descriptions
+- **Include exact file paths in descriptions
 
 ## Path Conventions
 Single project structure with paths at repository root: `src/`, `tests/`
@@ -341,16 +341,16 @@ Single project structure with paths at repository root: `src/`, `tests/`
 
 **Goal**: Consistent code style and catch common errors
 
-- [ ] T133 [P6] Install Biome: `yarn add -D @biomejs/biome`
-- [ ] T134 [P6] Create `biome.json` config with strict TypeScript rules
-- [ ] T135 [P6] Add lint scripts to package.json: `lint`, `lint:fix`, `format`
-- [ ] T136 [P6] Run `yarn lint` and document all errors found
-- [ ] T137 [P6] Fix all linting errors across codebase
-- [ ] T138 [P6] Run `yarn format` to format all files consistently
-- [ ] T139 [P6] Add `.editorconfig` for consistent editor settings
+- [x] T133 [P6] Install Biome: `yarn add -D @biomejs/biome`
+- [x] T134 [P6] Create `biome.json` config with strict TypeScript rules
+- [x] T135 [P6] Add lint scripts to package.json: `lint`, `lint:fix`, `format`
+- [x] T136 [P6] Run `yarn lint` and document all errors found
+- [x] T137 [P6] Fix all linting errors across codebase
+- [x] T138 [P6] Run `yarn format` to format all files consistently
+- [x] T139 [P6] Add `.editorconfig` for consistent editor settings
 - [ ] T140 [P6] (Optional) Install husky and lint-staged for pre-commit hooks
 
-**Checkpoint**: `yarn lint` passes with zero errors, all files formatted
+**Checkpoint**: ✅ `yarn lint` passes with zero errors, all files formatted
 
 ---
 

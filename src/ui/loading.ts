@@ -11,68 +11,67 @@ let isLoading = false;
  * @param delay - Delay in ms before showing spinner (default: 200ms)
  */
 export function showLoading(delay: number = 200): void {
-  if (isLoading) return;
-  isLoading = true;
+	if (isLoading) return;
+	isLoading = true;
 
-  // Clear any existing timeout
-  if (loadingTimeout !== null) {
-    clearTimeout(loadingTimeout);
-  }
+	// Clear any existing timeout
+	if (loadingTimeout !== null) {
+		clearTimeout(loadingTimeout);
+	}
 
-  // Delay showing to prevent flashing for quick operations
-  loadingTimeout = window.setTimeout(() => {
-    if (!isLoading) return; // Check if hideLoading was called during delay
+	// Delay showing to prevent flashing for quick operations
+	loadingTimeout = window.setTimeout(() => {
+		if (!isLoading) return; // Check if hideLoading was called during delay
 
-    if (!loadingElement) {
-      loadingElement = document.createElement('div');
-      loadingElement.className = 'loading-overlay';
-      loadingElement.setAttribute('role', 'status');
-      loadingElement.setAttribute('aria-live', 'polite');
-      loadingElement.setAttribute('aria-label', 'Loading');
+		if (!loadingElement) {
+			loadingElement = document.createElement('div');
+			loadingElement.className = 'loading-overlay';
+			loadingElement.setAttribute('role', 'status');
+			loadingElement.setAttribute('aria-live', 'polite');
+			loadingElement.setAttribute('aria-label', 'Loading');
 
-      loadingElement.innerHTML = `
+			loadingElement.innerHTML = `
         <div class="loading-spinner">
           <div class="spinner"></div>
           <span class="loading-text">Loading...</span>
         </div>
       `;
 
-      document.body.appendChild(loadingElement);
-    }
+			document.body.appendChild(loadingElement);
+		}
 
-    loadingElement.classList.add('loading-visible');
-  }, delay);
+		loadingElement.classList.add('loading-visible');
+	}, delay);
 }
 
 /**
  * Hide loading spinner
  */
 export function hideLoading(): void {
-  isLoading = false;
+	isLoading = false;
 
-  // Clear timeout if spinner hasn't appeared yet
-  if (loadingTimeout !== null) {
-    clearTimeout(loadingTimeout);
-    loadingTimeout = null;
-  }
+	// Clear timeout if spinner hasn't appeared yet
+	if (loadingTimeout !== null) {
+		clearTimeout(loadingTimeout);
+		loadingTimeout = null;
+	}
 
-  if (!loadingElement) return;
+	if (!loadingElement) return;
 
-  loadingElement.classList.remove('loading-visible');
+	loadingElement.classList.remove('loading-visible');
 
-  // Remove from DOM after animation
-  setTimeout(() => {
-    if (loadingElement && !isLoading) {
-      loadingElement.remove();
-      loadingElement = null;
-    }
-  }, 300);
+	// Remove from DOM after animation
+	setTimeout(() => {
+		if (loadingElement && !isLoading) {
+			loadingElement.remove();
+			loadingElement = null;
+		}
+	}, 300);
 }
 
 /**
  * Check if loading is currently visible
  */
 export function isLoadingVisible(): boolean {
-  return isLoading;
+	return isLoading;
 }
-

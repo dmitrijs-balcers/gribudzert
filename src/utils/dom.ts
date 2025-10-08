@@ -8,7 +8,7 @@
  * @returns true if the element is an HTMLElement
  */
 export function isHTMLElement(el: Element | null): el is HTMLElement {
-  return el !== null && el instanceof HTMLElement;
+	return el !== null && el instanceof HTMLElement;
 }
 
 /**
@@ -18,7 +18,7 @@ export function isHTMLElement(el: Element | null): el is HTMLElement {
  * @returns The attribute value or null if not found
  */
 export function getAttribute(el: Element, name: string): string | null {
-  return el.getAttribute(name);
+	return el.getAttribute(name);
 }
 
 /**
@@ -27,12 +27,9 @@ export function getAttribute(el: Element, name: string): string | null {
  * @param selector - The CSS selector
  * @returns The HTMLElement or null if not found
  */
-export function queryHTMLElement(
-  parent: Element | Document,
-  selector: string,
-): HTMLElement | null {
-  const el = parent.querySelector(selector);
-  return isHTMLElement(el) ? el : null;
+export function queryHTMLElement(parent: Element | Document, selector: string): HTMLElement | null {
+	const el = parent.querySelector(selector);
+	return isHTMLElement(el) ? el : null;
 }
 
 /**
@@ -41,5 +38,5 @@ export function queryHTMLElement(
  * @returns true if the key is Enter or Space
  */
 export function isActivationKey(event: KeyboardEvent): boolean {
-  return event.key === "Enter" || event.key === " ";
+	return event.key === 'Enter' || event.key === ' ';
 }

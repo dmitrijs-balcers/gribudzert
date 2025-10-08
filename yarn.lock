@@ -21,6 +21,60 @@
   resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.28.4.tgz#a70226016fabe25c5783b2f22d3e1c9bc5ca3326"
   integrity sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ==
 
+"@biomejs/biome@^2.2.5":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@biomejs/biome/-/biome-2.2.5.tgz#291df1137404843537dd50eaa0174c12c0681d82"
+  integrity sha512-zcIi+163Rc3HtyHbEO7CjeHq8DjQRs40HsGbW6vx2WI0tg8mYQOPouhvHSyEnCBAorfYNnKdR64/IxO7xQ5faw==
+  optionalDependencies:
+    "@biomejs/cli-darwin-arm64" "2.2.5"
+    "@biomejs/cli-darwin-x64" "2.2.5"
+    "@biomejs/cli-linux-arm64" "2.2.5"
+    "@biomejs/cli-linux-arm64-musl" "2.2.5"
+    "@biomejs/cli-linux-x64" "2.2.5"
+    "@biomejs/cli-linux-x64-musl" "2.2.5"
+    "@biomejs/cli-win32-arm64" "2.2.5"
+    "@biomejs/cli-win32-x64" "2.2.5"
+
+"@biomejs/cli-darwin-arm64@2.2.5":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@biomejs/cli-darwin-arm64/-/cli-darwin-arm64-2.2.5.tgz#2a181f4b0daef11e24b96eaac9dd7866125b2524"
+  integrity sha512-MYT+nZ38wEIWVcL5xLyOhYQQ7nlWD0b/4mgATW2c8dvq7R4OQjt/XGXFkXrmtWmQofaIM14L7V8qIz/M+bx5QQ==
+
+"@biomejs/cli-darwin-x64@2.2.5":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@biomejs/cli-darwin-x64/-/cli-darwin-x64-2.2.5.tgz#0ecfa984d8b76dda4771b95cf1d796d79c257a18"
+  integrity sha512-FLIEl73fv0R7dI10EnEiZLw+IMz3mWLnF95ASDI0kbx6DDLJjWxE5JxxBfmG+udz1hIDd3fr5wsuP7nwuTRdAg==
+
+"@biomejs/cli-linux-arm64-musl@2.2.5":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@biomejs/cli-linux-arm64-musl/-/cli-linux-arm64-musl-2.2.5.tgz#264e632302e61c0b34c13d3d92b6f9b8fb5e1e97"
+  integrity sha512-5Ov2wgAFwqDvQiESnu7b9ufD1faRa+40uwrohgBopeY84El2TnBDoMNXx6iuQdreoFGjwW8vH6k68G21EpNERw==
+
+"@biomejs/cli-linux-arm64@2.2.5":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@biomejs/cli-linux-arm64/-/cli-linux-arm64-2.2.5.tgz#acc71fb62fb6d022766042fb004da47439bd1b24"
+  integrity sha512-5DjiiDfHqGgR2MS9D+AZ8kOfrzTGqLKywn8hoXpXXlJXIECGQ32t+gt/uiS2XyGBM2XQhR6ztUvbjZWeccFMoQ==
+
+"@biomejs/cli-linux-x64-musl@2.2.5":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@biomejs/cli-linux-x64-musl/-/cli-linux-x64-musl-2.2.5.tgz#03df0646ed4e26631ef3e1fcb4fc527e45345b86"
+  integrity sha512-AVqLCDb/6K7aPNIcxHaTQj01sl1m989CJIQFQEaiQkGr2EQwyOpaATJ473h+nXDUuAcREhccfRpe/tu+0wu0eQ==
+
+"@biomejs/cli-linux-x64@2.2.5":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@biomejs/cli-linux-x64/-/cli-linux-x64-2.2.5.tgz#2740f260da9518554219ed07729ec0fdd8104135"
+  integrity sha512-fq9meKm1AEXeAWan3uCg6XSP5ObA6F/Ovm89TwaMiy1DNIwdgxPkNwxlXJX8iM6oRbFysYeGnT0OG8diCWb9ew==
+
+"@biomejs/cli-win32-arm64@2.2.5":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@biomejs/cli-win32-arm64/-/cli-win32-arm64-2.2.5.tgz#75db880f3bb6c481435f0f602093b1ced9b2327e"
+  integrity sha512-xaOIad4wBambwJa6mdp1FigYSIF9i7PCqRbvBqtIi9y29QtPVQ13sDGtUnsRoe6SjL10auMzQ6YAe+B3RpZXVg==
+
+"@biomejs/cli-win32-x64@2.2.5":
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/@biomejs/cli-win32-x64/-/cli-win32-x64-2.2.5.tgz#f0f3a85c5fb7954661fe454ef2df998205df1570"
+  integrity sha512-F/jhuXCssPFAuciMhHKk00xnCAxJRS/pUzVfXYmOMUp//XW7mO6QeCjsjvnm8L4AO/dG2VOB0O+fJPiJ2uXtIw==
+
 "@esbuild/aix-ppc64@0.21.5":
   version "0.21.5"
   resolved "https://registry.yarnpkg.com/@esbuild/aix-ppc64/-/aix-ppc64-0.21.5.tgz#c7184a326533fcdf1b8ee0733e21c713b975575f"
@@ -961,7 +1015,7 @@ tinyexec@^0.3.1:
   resolved "https://registry.yarnpkg.com/tinyexec/-/tinyexec-0.3.2.tgz#941794e657a85e496577995c6eef66f53f42b3d2"
   integrity sha512-KQQR9yN7R5+OSwaK0XQoj22pwHoTlgYqmUscPYoknOoWCWfj/5/ABTMRi69FrKU5ffPVh5QcFikpWJI/P1ocHA==
 
-tinyglobby@^0.2.10, tinyglobby@^0.2.14:
+tinyglobby@^0.2.10, tinyglobby@^0.2.15:
   version "0.2.15"
   resolved "https://registry.yarnpkg.com/tinyglobby/-/tinyglobby-0.2.15.tgz#e228dd1e638cea993d2fdb4fcd2d4602a79951c2"
   integrity sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==
@@ -1016,17 +1070,17 @@ vite@^5.0.0:
   optionalDependencies:
     fsevents "~2.3.3"
 
-vite@^7.1.4:
-  version "7.1.4"
-  resolved "https://registry.yarnpkg.com/vite/-/vite-7.1.4.tgz#354944affb55e1aff0157406b74e0d0a3232df9a"
-  integrity sha512-X5QFK4SGynAeeIt+A7ZWnApdUyHYm+pzv/8/A57LqSGcI88U6R6ipOs3uCesdc6yl7nl+zNO0t8LmqAdXcQihw==
+vite@^7.1.9:
+  version "7.1.9"
+  resolved "https://registry.yarnpkg.com/vite/-/vite-7.1.9.tgz#ba844410e5d0c0f2a4eaf17a52af60ebea322cbf"
+  integrity sha512-4nVGliEpxmhCL8DslSAUdxlB6+SMrhB0a1v5ijlh1xB1nEPuy1mxaHxysVucLHuWryAxLWg6a5ei+U4TLn/rFg==
   dependencies:
     esbuild "^0.25.0"
     fdir "^6.5.0"
     picomatch "^4.0.3"
     postcss "^8.5.6"
     rollup "^4.43.0"
-    tinyglobby "^0.2.14"
+    tinyglobby "^0.2.15"
   optionalDependencies:
     fsevents "~2.3.3"
 
