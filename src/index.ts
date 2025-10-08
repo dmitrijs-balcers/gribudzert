@@ -1,34 +1,41 @@
 import * as L from "leaflet";
 import drinkingWater from "./oql/drinking_water.overpassql?raw";
-import type { Overpass, Element } from "./types/overpass";
+import type { Overpass, Element as OverpassElement } from "./types/overpass";
+import { escapeHtml } from "./utils/html";
+import { getAttribute } from "./utils/dom";
+import * as logger from "./utils/logger";
+import {
+  rigaLatLng,
+  defaultZoom,
+  maxZoom,
+  tileLayerUrl,
+  osmAttribution,
+  colourMap,
+  geolocationOptions,
+  defaultMarkerRadius,
+  userLocationColor,
+  userLocationFillColor,
+} from "./core/config";
 
 // Basic map setup
-const rigaLatLng: L.LatLngTuple = [56.9496, 24.1052];
 const map = L.map("map", {
   center: rigaLatLng,
-  zoom: 13,
+  zoom: defaultZoom,
   zoomControl: true,
 });
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution:
-    '&copy; <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
+L.tileLayer(tileLayerUrl, {
+  maxZoom: maxZoom,
+  attribution: osmAttribution,
 }).addTo(map);
 
 L.control.scale({ metric: true, imperial: false }).addTo(map);
 
-// Colour map for 'colour' tag values
-const colourMap: Record<string, string> = {
-  teal: "#2A93EE",
-  blue: "#1E90FF",
-  red: "#E53935",
-  beige: "#D7C7A1",
-  default: "#0078ff",
-};
-
 // Layer to hold the points from points.xml
 const pointsLayer: L.FeatureGroup<L.CircleMarker> = L.featureGroup().addTo(map);
+
+// WeakSet to track elements that already have event handlers attached
+const boundElements = new WeakSet<Element>();
 
 // Platform-aware navigation opener (global helper)
 function openNavigation(lat: string, lon: string, label: string): void {
@@ -60,16 +67,6 @@ function openNavigation(lat: string, lon: string, label: string): void {
   window.open(googleUri, "_blank", "noopener");
 }
 
-// Basic HTML escaping for popup text
-function escapeHtml(str: string): string {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 type Node = {
   id: string;
   lat: number;
@@ -78,10 +75,7 @@ type Node = {
 };
 
 // Create circle markers for nodes and add to the provided layer
-function addNodesToLayer(
-  nodes: Element[],
-  layer: L.FeatureGroup<L.CircleMarker>,
-): void {
+function addNodesToLayer(nodes: OverpassElement[], layer: L.FeatureGroup<L.CircleMarker>): void {
   nodes.forEach((n) => {
     if (!isFinite(n.lat) || !isFinite(n.lon)) return;
 
@@ -89,7 +83,7 @@ function addNodesToLayer(
     const color = colourMap[cTag] || colourMap.default;
     const seasonal = (n.tags.seasonal || "").toLowerCase() === "yes";
 
-    let radius = 6;
+    let radius: number = defaultMarkerRadius;
     if ((n.tags.bottle || "") === "yes") radius = 7;
     if ((n.tags.wheelchair || "") === "yes") radius = 8;
 
@@ -135,13 +129,13 @@ function addNodesToLayer(
         if (!popupEl) return;
 
         const navBtn = popupEl.querySelector(".navigate-btn");
-        if (navBtn && !(navBtn as unknown as { __bound?: boolean }).__bound) {
-          (navBtn as unknown as { __bound: boolean }).__bound = true;
+        if (navBtn && !boundElements.has(navBtn)) {
+          boundElements.add(navBtn);
 
           navBtn.addEventListener("click", (ev) => {
             ev.preventDefault();
-            const lat = navBtn.getAttribute("data-lat");
-            const lon = navBtn.getAttribute("data-lon");
+            const lat = getAttribute(navBtn, "data-lat");
+            const lon = getAttribute(navBtn, "data-lon");
             if (lat && lon) {
               openNavigation(lat, lon, `water_tap ${n.id}`);
             }
@@ -160,32 +154,20 @@ function addNodesToLayer(
         }
       } catch (err) {
         // non-fatal
-        const message = err instanceof Error ? err.message : "Unknown error";
-        console.info("Failed to attach popup action handlers:", message);
+        logger.info(
+          "Failed to attach popup action handlers:",
+          err instanceof Error ? err.message : err,
+        );
       }
     });
   });
-}
-
-// Temporary placeholder for XML loading (will be moved to data module later)
-function loadPointsXml(): string {
-  // For now, return empty string - this function will be properly implemented
-  // when we have the actual data source (XML file or API)
-  return "";
-}
-
-// Temporary placeholder for parsing (will be moved to data module later)
-function parseOsmDoc(xmlString: string): Element[] {
-  // For now, return empty array - this function will be properly implemented
-  // when we refactor the data module
-  return [];
 }
 
 // Fetch and render points
 (function initPoints() {
   const nodes = parseOsmDoc(loadPointsXml());
   if (nodes.length === 0) {
-    console.warn("No nodes found in points.xml");
+    logger.warn("No nodes found in points.xml");
     return;
   }
 
@@ -229,15 +211,15 @@ function locateMe(): void {
 
       const userCircle = L.circle([lat, lon], {
         radius: Math.max(10, accuracy),
-        color: "#136AEC",
-        fillColor: "#2A93EE",
+        color: userLocationColor,
+        fillColor: userLocationFillColor,
         fillOpacity: 0.25,
       }).addTo(map);
 
       const userMarker = L.marker([lat, lon]).addTo(map);
       userMarker.bindPopup("You are here (approx.)").openPopup();
 
-      map.setView([lat, lon], 13);
+      map.setView([lat, lon], defaultZoom);
     },
     (err) => {
       if (err.code === err.PERMISSION_DENIED) {
@@ -252,12 +234,12 @@ function locateMe(): void {
         alert("Unable to retrieve your location: " + err.message);
       }
     },
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+    geolocationOptions,
   );
 }
 
 // Add locate control to topright, then adjust via CSS to vertical center
-const locateControl = L.Control.extend({
+const LocateControl = L.Control.extend({
   onAdd: function () {
     const container = L.DomUtil.create(
       "div",
@@ -276,7 +258,8 @@ const locateControl = L.Control.extend({
   },
 });
 
-new locateControl({ position: "topright" }).addTo(map);
+const locateControl = new LocateControl({ position: "topright" });
+locateControl.addTo(map);
 
 // keyboard accessibility for locate control
 setTimeout(() => {
@@ -284,7 +267,7 @@ setTimeout(() => {
   if (el) {
     el.setAttribute("role", "button");
     el.setAttribute("tabindex", "0");
-    el.addEventListener("keydown", (e) => {
+    el.addEventListener("keydown", (e: Event) => {
       const keyEvent = e as KeyboardEvent;
       if (keyEvent.key === "Enter" || keyEvent.key === " ") {
         keyEvent.preventDefault();
@@ -298,27 +281,17 @@ setTimeout(() => {
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch((err) => {
     // registration failure is non-fatal — log for debugging
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.info("Service worker registration failed:", message);
+    logger.info("Service worker registration failed:", err instanceof Error ? err.message : err);
   });
 }
 
-// Fetch water points from Overpass API (for future use)
-async function fetchWater(): Promise<Overpass> {
-  const response = await fetch(
-    "https://overpass-api.de/api/interpreter",
-    {
-      body: `data=${encodeURIComponent(drinkingWater)}`,
-      method: "POST",
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return await response.json();
+// TODO: Implement proper parseOsmDoc and loadPointsXml functions
+function parseOsmDoc(xml: string): OverpassElement[] {
+  // Placeholder implementation
+  return [];
 }
 
-// Note: fetchWater is defined for future use but not currently called
-// The app uses parseOsmDoc/loadPointsXml instead (to be implemented)
+function loadPointsXml(): string {
+  // Placeholder implementation
+  return "";
+}

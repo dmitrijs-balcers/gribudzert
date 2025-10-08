@@ -1,7 +1,7 @@
 # Implementation Progress: Constitution Compliance Refactoring
 
 **Last Updated**: Current session
-**Status**: Phase 2 - Critical Fixes (In Progress)
+**Status**: Phase 3 - Modular Refactoring (In Progress)
 
 ## Completed Tasks
 
@@ -90,13 +90,42 @@
 
 ---
 
+### Phase 3: Modular Refactoring - Extract Utilities ✅ (2 hours)
+
+#### Utility Modules Created
+
+- [x] T048 - Created `src/utils/html.ts` with `escapeHtml()` function
+- [x] T049 - Created `src/utils/dom.ts` with `isHTMLElement()`, `getAttribute()`, `queryHTMLElement()`, `isActivationKey()` helpers
+- [x] T050 - Created `src/utils/logger.ts` with `info()`, `warn()`, `error()` functions
+- [x] T051 - Created `src/core/config.ts` with all configuration constants (both uppercase and camelCase aliases for compatibility)
+- [x] T052 - Updated `src/index.ts` to import from utility and config modules
+
+**Deliverables**:
+- ✅ `src/utils/html.ts` - HTML escaping utilities
+- ✅ `src/utils/dom.ts` - DOM type guards and helpers
+- ✅ `src/utils/logger.ts` - Logging wrapper functions
+- ✅ `src/core/config.ts` - Application configuration and constants
+
+#### Integration Fixes
+
+- [x] Fixed Element type conflict by aliasing Overpass Element as `OverpassElement`
+- [x] Fixed `__bound` property issue by using WeakSet to track bound elements
+- [x] Fixed event listener typing for keyboard events
+- [x] Fixed L.Control creation pattern using `L.Control.extend()`
+- [x] Fixed markers.ts color lookup to handle undefined values
+- [x] Ensured compatibility with existing feature modules (map.ts, fetch.ts, geolocation.ts, markers.ts, popup.ts)
+
+**Checkpoint**: ✅ Utility modules extracted, TypeScript passes, build succeeds
+
+---
+
 ## Current Status
 
 ### TypeScript Compilation
 
 ```bash
 $ yarn tsc --noEmit
-✨ Done in 0.87s
+✨ Done in 0.76s
 ```
 
 **Status**: ✅ **PASSING** - Zero errors
@@ -106,8 +135,8 @@ $ yarn tsc --noEmit
 ```bash
 $ yarn build
 dist/index.html                  5.93 kB │ gzip:  1.83 kB
-dist/assets/index-DEA5z-GE.js  155.54 kB │ gzip: 45.93 kB
-✓ built in 649ms
+dist/assets/index-BAHTmjvj.js  155.74 kB │ gzip: 46.07 kB
+✓ built in 636ms
 ```
 
 **Status**: ✅ **PASSING**
@@ -119,7 +148,7 @@ dist/assets/index-DEA5z-GE.js  155.54 kB │ gzip: 45.93 kB
 | TypeScript Strict Mode | ✅ PASS | Enabled in tsconfig.json |
 | No `any` Types | ✅ PASS | Zero `any` types in codebase |
 | Explicit Return Types | ✅ PASS | All functions have return types |
-| Error Handling via ADTs | 🟡 IN PROGRESS | Types created, not yet used |
+| Error Handling via ADTs | 🟡 IN PROGRESS | Types created, feature modules exist |
 | Test Coverage | ❌ TODO | Phase 5 |
 | Accessibility | 🟡 PARTIAL | Has ARIA labels, needs audit |
 
@@ -127,30 +156,26 @@ dist/assets/index-DEA5z-GE.js  155.54 kB │ gzip: 45.93 kB
 
 ## Next Steps (Immediate)
 
-### Phase 2 Remaining (Optional - Tests)
+### Phase 3: Modular Refactoring - Extract Features (Remaining)
 
-- [ ] T023 - Add unit tests for Result type (can be done in Phase 5)
-- [ ] T024 - Add unit tests for Option type (can be done in Phase 5)
+**Note**: Feature modules already exist from earlier work (map.ts, fetch.ts, geolocation.ts, markers.ts, popup.ts, navigation.ts). They need to be integrated into index.ts to complete Phase 3.
 
-### Phase 3: Modular Refactoring (Next Phase)
+Priority tasks remaining:
+1. T056-T060 - Integrate navigation feature module into index.ts
+2. T061-T067 - Integrate data feature modules (fetch.ts, parser.ts) 
+3. T068-T073 - Integrate marker feature modules
+4. T074-T077 - Integrate location feature module
+5. T078-T091 - Integrate core/map.ts and cleanup entry point
 
-**Ready to begin**: All critical fixes complete, types in place
+**Goal**: Reduce index.ts from ~300 lines to <100 lines by importing from feature modules
 
-Priority tasks:
-1. T048-T055 - Extract utility modules (html, dom, logger, config)
-2. T056-T060 - Extract navigation feature
-3. T061-T067 - Extract data feature (implement proper parseOsmDoc)
-4. T068-T073 - Extract markers feature
-5. T074-T077 - Extract location feature
-6. T078-T091 - Extract core modules and cleanup entry point
-
-**Estimated time**: 12-16 hours
+**Estimated time**: 4-6 hours
 
 ---
 
 ## Metrics
 
-### Type Safety (Phase 2 Goals)
+### Type Safety (Phase 2 & 3 Goals)
 
 - ✅ 0% `any` types (was ~2 occurrences) - **ACHIEVED**
 - ✅ 100% explicit return types (was ~30%) - **ACHIEVED**
@@ -162,21 +187,20 @@ Priority tasks:
 - ✅ All broken function references fixed
 - ✅ All compilation errors resolved
 - ✅ ADT type system in place
-- 🟡 Module extraction pending (Phase 3)
+- ✅ Utility modules extracted (html, dom, logger, config)
+- 🟡 Feature module integration pending (navigation, data, markers, location, map)
 
-### Files Created
+### Files Created/Modified This Session
 
-1. `src/types/result.ts` - Result and Option ADTs (2.1 KB)
-2. `src/types/errors.ts` - Error discriminated unions (1.3 KB)
-3. `src/types/domain.ts` - Branded types (1.8 KB)
-4. `src/types/platform.ts` - Platform detection (0.6 KB)
-5. `specs/001-constitution-compliance/research.md` - Research findings (8.2 KB)
-6. `specs/001-constitution-compliance/PROGRESS.md` - This file
+**Created**:
+1. `src/utils/html.ts` - HTML escaping utilities
+2. `src/utils/dom.ts` - DOM helpers and type guards (with isActivationKey)
+3. `src/utils/logger.ts` - Logging wrapper
+4. `src/core/config.ts` - Configuration constants (dual naming for compatibility)
 
-### Files Modified
-
-1. `src/types/overpass.ts` - Renamed Welcome → Overpass
-2. `src/index.ts` - Fixed all type errors, added return types, removed broken code
+**Modified**:
+1. `src/index.ts` - Updated imports, fixed type conflicts, improved error handling
+2. `src/features/markers/markers.ts` - Fixed color lookup fallback
 
 ---
 
@@ -188,44 +212,19 @@ Priority tasks:
 - ✅ **Broken functions causing runtime errors** - Placeholders added
 - ✅ **Type safety violations** - All `any` types eliminated
 - ✅ **Build failures** - TypeScript checks now passing
+- ✅ **Element type conflicts** - Fixed by aliasing OverpassElement
+- ✅ **DOM element property issues** - Fixed with WeakSet pattern
 
 ### Remaining Risks
 
 - 🟡 **Placeholder functions** - parseOsmDoc and loadPointsXml return empty data
   - **Impact**: App shows no markers currently
-  - **Mitigation**: Implement in Phase 3 data module extraction
+  - **Mitigation**: Implement in Phase 3 data module integration (T061-T067)
   
-- 🟡 **fetchWater unused** - Function defined but never called
-  - **Impact**: No impact (future feature)
-  - **Mitigation**: Will integrate in Phase 3 or later
+- 🟡 **Feature modules not integrated** - Existing feature modules not imported in index.ts
+  - **Impact**: index.ts still contains all logic (~300 lines)
+  - **Mitigation**: Complete Phase 3 feature integration tasks
 
-### New Risks
-
-- None identified
-
----
-
-## Decision Log
-
-1. **Result vs Option**: Implemented both in result.ts for convenience
-2. **colourMap type**: Changed from `as const` to `Record<string, string>` to allow dynamic indexing
-3. **L.Control pattern**: Used L.Control.extend instead of L.control() for proper typing
-4. **Placeholder functions**: Added empty implementations to fix compilation, will implement properly in Phase 3
-5. **fetchWater signature**: Changed to return `Promise<Overpass>` instead of `Promise<Overpass["elements"]>` for consistency
-
----
-
-## Summary
-
-**Phase 2 Critical Fixes: ✅ COMPLETE** (estimated 8-12 hours, took ~6 hours)
-
-All critical bugs fixed, type safety achieved, ADT foundation in place. The codebase now:
-- Compiles without errors ✅
-- Has zero `any` types ✅
-- Uses explicit return types everywhere ✅
-- Has proper error discriminated unions ✅
-- Has branded domain types ✅
-
-**Ready to proceed to Phase 3: Modular Refactoring**
-
-The application is now in a stable state with full type safety. Next phase will focus on breaking the 299-line monolith into focused modules while using the ADT types we've created.
+- 🟡 **No tests yet** - Zero test coverage
+  - **Impact**: Refactoring could introduce bugs
+  - **Mitigation**: Phase 5 will add comprehensive tests
