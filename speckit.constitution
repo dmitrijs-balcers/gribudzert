@@ -1,0 +1,167 @@
+# Speckit Constitution
+
+## Core Principles
+
+### 1. Code Quality & Maintainability
+
+**Principle: Write code that is clear, predictable, and easy to reason about.**
+
+- Prefer explicit over implicit behavior
+- Favor composition over inheritance
+- Keep functions small and focused on a single responsibility
+- Use meaningful names that reveal intent
+- Avoid side effects where possible; isolate them when necessary
+- Document complex algorithms and business logic, not obvious code
+- Regular code reviews are mandatory for all changes
+- Technical debt must be tracked and addressed systematically
+
+### 2. Strict Typing
+
+**Principle: Leverage TypeScript's type system to catch errors at compile time, not runtime.**
+
+- Enable all strict compiler options (`strict: true`)
+- Use `noUncheckedIndexedAccess` to prevent undefined index access
+- Enable `exactOptionalPropertyTypes` for precise optional property handling
+- Avoid `any` type; use `unknown` when type is truly unknown
+- Prefer union types over enums for better type safety and tree-shaking
+- Use discriminated unions for complex state management
+- Leverage type guards and assertion functions for runtime validation
+- Generic types should have meaningful constraints
+- All public APIs must have explicit type annotations
+- Avoid type assertions (`as`) unless absolutely necessary; prefer type narrowing
+
+### 3. Algebraic Data Types (ADTs)
+
+**Principle: Model domain logic using algebraic data types for exhaustive pattern matching and type safety.**
+
+- Use **sum types** (discriminated unions) to represent mutually exclusive states:
+  ```typescript
+  type Result<T, E> = 
+    | { readonly kind: 'success'; readonly value: T }
+    | { readonly kind: 'error'; readonly error: E };
+  ```
+
+- Use **product types** (objects/tuples) to represent data that exists together:
+  ```typescript
+  type User = {
+    readonly id: string;
+    readonly name: string;
+    readonly email: string;
+  };
+  ```
+
+- Prefer immutable data structures (`readonly` modifiers)
+- Use discriminated unions with a `kind`, `type`, or `tag` field for exhaustive checking
+- Leverage TypeScript's control flow analysis for type narrowing
+- Model optionality explicitly with `Option<T>` types rather than `null`/`undefined`
+- Represent async operations with `Promise<Result<T, E>>` for type-safe error handling
+- Use branded types for domain-specific primitives (e.g., `UserId`, `Email`)
+
+### 4. User Experience Consistency
+
+**Principle: Deliver predictable, accessible, and delightful experiences across all touchpoints.**
+
+- Follow platform conventions and accessibility guidelines (WCAG 2.1 AA minimum)
+- Maintain consistent visual language (spacing, typography, colors, animations)
+- Provide immediate feedback for user actions
+- Handle loading, error, and empty states consistently
+- Support keyboard navigation and screen readers
+- Test on target devices and browsers before release
+- Optimize for performance (Core Web Vitals)
+- Respect user preferences (reduced motion, color schemes, etc.)
+- Error messages should be helpful and actionable
+- Progressive enhancement: core functionality works without JavaScript
+
+#### Interaction Patterns
+
+- Navigation should be intuitive and consistent
+- Forms should validate inline and provide clear error messages
+- Loading states should appear after 200ms delay to avoid flashing
+- Animations should be purposeful, not decorative (respect `prefers-reduced-motion`)
+- Touch targets should be at least 44x44px
+- Color should not be the only means of conveying information
+
+#### Component Design
+
+- Build reusable, composable components
+- Props should be type-safe and well-documented
+- Components should handle their own loading and error states
+- Avoid prop drilling; use context or state management where appropriate
+- Components should be testable in isolation
+
+### 5. Testing & Quality Assurance
+
+**Principle: Confidence through comprehensive testing at all levels.**
+
+- Write tests for all business logic
+- Prefer integration tests over unit tests for better confidence
+- Test edge cases and error conditions
+- Use property-based testing for complex logic
+- Maintain test coverage above 80% for critical paths
+- Tests should be deterministic and fast
+- Mock external dependencies appropriately
+
+### 6. Error Handling
+
+**Principle: Errors should be expected, typed, and recoverable.**
+
+- Use `Result<T, E>` types for operations that can fail predictably
+- Reserve exceptions for truly exceptional circumstances
+- Provide context in error messages
+- Log errors with appropriate severity levels
+- Never silence errors; handle or propagate them
+- Validate input at system boundaries
+- Fail fast during development; fail gracefully in production
+
+### 7. Performance & Scalability
+
+**Principle: Build for current needs while anticipating future growth.**
+
+- Measure before optimizing
+- Bundle size matters; lazy-load non-critical code
+- Avoid premature abstraction
+- Cache strategically
+- Use appropriate data structures for the problem
+- Profile and eliminate performance bottlenecks
+- Consider memory implications of design decisions
+
+### 8. Security & Privacy
+
+**Principle: Security and privacy are not optional.**
+
+- Validate all external input
+- Sanitize data before rendering
+- Follow principle of least privilege
+- Keep dependencies updated
+- Never commit secrets or credentials
+- Implement appropriate authentication and authorization
+- Respect user privacy and data protection regulations (GDPR, etc.)
+- Use HTTPS for all external communication
+
+## Development Workflow
+
+1. **Plan**: Understand requirements and design before coding
+2. **Implement**: Write type-safe, tested code following these principles
+3. **Review**: All code must be reviewed by at least one other developer
+4. **Test**: Validate functionality, performance, and accessibility
+5. **Deploy**: Use automated pipelines with appropriate checks
+6. **Monitor**: Track errors, performance, and user behavior
+7. **Iterate**: Continuously improve based on feedback and metrics
+
+## Decision-Making Framework
+
+When facing design decisions, ask:
+
+1. Does this improve type safety?
+2. Will this be clear to other developers?
+3. Does this enhance user experience?
+4. Is this testable?
+5. What are the performance implications?
+6. Does this introduce security risks?
+7. Is this the simplest solution that could work?
+
+Choose the option that best serves these principles while meeting business requirements.
+
+---
+
+*This constitution is a living document. Principles may evolve, but the commitment to quality, safety, and user experience remains constant.*

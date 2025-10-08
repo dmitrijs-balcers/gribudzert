@@ -1,5 +1,6 @@
 import * as L from "leaflet";
-import points from "./points.xml?raw";
+import drinkingWater from "./oql/drinking_water.overpassql?raw";
+import type { Overpass, Element } from "./types/overpass";
 
 // Basic map setup
 const rigaLatLng: L.LatLngTuple = [56.9496, 24.1052];
@@ -18,19 +19,19 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 L.control.scale({ metric: true, imperial: false }).addTo(map);
 
 // Colour map for 'colour' tag values
-const colourMap = {
+const colourMap: Record<string, string> = {
   teal: "#2A93EE",
   blue: "#1E90FF",
   red: "#E53935",
   beige: "#D7C7A1",
   default: "#0078ff",
-} as const;
+};
 
 // Layer to hold the points from points.xml
-const pointsLayer: L.FeatureGroup<any> = L.featureGroup().addTo(map);
+const pointsLayer: L.FeatureGroup<L.CircleMarker> = L.featureGroup().addTo(map);
 
 // Platform-aware navigation opener (global helper)
-function openNavigation(lat: string, lon: string, label: string) {
+function openNavigation(lat: string, lon: string, label: string): void {
   const latStr = Number(lat).toFixed(6);
   const lonStr = Number(lon).toFixed(6);
   const labelEnc = encodeURIComponent(label || "Destination");
@@ -60,7 +61,7 @@ function openNavigation(lat: string, lon: string, label: string) {
 }
 
 // Basic HTML escaping for popup text
-function escapeHtml(str: string) {
+function escapeHtml(str: string): string {
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
@@ -76,26 +77,11 @@ type Node = {
   tags: Record<string, string>;
 };
 
-// Parse OSM XML Document into node objects
-function parseOsmDoc(xmlDoc: Document) {
-  const nodeEls = Array.from(xmlDoc.getElementsByTagName("node"));
-  return nodeEls.map((nodeEl: Element): Node => {
-    const id = nodeEl.getAttribute("id") as string;
-    const lat = parseFloat(nodeEl.getAttribute("lat") as string);
-    const lon = parseFloat(nodeEl.getAttribute("lon") as string);
-    const tagEls = Array.from(nodeEl.getElementsByTagName("tag"));
-    const tags: Record<string, string> = {};
-    tagEls.forEach((t) => {
-      const k = t.getAttribute("k") as string;
-      const v = t.getAttribute("v") as string;
-      tags[k] = v;
-    });
-    return { id, lat, lon, tags };
-  });
-}
-
 // Create circle markers for nodes and add to the provided layer
-function addNodesToLayer(nodes: Node[], layer: L.FeatureGroup<any>) {
+function addNodesToLayer(
+  nodes: Element[],
+  layer: L.FeatureGroup<L.CircleMarker>,
+): void {
   nodes.forEach((n) => {
     if (!isFinite(n.lat) || !isFinite(n.lon)) return;
 
@@ -149,14 +135,16 @@ function addNodesToLayer(nodes: Node[], layer: L.FeatureGroup<any>) {
         if (!popupEl) return;
 
         const navBtn = popupEl.querySelector(".navigate-btn");
-        if (navBtn && !navBtn.__bound) {
-          navBtn.__bound = true;
+        if (navBtn && !(navBtn as unknown as { __bound?: boolean }).__bound) {
+          (navBtn as unknown as { __bound: boolean }).__bound = true;
 
           navBtn.addEventListener("click", (ev) => {
             ev.preventDefault();
-            const lat = navBtn.getAttribute("data-lat") as string;
-            const lon = navBtn.getAttribute("data-lon") as string;
-            openNavigation(lat, lon, `water_tap ${n.id}`);
+            const lat = navBtn.getAttribute("data-lat");
+            const lon = navBtn.getAttribute("data-lon");
+            if (lat && lon) {
+              openNavigation(lat, lon, `water_tap ${n.id}`);
+            }
           });
 
           // Make sure the button is reachable by keyboard/tab
@@ -172,26 +160,25 @@ function addNodesToLayer(nodes: Node[], layer: L.FeatureGroup<any>) {
         }
       } catch (err) {
         // non-fatal
-        console.info(
-          "Failed to attach popup action handlers:",
-          err && err.message,
-        );
+        const message = err instanceof Error ? err.message : "Unknown error";
+        console.info("Failed to attach popup action handlers:", message);
       }
     });
   });
 }
 
-// Load external points.xml (must be served via http(s) or localhost)
-function loadPointsXml() {
-  const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(points, "application/xml");
+// Temporary placeholder for XML loading (will be moved to data module later)
+function loadPointsXml(): string {
+  // For now, return empty string - this function will be properly implemented
+  // when we have the actual data source (XML file or API)
+  return "";
+}
 
-  // detect parse errors
-  const parsererror = xmlDoc.getElementsByTagName("parsererror");
-  if (parsererror.length > 0) {
-    throw new Error("Failed to parse points.xml as XML.");
-  }
-  return xmlDoc;
+// Temporary placeholder for parsing (will be moved to data module later)
+function parseOsmDoc(xmlString: string): Element[] {
+  // For now, return empty array - this function will be properly implemented
+  // when we refactor the data module
+  return [];
 }
 
 // Fetch and render points
@@ -217,7 +204,7 @@ function loadPointsXml() {
 })();
 
 // Locate control (right middle)
-function locateMe() {
+function locateMe(): void {
   if (!("geolocation" in navigator)) {
     alert("Geolocation is not available in this browser.");
     return;
@@ -270,24 +257,26 @@ function locateMe() {
 }
 
 // Add locate control to topright, then adjust via CSS to vertical center
-const locateControl = L.control({ position: "topright" });
-locateControl.onAdd = function () {
-  const container = L.DomUtil.create(
-    "div",
-    "leaflet-bar leaflet-control locate-control",
-  );
-  container.classList.add("locate-control"); // used by CSS selector
-  const link = L.DomUtil.create("a", "", container);
-  link.href = "#";
-  link.title = "Show my location";
-  link.setAttribute("aria-label", "Show my location");
-  link.innerHTML = "📍";
-  L.DomEvent.on(link, "click", L.DomEvent.stopPropagation)
-    .on(link, "click", L.DomEvent.preventDefault)
-    .on(link, "click", locateMe);
-  return container;
-};
-locateControl.addTo(map);
+const locateControl = L.Control.extend({
+  onAdd: function () {
+    const container = L.DomUtil.create(
+      "div",
+      "leaflet-bar leaflet-control locate-control",
+    );
+    container.classList.add("locate-control"); // used by CSS selector
+    const link = L.DomUtil.create("a", "", container);
+    link.href = "#";
+    link.title = "Show my location";
+    link.setAttribute("aria-label", "Show my location");
+    link.innerHTML = "📍";
+    L.DomEvent.on(link, "click", L.DomEvent.stopPropagation)
+      .on(link, "click", L.DomEvent.preventDefault)
+      .on(link, "click", locateMe);
+    return container;
+  },
+});
+
+new locateControl({ position: "topright" }).addTo(map);
 
 // keyboard accessibility for locate control
 setTimeout(() => {
@@ -296,9 +285,10 @@ setTimeout(() => {
     el.setAttribute("role", "button");
     el.setAttribute("tabindex", "0");
     el.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        el.click();
+      const keyEvent = e as KeyboardEvent;
+      if (keyEvent.key === "Enter" || keyEvent.key === " ") {
+        keyEvent.preventDefault();
+        (el as HTMLElement).click();
       }
     });
   }
@@ -308,6 +298,27 @@ setTimeout(() => {
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch((err) => {
     // registration failure is non-fatal — log for debugging
-    console.info("Service worker registration failed:", err && err.message);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.info("Service worker registration failed:", message);
   });
 }
+
+// Fetch water points from Overpass API (for future use)
+async function fetchWater(): Promise<Overpass> {
+  const response = await fetch(
+    "https://overpass-api.de/api/interpreter",
+    {
+      body: `data=${encodeURIComponent(drinkingWater)}`,
+      method: "POST",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+// Note: fetchWater is defined for future use but not currently called
+// The app uses parseOsmDoc/loadPointsXml instead (to be implemented)
