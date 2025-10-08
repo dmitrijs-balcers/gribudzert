@@ -1,0 +1,1345 @@
+================
+CODE SNIPPETS
+================
+TITLE: Leaflet Plugin package.json Example
+DESCRIPTION: An example of a package.json file for a Leaflet plugin, specifying dependencies and metadata. It includes a peer dependency on Leaflet.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/PLUGIN-GUIDE.md
+
+LANGUAGE: json
+CODE:
+```
+{
+  "name": "my-leaflet-plugin",
+  "version": "1.0.0",
+  "description": "A simple leaflet plugin.",
+  "main": "my-plugin.js",
+  "author": "You",
+  "license": "IST",
+  "peerDependencies": {
+    "leaflet": "^1.0.0"
+  }
+}
+```
+
+--------------------------------
+
+TITLE: Initialize Leaflet Map
+DESCRIPTION: This JavaScript code initializes a Leaflet map instance, setting its view to specific coordinates and zoom level. It imports necessary classes from the 'leaflet' module.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+import {Map, TileLayer, Marker, Circle, Polygon, Popup} from 'leaflet';
+	const map = new Map('map').setView([51.505, -0.09], 13);
+
+	// ...
+```
+
+--------------------------------
+
+TITLE: Initialize Leaflet Map with Tile Layer (JavaScript)
+DESCRIPTION: This snippet shows how to initialize a Leaflet map within a specified HTML div. It sets the initial view and adds an OpenStreetMap tile layer. Dependencies include the Leaflet library. The output is an interactive map displayed on the webpage.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/example-basic.md
+
+LANGUAGE: html
+CODE:
+```
+<div id='map' style='width: 600px; height: 400px;'></div>
+```
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, TileLayer} from 'leaflet';
+
+const map = new Map('map').setView([51.505, -0.09], 13);
+
+const tiles = new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+	maxZoom: 19,
+	attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+globalThis.L = L; // only for debugging in the developer console
+globalThis.map = map; // only for debugging in the developer console
+```
+
+--------------------------------
+
+TITLE: Advanced Leaflet Plugin File Structure
+DESCRIPTION: Demonstrates a more comprehensive file structure for complex Leaflet plugins, including source files, distribution assets, tests, examples, and build configurations.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/PLUGIN-GUIDE.md
+
+LANGUAGE: text
+CODE:
+```
+/src        - JS source files
+/dist       - minified plugin JS, CSS, images
+/spec       - test files
+/lib        - any external libraries/plugins if necessary
+/examples   - HTML examples of plugin usage
+README.md
+LICENSE
+package.json
+```
+
+--------------------------------
+
+TITLE: Leaflet Map Initialization and Tile Layer
+DESCRIPTION: Initializes a Leaflet map with a specified center and zoom level, and adds an OpenStreetMap tile layer. This is the foundational setup for any Leaflet map.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/debug/map/tooltip.html
+
+LANGUAGE: javascript
+CODE:
+```
+import {Map, TileLayer} from 'leaflet';
+
+const center = [41.2058, 9.4307];
+const map = new Map('map').setView(center, 13);
+new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+```
+
+--------------------------------
+
+TITLE: Build Leaflet from Source
+DESCRIPTION: Provides instructions for building Leaflet from its source code using Node.js. This involves installing Node.js, running npm install to get dependencies, and then executing 'npm run build' to compile the source files.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/download.md
+
+LANGUAGE: bash
+CODE:
+```
+npm install
+```
+
+LANGUAGE: bash
+CODE:
+```
+npm run build
+```
+
+--------------------------------
+
+TITLE: Add OpenStreetMap Tile Layer
+DESCRIPTION: This code adds an OpenStreetMap tile layer to the Leaflet map. It specifies the URL template for the tiles, the maximum zoom level, and the required attribution text.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		maxZoom: 19,
+		attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+	}).addTo(map);
+```
+
+--------------------------------
+
+TITLE: Add Marker to Map
+DESCRIPTION: This JavaScript snippet demonstrates how to add a marker to the Leaflet map at a specified geographical coordinate.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+const marker = new Marker([51.5, -0.09]).addTo(map);
+```
+
+--------------------------------
+
+TITLE: Initialize Leaflet Map and Tile Layer
+DESCRIPTION: Sets up the main Leaflet map instance, centers it, and adds an OpenStreetMap tile layer. Includes basic map configuration and attribution.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/choropleth/example.md
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, TileLayer, Control, DomUtil, GeoJSON} from 'leaflet';
+
+	const map = new Map('map').setView([37.8, -96], 4);
+
+	const tiles = new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		maxZoom: 19,
+		attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+	}).addTo(map);
+```
+
+--------------------------------
+
+TITLE: Leaflet Map Initialization and Features
+DESCRIPTION: Initializes a Leaflet map, adds OpenStreetMap tiles, and demonstrates adding markers, circles, polygons, and interactive popups. Includes event handling for map clicks.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/example.md
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, TileLayer, Marker, Circle, Polygon, Popup} from 'leaflet';
+
+const map = new Map('map').setView([51.505, -0.09], 13);
+
+const tiles = new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+	maxZoom: 19,
+	attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+const marker = new Marker([51.5, -0.09]).addTo(map)
+	.bindPopup('<b>Hello world!</b><br />I am a popup.').openPopup();
+
+const circle = new Circle([51.508, -0.11], {
+	color: 'red',
+	fillColor: '#f03',
+	fillOpacity: 0.5,
+	radius: 500
+}).addTo(map).bindPopup('I am a circle.');
+
+const polygon = new Polygon([
+	[51.509, -0.08],
+	[51.503, -0.06],
+	[51.51, -0.047]
+]).addTo(map).bindPopup('I am a polygon.');
+
+
+const popup = new Popup()
+	.setLatLng([51.513, -0.09])
+	.setContent('I am a standalone popup.')
+	.openOn(map);
+
+function onMapClick(e) {
+	popup
+		.setLatLng(e.latlng)
+		.setContent(`You clicked the map at ${e.latlng.toString()}`)
+		.openOn(map);
+}
+
+map.on('click', onMapClick);
+
+globalThis.L = L; // only for debugging in the developer console
+globalThis.map = map; // only for debugging in the developer console
+```
+
+--------------------------------
+
+TITLE: Define Map Container
+DESCRIPTION: This HTML snippet defines a `div` element with the ID 'map', which serves as the container for the Leaflet map. Ensure this element exists in your HTML before initializing the map.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: html
+CODE:
+```
+<div id="map"></div>
+```
+
+--------------------------------
+
+TITLE: Display Click Coordinates in a Popup (JavaScript)
+DESCRIPTION: Improves the map click event handling by opening a popup at the click location, displaying the coordinates. It uses a pre-created popup instance and the `openOn` method for better usability.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+const popup = new Popup();
+
+function onMapClick(e) {
+	popup
+		.setLatLng(e.latlng)
+		.setContent("You clicked the map at " + e.latlng.toString())
+		.openOn(map);
+}
+
+map.on('click', onMapClick);
+```
+
+--------------------------------
+
+TITLE: Include Leaflet JavaScript with Importmap
+DESCRIPTION: This code snippet shows how to include the Leaflet JavaScript file using an HTML import map. This method allows for direct module imports in the browser, specifying the module path and integrity.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: html
+CODE:
+```
+<!-- Make sure you put this AFTER Leaflet's CSS -->
+<script type="importmap">
+{
+	"imports": {
+		"leaflet": "https://cdn.jsdelivr.net/npm/leaflet@{{ site.latest_leaflet_version}}/dist/leaflet.js"
+	},
+	"integrity": {
+		"https://cdn.jsdelivr.net/npm/leaflet@{{ site.latest_leaflet_version}}/dist/leaflet.js": "{{site.integrity_hash_uglified}}"
+	}
+}
+</script>
+```
+
+--------------------------------
+
+TITLE: Create Leaflet Map with Tile Layer and Markers
+DESCRIPTION: This code snippet initializes a Leaflet map, adds a tile layer from Carto, and places a marker at a specific coordinate. It demonstrates the basic setup for displaying geographical data on a map using Leaflet.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/extending-2-layers/pixelorigin.md
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, TileLayer, Marker, DivIcon, Polyline, DomUtil} from 'leaflet';
+
+	const trd = [63.41, 10.41];
+
+	const map = new Map('map', {
+		center: [40, 0],
+		zoom: 1
+	});
+
+	const positron = new TileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+		attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attribution">CARTO</a>'
+	}).addTo(map);
+
+	const marker = new Marker(trd).addTo(map);
+
+	const pane = map.getPane('markerPane');
+
+	const paneCorner = document.createElement('div');
+	paneCorner.style.width = '12px';
+	paneCorner.style.height = '12px';
+	paneCorner.style.borderTop = '2px red solid';
+	paneCorner.style.borderLeft = '2px red solid';
+
+	pane.appendChild(paneCorner);
+
+	marker._icon.style.border = '1px solid blue';
+
+	const crsMarker = new Marker(map.unproject([0, 0]), {
+		icon: new DivIcon({
+			className: 'crsMarker',
+			iconAnchor: [0, 0]
+		})
+	}).addTo(map);
+
+
+	const markerOffsetLine = new Polyline([[0, 0], [0, 0]], {color: 'skyblue'}).addTo(map);
+	const iconOffsetLine = new Polyline([[0, 0], [0, 0]], {color: 'blue'}).addTo(map);
+```
+
+--------------------------------
+
+TITLE: NPM prepublish Script for Build
+DESCRIPTION: A package.json snippet demonstrating the use of a 'prepublish' script to trigger a build or minification process before publishing to NPM. This ensures only necessary files are included in the published package.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/PLUGIN-GUIDE.md
+
+LANGUAGE: json
+CODE:
+```
+{
+  "name": "my-leaflet-plugin",
+  ...
+  "scripts": {
+    "prepublish": "grunt build"
+  }
+}
+```
+
+--------------------------------
+
+TITLE: Create and Open Standalone Popups (JavaScript)
+DESCRIPTION: Creates a standalone popup at a specific latitude and longitude, sets its content, and opens it on the map. The `openOn` method automatically closes any previously opened popup, enhancing user experience.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+const popup = new Popup()
+	.setLatLng([51.513, -0.09])
+	.setContent("I am a standalone popup.")
+	.openOn(map);
+```
+
+--------------------------------
+
+TITLE: Include Leaflet CSS
+DESCRIPTION: This snippet demonstrates how to include the Leaflet CSS file in the head section of an HTML document. It uses a CDN link that includes version information and integrity hashes for security and reliability.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: html
+CODE:
+```
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@{{ site.latest_leaflet_version}}/dist/leaflet.css"
+		integrity="{{site.integrity_hash_css}}"
+		crossorigin=""/>
+```
+
+--------------------------------
+
+TITLE: Plugin API: Importing Plugins
+DESCRIPTION: Demonstrates the recommended way to import a Leaflet plugin in a modular JavaScript environment, ensuring proper encapsulation.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/PLUGIN-GUIDE.md
+
+LANGUAGE: javascript
+CODE:
+```
+import MyPlugin from 'leaflet-my-plugin';
+```
+
+--------------------------------
+
+TITLE: Handle Map Click Events (JavaScript)
+DESCRIPTION: Listens for click events on the map and triggers a callback function. The callback receives an event object containing click details, such as the geographical coordinates (`latlng`).
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+function onMapClick(e) {
+	alert("You clicked the map at " + e.latlng);
+}
+
+map.on('click', onMapClick);
+```
+
+--------------------------------
+
+TITLE: Basic Leaflet Plugin File Structure
+DESCRIPTION: Illustrates a minimal file structure for a simple Leaflet plugin, typically including the main JavaScript file and a README.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/PLUGIN-GUIDE.md
+
+LANGUAGE: text
+CODE:
+```
+my-plugin.js
+README.md
+```
+
+--------------------------------
+
+TITLE: Bind Popups to Map Objects (JavaScript)
+DESCRIPTION: Attaches a popup with specified HTML content to a Leaflet marker, circle, or polygon. The popup appears on click. The `openPopup` method can be used to immediately display the popup for markers.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+marker.bindPopup("<b>Hello world!</b><br>I am a popup.").openPopup();
+circle.bindPopup("I am a circle.");
+polygon.bindPopup("I am a polygon.");
+```
+
+--------------------------------
+
+TITLE: Initialize Leaflet Map and Layers with GeoJSON
+DESCRIPTION: This JavaScript code initializes a Leaflet map, adds an OpenStreetMap tile layer, and then overlays multiple GeoJSON layers with custom styling and popup behavior. It demonstrates creating different types of markers and handling feature properties.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/geojson/example.md
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, TileLayer, Marker, Icon, GeoJSON, CircleMarker} from 'leaflet';
+
+const map = new Map('map').setView([39.74739, -105], 13);
+
+const tiles = new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		maxZoom: 19,
+		attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+	}).addTo(map);
+
+	const baseballIcon = new Icon({
+		iconUrl: 'baseball-marker.png',
+		iconSize: [32, 37],
+		iconAnchor: [16, 37],
+		popupAnchor: [0, -28]
+	});
+
+	function onEachFeature(feature, layer) {
+		let popupContent = `<p>I started out as a GeoJSON ${feature.geometry.type}, but now I'm a Leaflet vector!</p>`;
+
+		if (feature.properties && feature.properties.popupContent) {
+			popupContent += feature.properties.popupContent;
+		}
+
+		layer.bindPopup(popupContent);
+	}
+
+	/* global campus, bicycleRental, freeBus, coorsField */
+	const bicycleRentalLayer = new GeoJSON([bicycleRental, campus], {
+
+		style(feature) {
+			return feature.properties && feature.properties.style;
+		},
+
+		onEachFeature,
+
+		pointToLayer(feature, latlng) {
+			return new CircleMarker(latlng, {
+				radius: 8,
+				fillColor: '#ff7800',
+				color: '#000',
+				weight: 1,
+				opacity: 1,
+				fillOpacity: 0.8
+			});
+		}
+	}).addTo(map);
+
+	const freeBusLayer = new GeoJSON(freeBus, {
+
+		filter(feature, layer) {
+			if (feature.properties) {
+				// If the property "underConstruction" exists and is true, return false (don't render features under construction)
+				return feature.properties.underConstruction !== undefined ? !feature.properties.underConstruction : true;
+			}
+			return false;
+		},
+
+		onEachFeature
+	}).addTo(map);
+
+	const coorsLayer = new GeoJSON(coorsField, {
+
+		pointToLayer(feature, latlng) {
+			return new Marker(latlng, {icon: baseballIcon});
+		},
+
+		onEachFeature
+	}).addTo(map);
+
+	globalThis.L = L; // only for debugging in the developer console
+	globalThis.map = map; // only for debugging in the developer console
+
+```
+
+--------------------------------
+
+TITLE: Serve Leaflet documentation locally with Jekyll
+DESCRIPTION: Commands to serve the Leaflet documentation locally. This requires Ruby and its dependencies to be installed. Changes in the `docs/` directory are reflected upon page reload.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/CONTRIBUTING.md
+
+LANGUAGE: bash
+CODE:
+```
+git checkout main
+```
+
+LANGUAGE: bash
+CODE:
+```
+bundle install
+```
+
+LANGUAGE: bash
+CODE:
+```
+npm run serve
+```
+
+--------------------------------
+
+TITLE: Add Circle to Map
+DESCRIPTION: This code adds a circle to the Leaflet map with custom styling options such as color, fill color, and opacity. The radius is specified in meters.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+const circle = new Circle([51.508, -0.11], {
+		color: 'red',
+		fillColor: '#f03',
+		fillOpacity: 0.5,
+		radius: 500
+	}).addTo(map);
+```
+
+--------------------------------
+
+TITLE: Plugin API: Extending Leaflet Classes
+DESCRIPTION: Shows how to extend existing Leaflet classes with new functionality using the `include` method, a common pattern for Leaflet plugins.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/PLUGIN-GUIDE.md
+
+LANGUAGE: javascript
+CODE:
+```
+Marker.include({
+	myPlugin: function(options) {
+		// Plugin implementation
+	}
+});
+```
+
+--------------------------------
+
+TITLE: Leaflet Marker with Popup
+DESCRIPTION: Example of creating a marker on a map, binding a popup to it, and opening the popup. Demonstrates method chaining for concise code.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/_posts/2012-07-30-leaflet-0-4-released.md
+
+LANGUAGE: javascript
+CODE:
+```
+L.marker([51.5, -0.09])
+    	.addTo(map)
+    	.bindPopup('Hello world!')
+    	.openPopup();
+```
+
+--------------------------------
+
+TITLE: Initialize Leaflet Map and Add Overlays (JavaScript)
+DESCRIPTION: Initializes a Leaflet map centered on a specific location and zoom level, then adds various overlays including a TileLayer, a Marker, a Circle, and a Polygon. It also makes the Leaflet library and map object globally accessible for debugging.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/example-overlays.md
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, TileLayer, Marker, Circle, Polygon} from 'leaflet';
+
+const map = new Map('map').setView([51.505, -0.09], 13);
+
+const tiles = new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+	maxZoom: 19,
+	attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+const marker = new Marker([51.5, -0.09]).addTo(map);
+
+const circle = new Circle([51.508, -0.11], {
+	color: 'red',
+	fillColor: '#f03',
+	fillOpacity: 0.5,
+	radius: 500
+}).addTo(map);
+
+const polygon = new Polygon([
+	[51.509, -0.08],
+	[51.503, -0.06],
+	[51.51, -0.047]
+]).addTo(map);
+
+globalThis.L = L; // only for debugging in the developer console
+globalThis.map = map; // only for debugging in the developer console
+```
+
+--------------------------------
+
+TITLE: Set Map Container Height
+DESCRIPTION: This CSS code sets a specific height for the map container element (`#map`). It's crucial to define a height for the map to be visible.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: css
+CODE:
+```
+#map { height: 180px; }
+```
+
+--------------------------------
+
+TITLE: Install Dependencies with npm or yarn
+DESCRIPTION: Commands to install project dependencies using either npm or yarn, which are prerequisites for the Leaflet build system.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/CONTRIBUTING.md
+
+LANGUAGE: bash
+CODE:
+```
+npm install
+```
+
+LANGUAGE: bash
+CODE:
+```
+yarn install
+```
+
+--------------------------------
+
+TITLE: Mapbox Tile Layer Setup
+DESCRIPTION: This code snippet demonstrates how to set up a tile layer using Mapbox tiles. It defines constants for the access token, map attributes, and the Mapbox tile URL, which includes the map style ID and the access token.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/_layouts/v2.html
+
+LANGUAGE: javascript
+CODE:
+```
+ACCESS_TOKEN = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+MB_ATTR = 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
+					'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>';
+MB_URL = 'https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=' + ACCESS_TOKEN;
+```
+
+--------------------------------
+
+TITLE: Add Polygon to Map
+DESCRIPTION: This JavaScript code adds a polygon to the Leaflet map. It takes an array of geographical coordinates representing the polygon's vertices.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/quick-start/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+const polygon = new Polygon([
+		[51.509, -0.08],
+		[51.503, -0.06],
+		[51.51, -0.047]
+	]).addTo(map);
+```
+
+--------------------------------
+
+TITLE: Leaflet Polygon with Tooltips
+DESCRIPTION: Demonstrates creating Leaflet Polygons and binding different types of tooltips to them. Includes default, sticky, and permanent tooltips, as well as tooltips with specific directions.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/debug/map/tooltip.html
+
+LANGUAGE: javascript
+CODE:
+```
+import {Map, TileLayer, Polygon} from 'leaflet';
+
+// ... map initialization code ...
+
+new Polygon([
+  [41.21, 9.42],
+  [41.22, 9.40],
+  [41.23, 9.40]
+]).addTo(map).bindTooltip('Default centered polygon tooltip');
+
+new Polygon([
+  [41.20, 9.41],
+  [41.20, 9.39],
+  [41.21, 9.40]
+]).addTo(map).bindTooltip('Polygon tooltip following mouse', { sticky: true });
+
+new Polygon([
+  [41.18, 9.42],
+  [41.17, 9.40],
+  [41.19, 9.38]
+]).addTo(map).bindTooltip('Permanent polygon tooltip', { permanent: true });
+
+new Polygon([
+  [41.21, 9.36],
+  [41.24, 9.35],
+  [41.23, 9.34]
+]).addTo(map).bindTooltip('Top tooltip following mouse', { sticky: true, direction: 'top' });
+```
+
+--------------------------------
+
+TITLE: Leaflet Mobile Map Initialization and Location Handling (JavaScript)
+DESCRIPTION: Initializes a Leaflet map, sets up tile layers, and handles user location events. It uses the Leaflet library to display a map and mark the user's current location with accuracy. Dependencies include the Leaflet library.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/mobile/example.md
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, TileLayer, Marker, Circle} from 'leaflet';
+
+const map = new Map('map').fitWorld();
+
+const tiles = new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+	maxZoom: 19,
+attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+function onLocationFound(e) {
+	const radius = e.accuracy / 2;
+
+	const locationMarker = new Marker(e.latlng).addTo(map)
+		.bindPopup(`You are within ${radius} meters from this point`).openPopup();
+
+	const locationCircle = new Circle(e.latlng, radius).addTo(map);
+}
+
+function onLocationError(e) {
+	alert(e.message);
+}
+
+map.on('locationfound', onLocationFound);
+map.on('locationerror', onLocationError);
+
+map.locate({setView: true, maxZoom: 16});
+
+globalThis.L = L; // only for debugging in the developer console
+globalThis.map = map; // only for debugging in the developer console
+
+```
+
+--------------------------------
+
+TITLE: Leaflet Map with Custom Zoom Control (JavaScript)
+DESCRIPTION: Initializes a Leaflet map, adds a tile layer, and implements a custom control to display the current zoom level. The control updates its display during zoom start, zoom, and zoom end events. Dependencies include the Leaflet library.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/zoom-levels/example-setzoom.md
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, TileLayer, Control, DomUtil} from 'leaflet';
+
+const map = new Map('map', {
+	minZoom: 0,
+	maxZoom: 1
+});
+
+const cartodbAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attribution">CARTO</a>';
+
+const positron = new TileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+	attribution: cartodbAttribution
+}).addTo(map);
+
+setInterval(() => {
+
+	map.setZoom(0);
+
+	setTimeout(() => {
+		map.setZoom(1);
+	}, 2000);
+
+}, 4000);
+
+const ZoomViewer = Control.extend({
+	onAdd() {
+		const gauge = DomUtil.create('div');
+		gauge.style.width = '200px';
+		gauge.style.background = 'rgba(255,255,255,0.5)';
+		gauge.style.textAlign = 'left';
+		map.on('zoomstart zoom zoomend', (ev) => {
+			gauge.innerHTML = `Zoom level: ${map.getZoom()}`;
+		});
+		return gauge;
+	}
+});
+
+const zoomViewer = (new ZoomViewer()).addTo(map);
+
+map.setView([0, 0], 0);
+
+globalThis.L = L; // only for debugging in the developer console
+globalThis.map = map; // only for debugging in the developer console
+```
+
+--------------------------------
+
+TITLE: Implement Zoom to Feature Function
+DESCRIPTION: A JavaScript function that zooms the map to the bounds of a clicked feature (state), providing a focused view.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/choropleth/example.md
+
+LANGUAGE: javascript
+CODE:
+```
+	function zoomToFeature(e) {
+		map.fitBounds(e.target.getBounds());
+	}
+```
+
+--------------------------------
+
+TITLE: Initialize MarkerClusterGroup and add markers (JavaScript)
+DESCRIPTION: Demonstrates how to replace a standard LayerGroup with L.MarkerClusterGroup and add individual markers to it. This is the basic setup for using the plugin.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/_posts/2012-08-20-guest-post-markerclusterer-0-1-released.md
+
+LANGUAGE: javascript
+CODE:
+```
+var markers = new L.MarkerClusterGroup();
+
+markers.addLayer(L.marker([175.3107, -37.7784]));
+// add more markers here...
+
+map.addLayer(markers);
+```
+
+--------------------------------
+
+TITLE: Generate Leaflet API documentation
+DESCRIPTION: Generates API documentation (`.html` file in `dist/`) by processing special code comments in the source files. Requires development dependencies to be installed.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/CONTRIBUTING.md
+
+LANGUAGE: bash
+CODE:
+```
+npm install
+```
+
+LANGUAGE: bash
+CODE:
+```
+yarn install
+```
+
+LANGUAGE: bash
+CODE:
+```
+npm run docs
+```
+
+--------------------------------
+
+TITLE: Create SVG Element for Leaflet Overlay
+DESCRIPTION: Provides examples for creating an SVG element that can be used with Leaflet's L.SVGOverlay. It demonstrates creating an SVG element programmatically using `document.createElementNS` and also how to select an existing SVG element from HTML using `document.querySelector`.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/overlays/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+svgElement.setAttribute('viewBox', '0 0 200 200');
+svgElement.innerHTML = '<rect width="200" height="200"/><rect x="75" y="23" width="50" height="50" style="fill:red"/><rect x="75" y="123" width="50" height="50" style="fill:#0013ff"/>';
+```
+
+LANGUAGE: javascript
+CODE:
+```
+<svg id="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200"/><rect x="75" y="23" width="50" height="50" style="fill:red"/><rect x="75" y="123" width="50" height="50" style="fill:#0013ff"/></svg>
+```
+
+LANGUAGE: javascript
+CODE:
+```
+const svgElement = document.querySelector('#svg');
+```
+
+--------------------------------
+
+TITLE: Install Leaflet with npm
+DESCRIPTION: Installs the Leaflet library using the npm package manager. Leaflet files are then available in the 'node_modules/leaflet/dist' directory. This method is suitable for projects already using npm.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/download.md
+
+LANGUAGE: bash
+CODE:
+```
+npm install leaflet
+```
+
+LANGUAGE: javascript
+CODE:
+```
+import {Map, TileLayer} from 'leaflet';
+
+const map = new Map('map').setView([51.505, -0.09], 13);
+
+new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+	maxZoom: 19,
+attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+```
+
+--------------------------------
+
+TITLE: Leaflet.draw Control Setup and Event Handling
+DESCRIPTION: This JavaScript code demonstrates how to initialize Leaflet.draw controls, manage editable layers using a FeatureGroup, and handle drawing creation events, including binding popups to created markers.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/_posts/2013-02-20-guest-post-draw.md
+
+LANGUAGE: javascript
+CODE:
+```
+var drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+
+var drawControl = new L.Control.Draw({
+	edit: {
+		featureGroup: drawnItems
+	}
+});
+map.addControl(drawControl);
+
+map.on('draw:created', function (e) {
+	var layer = e.layer;
+
+	if (e.layerType === 'marker') {
+		layer.bindPopup('A popup!');
+	}
+
+	drawnItems.addLayer(layer);
+});
+```
+
+--------------------------------
+
+TITLE: Leaflet Map Setup and Popup with Marker
+DESCRIPTION: Initializes a Leaflet map with an OpenStreetMap tile layer and adds a marker with a bound popup. The popup is automatically opened upon creation. Requires Leaflet library.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/debug/map/map-popup.html
+
+LANGUAGE: javascript
+CODE:
+```
+import {TileLayer, Map, Marker, Circle, Polygon, Popup} from 'leaflet';
+const osmUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const osmAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const osm = new TileLayer(osmUrl, {maxZoom: 18, attribution: osmAttrib});
+const map = new Map('map')
+  .setView([51.505, -0.09], 13)
+  .addLayer(osm);
+new Marker([51.5, -0.09])
+  .addTo(map)
+  .bindPopup('<b>Hello world!</b><br />I am a popup.').openPopup();
+```
+
+--------------------------------
+
+TITLE: Initialize Leaflet Map with Tile Layers and Markers
+DESCRIPTION: Initializes a Leaflet map with a 'Positron' tile layer and a custom 'GridLayer'. It adds several markers to different locations and an image overlay. The map is initially set to the 'dc' coordinates.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/debug/map/tile.html
+
+LANGUAGE: javascript
+CODE:
+```
+import {Map, TileLayer, GridLayer, Point, DomUtil, Marker, ImageOverlay} from 'leaflet'; const kyiv = [50.5, 30.5]; const lnd = [51.51, -0.12]; const sf = [37.77, -122.42]; const dc = [38.91, -77.04]; const trd = [63.41, 10.41]; const madBounds = [[40.70, -4.19], [40.12, -3.31]]; const mad = [40.40, -3.7]; const map = new Map('map', { fadeAnimation: false }).setView(dc, 16); const gridCounts = {}; const positronCounts = {}; const gridLoadData = {}; resetCounter(); const positron = new TileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'); const grid = new GridLayer({ attribution: 'Grid Layer', tileSize: new Point(256, 256) }); grid.createTile = (coords) => { const tile = DomUtil.create('div', 'grid'); const indexStr = [coords.x, coords.y, coords.z].join(', '); if (!(indexStr in gridLoadData)) { gridLoadData[indexStr] = 0; } tile.innerHTML = ++gridLoadData[indexStr]; // more tile loadings -> more red grid tile tile.style.backgroundColor = `rgba(255,0,0,${(gridLoadData[indexStr] - 1) / 5})`; return tile; }; grid.on('tileload tileunload tileerror tileloadstart load', (ev) => { document.getElementById(`grid-${ev.type}`).innerHTML = ++gridCounts[ev.type]; document.getElementById('grid-visible').innerHTML = grid._container.querySelectorAll('.leaflet-tile').length; }); positron.on('tileload tileunload tileerror tileloadstart load', (ev) => { document.getElementById(`positron-${ev.type}`).innerHTML = ++positronCounts[ev.type]; document.getElementById('positron-visible').innerHTML = positron._container.querySelectorAll('.leaflet-tile').length; }); map.addLayer(positron); map.addLayer(grid); new Marker(kyiv).addTo(map); new Marker(lnd).addTo(map); new Marker(dc).addTo(map); new Marker(sf).addTo(map); new Marker(trd).addTo(map); new Marker(mad).addTo(map); new ImageOverlay('https://placekitten.com/300/400?image=6', [[-0.2, -0.15], [0.2, 0.15]]).addTo(map);
+```
+
+--------------------------------
+
+TITLE: OpenStreetMap Tile Layer Setup
+DESCRIPTION: This code snippet shows how to configure a tile layer using OpenStreetMap tiles. It defines constants for the OpenStreetMap tile URL and its associated attribution, which acknowledges OpenStreetMap contributors.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/_layouts/v2.html
+
+LANGUAGE: javascript
+CODE:
+```
+OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+OSM_ATTRIB = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+```
+
+--------------------------------
+
+TITLE: Leaflet DivIcon with Tooltip
+DESCRIPTION: Demonstrates using a custom DivIcon for a Leaflet Marker and attaching a tooltip to it, including options for sticky behavior and custom offset positioning.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/debug/map/tooltip.html
+
+LANGUAGE: javascript
+CODE:
+```
+import {Map, TileLayer, DivIcon, Marker} from 'leaflet';
+
+// ... map initialization code ...
+
+const icon = new DivIcon({
+  className: 'my-div-icon',
+  html: '<p>A div icon</p>',
+  iconSize: [50, 50]
+});
+
+new Marker([41.22, 9.48], { icon }).addTo(map).bindTooltip('A div icon tooltip following mouse', { sticky: true, direction: 'auto' });
+
+new Marker([41.23, 9.47], { icon }).addTo(map).bindTooltip('A div icon tooltip with custom offset', { direction: 'top', offset: [-25, -25] });
+```
+
+--------------------------------
+
+TITLE: Leaflet Polyline Tooltip
+DESCRIPTION: Shows how to add a permanent tooltip to a Leaflet Polyline, demonstrating tooltip placement along the line.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/debug/map/tooltip.html
+
+LANGUAGE: javascript
+CODE:
+```
+import {Map, TileLayer, Polyline} from 'leaflet';
+
+// ... map initialization code ...
+
+new Polyline([
+  [41.20, 9.36],
+  [41.205, 9.35],
+  [41.19, 9.34]
+]).bindTooltip('Polyline tooltip', { permanent: true, direction: 'top' }).addTo(map);
+```
+
+--------------------------------
+
+TITLE: Plugin API: Function Arguments (Good vs. Bad)
+DESCRIPTION: Contrasts a less maintainable function signature with many arguments against a preferred approach using an options object for better readability and flexibility.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/PLUGIN-GUIDE.md
+
+LANGUAGE: javascript
+CODE:
+```
+// bad
+marker.myPlugin('bla', 'foo', null, {}, 5, 0);
+
+// good
+marker.myPlugin('bla', {
+	optionOne: 'foo',
+	optionThree: 5
+});
+```
+
+--------------------------------
+
+TITLE: Define Feature Interaction Logic
+DESCRIPTION: The `onEachFeature` function binds event listeners (pointerover, pointerout, click) to each GeoJSON layer, enabling highlighting, resetting styles, and zooming.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/choropleth/example.md
+
+LANGUAGE: javascript
+CODE:
+```
+	function onEachFeature(feature, layer) {
+		layer.on({
+			pointerover: highlightFeature,
+			pointerout: resetHighlight,
+			click: zoomToFeature
+		});
+	}
+```
+
+--------------------------------
+
+TITLE: Initialize Leaflet Map with CRS.Simple and Add Image Overlay
+DESCRIPTION: Initializes a Leaflet map using CRS.Simple, which allows for custom coordinate systems. It then adds an ImageOverlay to the map with specified bounds, suitable for non-geographic tile sets or custom images.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/crs-simple/crs-simple-example3.md
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, CRS, ImageOverlay, LatLng, Marker, Polyline} from 'leaflet';
+
+const map = new Map('map', {
+		crs: CRS.Simple,
+		minZoom: -3
+	});
+
+	const Yx = LatLng;
+
+	function xy(x, y) {
+		if (Array.isArray(x)) { // When doing xy([x, y]);
+			return new Yx(x[1], x[0]);
+		}
+		return new Yx(y, x); // When doing xy(x, y);
+	}
+
+	const bounds = [xy(-25, -26.5), xy(1023, 1021.5)];
+	const image = new ImageOverlay('uqm_map_full.png', bounds).addTo(map);
+```
+
+--------------------------------
+
+TITLE: Create Interactive Info Control
+DESCRIPTION: Implements a custom Leaflet control to display information about US states when hovered over. It dynamically updates its content based on feature properties.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/choropleth/example.md
+
+LANGUAGE: javascript
+CODE:
+```
+	// control that shows state info on hover
+	const info = new Control();
+
+	info.onAdd = function (map) {
+		this._div = DomUtil.create('div', 'info');
+		this.update();
+		return this._div;
+	};
+
+	info.update = function (props) {
+		const contents = props ? `<b>${props.name}</b><br />${props.density} people / mi<sup>2</sup>` : 'Hover over a state';
+		this._div.innerHTML = `<h4>US Population Density</h4>${contents}`;
+	};
+
+	info.addTo(map);
+```
+
+--------------------------------
+
+TITLE: Creating New Leaflet Classes
+DESCRIPTION: Shows how to create new classes within the Leaflet namespace (`L`). This includes creating top-level classes like `L.MyPlugin` and inheriting from existing Leaflet classes, such as `L.TileLayer.Banana`.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/_posts/2013-06-28-leaflet-plugin-authoring-guide.md
+
+LANGUAGE: javascript
+CODE:
+```
+L.MyPlugin = L.Class.extend({
+	// MyPlugin properties and methods
+});
+
+L.TileLayer.Banana = L.TileLayer.extend({
+	// Banana TileLayer properties and methods
+});
+```
+
+--------------------------------
+
+TITLE: Asynchronous Tile Initialization with GridLayer
+DESCRIPTION: Demonstrates how to handle asynchronous initialization of tiles within a GridLayer. The `done` callback is used to signal when the tile is ready or if an error occurred, with an example of artificial delay using setTimeout.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/extending-2-layers/index.md
+
+LANGUAGE: javascript
+CODE:
+```
+createTile(coords, done) {
+		const tile = document.createElement('div');
+		tile.innerHTML = [coords.x, coords.y, coords.z].join(', ');
+		tile.style.outline = '1px solid red';
+
+        // Syntax is 'done(error, tile)'
+		setTimeout(() => done(null, tile), 500 + Math.random() * 1500);
+
+		return tile;
+	}
+```
+
+--------------------------------
+
+TITLE: Leaflet Map with Layer Control (JavaScript)
+DESCRIPTION: This snippet initializes a Leaflet map, adds multiple TileLayers and LayerGroups with Markers, and configures a Layer Control to manage them. It requires the Leaflet library. The output is an interactive map with layer switching capabilities.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/layers-control/example.md
+
+LANGUAGE: javascript
+CODE:
+```
+import L, {Map, TileLayer, Marker, LayerGroup, Control} from 'leaflet';
+	const cities = new LayerGroup();
+	const mLittleton = new Marker([39.61, -105.02]).bindPopup('This is Littleton, CO.').addTo(cities);
+	const mDenver = new Marker([39.74, -104.99]).bindPopup('This is Denver, CO.').addTo(cities);
+	const mAurora = new Marker([39.73, -104.8]).bindPopup('This is Aurora, CO.').addTo(cities);
+	const mGolden = new Marker([39.77, -105.23]).bindPopup('This is Golden, CO.').addTo(cities);
+	const osm = new TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		maxZoom: 19,
+		attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+	});
+
+	const osmHOT = new TileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+		maxZoom: 19,
+		attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a> hosted by <a href="https://openstreetmap.fr/" target="_blank">OpenStreetMap France</a>'
+	});
+
+	const map = new Map('map', {
+		center: [39.73, -104.99],
+		zoom: 10,
+		layers: [osm, cities]
+	});
+
+	const baseLayers = {
+		'OpenStreetMap': osm,
+		'OpenStreetMap.HOT': osmHOT
+	};
+
+	overlays = {
+		'Cities': cities
+	};
+
+	const layerControl = new Control.Layers(baseLayers, overlays).addTo(map);
+
+	const crownHill = new Marker([39.75, -105.09]).bindPopup('This is Crown Hill Park.');
+	const rubyHill = new Marker([39.68, -105.00]).bindPopup('This is Ruby Hill Park.');
+
+	const parks = new LayerGroup([crownHill, rubyHill]);
+
+	const openTopoMap = new TileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+		maxZoom: 19,
+		attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+	});
+	layerControl.addBaseLayer(openTopoMap, 'OpenTopoMap');
+	layerControl.addOverlay(parks, 'Parks');
+
+	globalThis.L = L; // only for debugging in the developer console
+	globalThis.map = map; // only for debugging in the developer console
+
+```
+
+--------------------------------
+
+TITLE: Leaflet 2.0 New Implementation (Global Script)
+DESCRIPTION: Illustrates how to use Leaflet 2.0 with a global script file, maintaining backward compatibility by providing the global `L` object. Map initialization and tile layer setup are shown.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/_posts/2025-05-18-leaflet-2.0.0-alpha.md
+
+LANGUAGE: html
+CODE:
+```
+<script src="https://unpkg.com/leaflet@2.0.0-alpha.1/dist/leaflet-global.js"></script>
+<script>
+	const map = new L.Map('map').setView([51.505, -0.09], 13);
+
+	const tiles = new L.TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		maxZoom: 19,
+		attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+	}).addTo(map);
+</script>
+```
+
+--------------------------------
+
+TITLE: Implement Feature Highlight and Reset
+DESCRIPTION: JavaScript functions to handle mouse events on GeoJSON layers. `highlightFeature` enhances the appearance of a state on hover and updates the info control, while `resetHighlight` reverts the style.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/examples/choropleth/example.md
+
+LANGUAGE: javascript
+CODE:
+```
+	function highlightFeature(e) {
+		const layer = e.target;
+
+		layer.setStyle({
+			weight: 5,
+			color: '#666',
+			dashArray: '',
+			fillOpacity: 0.7
+		});
+
+		layer.bringToFront();
+
+		info.update(layer.feature.properties);
+	}
+
+
+
+	function resetHighlight(e) {
+		geojson.resetStyle(e.target);
+		info.update();
+	}
+```
+
+--------------------------------
+
+TITLE: Leaflet DivIcon Marker Creation
+DESCRIPTION: Demonstrates how to create a marker using a DivIcon, allowing for custom HTML content and CSS styling. Shows a practical example of using DivIcon with a custom class name.
+
+SOURCE: https://github.com/leaflet/leaflet/blob/main/docs/_posts/2012-07-30-leaflet-0-4-released.md
+
+LANGUAGE: javascript
+CODE:
+```
+L.marker([50.505, 30.57], {
+		icon: L.divIcon({className: 'my-div-icon'})
+	}).addTo(map);
+```
