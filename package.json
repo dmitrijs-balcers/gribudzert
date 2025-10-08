@@ -8,13 +8,20 @@
     "leaflet": "^1.9.4"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
     "@types/leaflet": "^1.9.20",
+    "@vitest/ui": "^2.1.8",
+    "happy-dom": "^15.11.7",
     "typescript": "^5.9.2",
-    "vite": "^7.1.4"
+    "vite": "^7.1.4",
+    "vitest": "^2.1.8"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preinstall": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
   }
 }
