@@ -27,5 +27,9 @@
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "format": "biome format --write ."
-  }
+  },
+	"engines": {
+		"node": ">=24",
+		"yarn": ">=1.22"
+	}
 }
