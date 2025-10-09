@@ -29,7 +29,7 @@
     "format": "biome format --write ."
   },
 	"engines": {
-		"node": ">=21",
+		"node": ">=24",
 		"yarn": ">=1.22"
 	}
 }
