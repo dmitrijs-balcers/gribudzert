@@ -15,7 +15,7 @@ RUN if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN yarn build
 
 # Production stage
 FROM nginx:alpine
@@ -31,4 +31,3 @@ EXPOSE 80
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
-
