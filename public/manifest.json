@@ -1,0 +1,10 @@
+{
+  "name": "Gribudzert - Riga Map",
+  "short_name": "Gribudzert",
+  "description": "Interactive map of Riga using Leaflet and OpenStreetMap",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f7",
+  "theme_color": "#0078ff",
+  "icons": []
+}
