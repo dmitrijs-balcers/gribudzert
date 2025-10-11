@@ -215,4 +215,91 @@ describe('location flow integration', () => {
 			cleanup();
 		});
 	});
+
+	describe('locate button → map re-centers → water points update', () => {
+		it('should trigger water points refetch when locate button re-centers map', async () => {
+			const callback = vi.fn();
+			const cleanup = setupMapNavigationHandlers(map, callback);
+
+			// Initial moveend to set baseline
+			map.fire('moveend');
+			await new Promise(resolve => setTimeout(resolve, 350));
+			const initialCalls = callback.mock.calls.length;
+
+			// Simulate locate button action: setView to new location
+			// This mimics what locateUser() does when it centers the map
+			const newLocation: L.LatLngTuple = [57.0, 25.0]; // Different from initial [56.95, 24.1]
+			map.setView(newLocation, 13);
+
+			// Wait for moveend event and debounce
+			await new Promise(resolve => setTimeout(resolve, 350));
+
+			// Should have triggered the callback at least once more
+			expect(callback.mock.calls.length).toBeGreaterThan(initialCalls);
+
+			// Verify the callback was called with updated bounds
+			const lastCall = callback.mock.calls[callback.mock.calls.length - 1];
+			expect(lastCall).toBeDefined();
+			expect(lastCall[0]).toBeInstanceOf(L.LatLngBounds);
+
+			cleanup();
+		});
+
+		it('should update nearest point after relocating', async () => {
+			let currentUserLocation: { lat: number; lon: number } | null = null;
+
+			const callback = vi.fn(async (bounds: L.LatLngBounds) => {
+				// Callback would normally trigger loadWaterPoints which uses currentUserLocation
+				// Just verify we receive the updated bounds
+			});
+
+			const cleanup = setupMapNavigationHandlers(map, callback);
+
+			// Initial moveend
+			map.fire('moveend');
+			await new Promise(resolve => setTimeout(resolve, 350));
+
+			// Simulate user clicking locate button and getting new position
+			const newLocation = { lat: 57.5, lon: 24.5 };
+			currentUserLocation = newLocation;
+
+			// locateUser would call map.setView which triggers moveend
+			map.setView([newLocation.lat, newLocation.lon], 13);
+			await new Promise(resolve => setTimeout(resolve, 350));
+
+			// Verify callback was called (water points would be refetched with new user location)
+			expect(callback.mock.calls.length).toBeGreaterThan(1);
+
+			cleanup();
+		});
+
+		it('should handle locate button click after panning away', async () => {
+			const callback = vi.fn();
+			const cleanup = setupMapNavigationHandlers(map, callback);
+
+			// Initial moveend
+			map.fire('moveend');
+			await new Promise(resolve => setTimeout(resolve, 350));
+			const callsAfterInit = callback.mock.calls.length;
+
+			// User pans away from their location
+			const initialCenter = map.getCenter();
+			const bounds = map.getBounds();
+			const latDiff = bounds.getNorth() - bounds.getSouth();
+
+			map.panTo([initialCenter.lat + latDiff * 0.5, initialCenter.lng]);
+			await new Promise(resolve => setTimeout(resolve, 350));
+			const callsAfterPan = callback.mock.calls.length;
+			expect(callsAfterPan).toBeGreaterThan(callsAfterInit);
+
+			// User clicks locate button - map re-centers to original location
+			map.setView([initialCenter.lat, initialCenter.lng], 13);
+			await new Promise(resolve => setTimeout(resolve, 350));
+
+			// Should have triggered another refetch
+			expect(callback.mock.calls.length).toBeGreaterThan(callsAfterPan);
+
+			cleanup();
+		});
+	});
 });

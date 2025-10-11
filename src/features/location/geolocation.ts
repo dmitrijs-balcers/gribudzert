@@ -119,8 +119,12 @@ export function detectInitialLocation(): Promise<Result<GeolocationPosition, Loc
 /**
  * Locate user on map and show their position
  * @param map - Leaflet map instance
+ * @param onLocationUpdate - Optional callback called with new location after map is centered
  */
-export function locateUser(map: L.Map): void {
+export function locateUser(
+	map: L.Map,
+	onLocationUpdate?: (lat: number, lon: number) => void | Promise<void>
+): void {
 	// Check availability
 	const availabilityError = checkGeolocationAvailability();
 	if (availabilityError) {
@@ -157,6 +161,11 @@ export function locateUser(map: L.Map): void {
 
 			// Success notification
 			showNotification('Location found! Centered on your position.', 'success', 3000);
+
+			// Call the callback if provided to trigger water points refetch and nearest point recalculation
+			if (onLocationUpdate) {
+				onLocationUpdate(lat, lon);
+			}
 		},
 		(error) => {
 			hideLoading();

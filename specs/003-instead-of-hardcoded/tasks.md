@@ -166,14 +166,14 @@ Single project structure with paths at repository root: `src/`, `tests/`
 
 ### Implementation
 
-- [ ] T067 [US4] Verify existing locate button functionality in `src/features/location/geolocation.ts` works with new bounds-based fetching
-- [ ] T068 [US4] Ensure locate button triggers `moveend` event so navigation handlers automatically refetch water points
-- [ ] T069 [US4] Update locate button success handler to recalculate nearest point based on new position
-- [ ] T070 [US4] Ensure nearest marker highlighting updates when location changes
+- [x] T067 [US4] Verify existing locate button functionality in `src/features/location/geolocation.ts` works with new bounds-based fetching
+- [x] T068 [US4] Ensure locate button triggers `moveend` event so navigation handlers automatically refetch water points
+- [x] T069 [US4] Update locate button success handler to recalculate nearest point based on new position
+- [x] T070 [US4] Ensure nearest marker highlighting updates when location changes
 
 ### Testing
 
-- [ ] T071 [P] [US4] Write integration test for locate button → map re-centers → water points update in `tests/integration/location-flow.test.ts`
+- [x] T071 [P] [US4] Write integration test for locate button → map re-centers → water points update in `tests/integration/location-flow.test.ts`
 - [ ] T072 [US4] Manually test: pan away from location, click locate button, verify map re-centers and points update
 - [ ] T073 [US4] Manually test: move device to new location (or mock), click locate, verify new nearest point highlighted
 

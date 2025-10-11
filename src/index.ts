@@ -69,8 +69,13 @@ async function initializeApp(): Promise<void> {
 		// Add layer control
 		L.control.layers(undefined, { 'Water taps': pointsLayer }, { collapsed: false }).addTo(map);
 
-		// Setup locate control
-		setupLocateControl(map);
+		// Setup locate control with callback to update user location and refetch water points
+		setupLocateControl(map, pointsLayer, (lat: number, lon: number) => {
+			// Update user location reference
+			userLocation = { lat, lon };
+			// The map.setView in locateUser will trigger moveend event,
+			// which will automatically refetch water points via navigation handlers
+		});
 
 		// Setup map navigation handlers for dynamic refetching
 		setupMapNavigationHandlers(map, async (bounds: L.LatLngBounds) => {
@@ -187,7 +192,11 @@ async function loadWaterPoints(
 /**
  * Setup the locate control button
  */
-function setupLocateControl(map: L.Map): void {
+function setupLocateControl(
+	map: L.Map,
+	pointsLayer: L.FeatureGroup<L.CircleMarker>,
+	onLocationUpdate: (lat: number, lon: number) => void
+): void {
 	const LocateControl = L.Control.extend({
 		onAdd: () => {
 			const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control locate-control');
@@ -203,7 +212,7 @@ function setupLocateControl(map: L.Map): void {
 			const handleClick = (e: Event) => {
 				e.preventDefault();
 				e.stopPropagation();
-				locateUser(map);
+				locateUser(map, onLocationUpdate);
 			};
 
 			L.DomEvent.on(link, 'click', handleClick);
@@ -212,7 +221,7 @@ function setupLocateControl(map: L.Map): void {
 			link.addEventListener('keydown', (e: KeyboardEvent) => {
 				if (e.key === 'Enter' || e.key === ' ') {
 					e.preventDefault();
-					locateUser(map);
+					locateUser(map, onLocationUpdate);
 				}
 			});
 
