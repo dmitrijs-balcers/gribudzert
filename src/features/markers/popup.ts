@@ -17,6 +17,21 @@ export function createPopupContent(element: Element): string {
 	// Title
 	parts.push(`<strong>water_tap (id: ${element.id})</strong>`);
 
+	// Distance (if available)
+	if (element.distanceFromUser !== undefined) {
+		const distanceKm = element.distanceFromUser / 1000;
+		const distanceStr =
+			distanceKm < 1
+				? `${Math.round(element.distanceFromUser)}m`
+				: `${distanceKm.toFixed(2)}km`;
+		parts.push(`<div><strong>Distance: ${distanceStr}</strong></div>`);
+	}
+
+	// Nearest marker indicator
+	if (element.isNearest) {
+		parts.push(`<div style="color: #FFD700;">⭐ Nearest water point</div>`);
+	}
+
 	// Tags
 	if (element.tags.operator) {
 		parts.push(`<div>Operator: ${escapeHtml(element.tags.operator)}</div>`);

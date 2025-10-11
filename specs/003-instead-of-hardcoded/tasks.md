@@ -67,21 +67,21 @@ Single project structure with paths at repository root: `src/`, `tests/`
 
 ### Implementation
 
-- [ ] T016 [US1] Add `detectInitialLocation()` function to `src/features/location/geolocation.ts` returning `Promise<Result<GeolocationPosition, LocationError>>`
-- [ ] T017 [US1] Implement location detection logic with 10s timeout, high accuracy, and error mapping in `detectInitialLocation()`
-- [ ] T018 [US1] Add `mapGeolocationError()` helper in `geolocation.ts` to convert GeolocationPositionError codes to LocationError union
-- [ ] T019 [US1] Modify `src/core/map.ts` to accept dynamic `center: L.LatLngTuple` parameter instead of hardcoded Riga coordinates
-- [ ] T020 [US1] Update `src/index.ts` initialization flow: call `detectInitialLocation()` before map creation
-- [ ] T021 [US1] Add loading indicator in `src/index.ts` with `showLoading(200)` during location detection
-- [ ] T022 [US1] Handle granted state in `src/index.ts`: extract coords, pass to map initialization, hide loading
-- [ ] T023 [US1] Add `fetchWaterPointsInBounds()` function to `src/features/data/fetch.ts` accepting `L.LatLngBounds` parameter
-- [ ] T024 [US1] Modify Overpass query in `src/oql/drinking_water.overpassql` to use `[bbox]` placeholder
-- [ ] T025 [US1] Implement bbox injection in `fetchWaterPointsInBounds()`: convert Leaflet bounds to Overpass format (south,west,north,east)
-- [ ] T026 [US1] Update `src/index.ts` to call `fetchWaterPointsInBounds(query, map.getBounds())` after map initialization
-- [ ] T027 [US1] Add nearest point calculation in `src/index.ts`: call `findNearestWaterPoint()` if user location available
-- [ ] T028 [US1] Update `addMarkers()` in `src/features/markers/markers.ts` to accept optional `nearestPoint: Element | null` parameter
-- [ ] T029 [US1] Apply special styling to nearest marker in `markers.ts` (different color/radius/pulsing effect)
-- [ ] T030 [US1] Update popup content in `src/features/markers/popup.ts` to show distance when available (e.g., "150m away")
+- [x] T016 [US1] Add `detectInitialLocation()` function to `src/features/location/geolocation.ts` returning `Promise<Result<GeolocationPosition, LocationError>>`
+- [x] T017 [US1] Implement location detection logic with 10s timeout, high accuracy, and error mapping in `detectInitialLocation()`
+- [x] T018 [US1] Add `mapGeolocationError()` helper in `geolocation.ts` to convert GeolocationPositionError codes to LocationError union
+- [x] T019 [US1] Modify `src/core/map.ts` to accept dynamic `center: L.LatLngTuple` parameter instead of hardcoded Riga coordinates
+- [x] T020 [US1] Update `src/index.ts` initialization flow: call `detectInitialLocation()` before map creation
+- [x] T021 [US1] Add loading indicator in `src/index.ts` with `showLoading(200)` during location detection
+- [x] T022 [US1] Handle granted state in `src/index.ts`: extract coords, pass to map initialization, hide loading
+- [x] T023 [US1] Add `fetchWaterPointsInBounds()` function to `src/features/data/fetch.ts` accepting `L.LatLngBounds` parameter
+- [x] T024 [US1] Modify Overpass query in `src/oql/drinking_water.overpassql` to use `[bbox]` placeholder
+- [x] T025 [US1] Implement bbox injection in `fetchWaterPointsInBounds()`: convert Leaflet bounds to Overpass format (south,west,north,east)
+- [x] T026 [US1] Update `src/index.ts` to call `fetchWaterPointsInBounds(query, map.getBounds())` after map initialization
+- [x] T027 [US1] Add nearest point calculation in `src/index.ts`: call `findNearestWaterPoint()` if user location available
+- [x] T028 [US1] Update `addMarkers()` in `src/features/markers/markers.ts` to accept optional `nearestPoint: Element | null` parameter
+- [x] T029 [US1] Apply special styling to nearest marker in `markers.ts` (different color/radius/pulsing effect)
+- [x] T030 [US1] Update popup content in `src/features/markers/popup.ts` to show distance when available (e.g., "150m away")
 
 ### Testing
 
@@ -106,11 +106,11 @@ Single project structure with paths at repository root: `src/`, `tests/`
 
 ### Implementation
 
-- [ ] T039 [US2] Add fallback logic in `src/index.ts` for denied/timeout location states: use RIGA_CENTER constant
-- [ ] T040 [US2] Add user notification in `src/index.ts` when falling back: `showNotification('Could not detect your location. Showing Riga area.', 'info', 5000)`
-- [ ] T041 [US2] Log fallback reason using logger in `src/index.ts`: `logger.warn(\`Location detection failed: \${result.error.message}\`)`
-- [ ] T042 [US2] Ensure water points fetch still works with fallback location (already handled by bounds-based fetching)
-- [ ] T043 [US2] Ensure nearest point calculation is skipped when user location unavailable (null check in `src/index.ts`)
+- [x] T039 [US2] Add fallback logic in `src/index.ts` for denied/timeout location states: use RIGA_CENTER constant
+- [x] T040 [US2] Add user notification in `src/index.ts` when falling back: `showNotification('Could not detect your location. Showing Riga area.', 'info', 5000)`
+- [x] T041 [US2] Log fallback reason using logger in `src/index.ts`: `logger.warn(\`Location detection failed: \${result.error.message}\`)`
+- [x] T042 [US2] Ensure water points fetch still works with fallback location (already handled by bounds-based fetching)
+- [x] T043 [US2] Ensure nearest point calculation is skipped when user location unavailable (null check in `src/index.ts`)
 
 ### Testing
 

@@ -39,7 +39,7 @@ function isSeasonalMarker(element: Element): boolean {
 /**
  * Create a circle marker for a water tap element
  */
-function createMarker(element: Element): L.CircleMarker | null {
+function createMarker(element: Element, isNearest = false): L.CircleMarker | null {
 	// Validate coordinates
 	if (!Number.isFinite(element.lat) || !Number.isFinite(element.lon)) {
 		return null;
@@ -50,11 +50,12 @@ function createMarker(element: Element): L.CircleMarker | null {
 	const seasonal = isSeasonalMarker(element);
 
 	const marker = L.circleMarker([element.lat, element.lon], {
-		radius,
-		color: MARKER_STYLE.color,
-		weight: MARKER_STYLE.weight,
-		fillColor: color,
+		radius: isNearest ? radius + 3 : radius,
+		color: isNearest ? '#FFD700' : MARKER_STYLE.color,
+		weight: isNearest ? 3 : MARKER_STYLE.weight,
+		fillColor: isNearest ? '#FFD700' : color,
 		fillOpacity: seasonal ? MARKER_STYLE.fillOpacity.seasonal : MARKER_STYLE.fillOpacity.normal,
+		className: isNearest ? 'nearest-marker' : '',
 	});
 
 	return marker;
@@ -65,14 +66,17 @@ function createMarker(element: Element): L.CircleMarker | null {
  * @param elements - Array of water tap elements
  * @param layer - Leaflet layer to add markers to
  * @param map - Leaflet map instance (for popup handlers)
+ * @param nearestPoint - Optional nearest water point to highlight
  */
 export function addMarkers(
 	elements: Element[],
 	layer: L.FeatureGroup<L.CircleMarker>,
-	_map: L.Map
+	_map: L.Map,
+	nearestPoint: Element | null = null
 ): void {
 	elements.forEach((element) => {
-		const marker = createMarker(element);
+		const isNearest = nearestPoint !== null && element.id === nearestPoint.id;
+		const marker = createMarker(element, isNearest);
 		if (!marker) return;
 
 		// Add marker to layer
