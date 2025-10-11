@@ -80,6 +80,22 @@ Updated test suite to expect new user-friendly labels:
 - Updated aria-label expectations to include water source type
 - All 239 tests passing ✅
 
+### 7. Non-Drinkable Water Indicators (`src/features/markers/markers.ts`, `src/features/markers/popup.ts`)
+
+Added visual distinction for non-drinkable water sources:
+- **Crossed-out circle marker** (⊗) for water tagged with `drinking_water=no`
+- **Deep orange color** (#FF5722) to indicate warning
+- **Warning banner in popup** with "⚠️ Not Drinkable" message
+- Uses SVG icon with diagonal cross lines over circular marker
+- Ensures users don't mistake non-drinkable water for safe drinking water
+
+Example non-drinkable water display:
+```
+⊗ Natural Spring (orange, crossed-out)
+⚠️ Not Drinkable
+This water source is not safe for drinking.
+```
+
 ## Benefits
 
 1. **More Water Sources**: Users can now find 5x more types of drinking water locations
@@ -87,6 +103,7 @@ Updated test suite to expect new user-friendly labels:
 3. **Improved UX**: User-friendly labels instead of technical OSM tags
 4. **Accessibility**: Icons and color-coded text improve visual comprehension
 5. **Maintained Quality**: All existing tests updated and passing
+6. **Safety**: Clear visual warnings prevent users from drinking unsafe water sources
 
 ## Testing
 
@@ -94,6 +111,7 @@ Updated test suite to expect new user-friendly labels:
 ✅ All 239 tests passing  
 ✅ No linter warnings  
 ✅ TypeScript compilation successful
+✅ Production build successful (609ms)
 
 ### Manual Testing Checklist
 
@@ -109,20 +127,5 @@ To verify the enhancement works correctly:
 - [ ] Verify the nearest marker still highlights in gold
 - [ ] Verify distance calculations still work correctly
 - [ ] Verify pan/zoom triggers refetch of all water source types
-
-## Future Enhancements
-
-Potential improvements for future iterations:
-
-1. **Legend**: Add a map legend showing what each color represents
-2. **Filtering**: Allow users to filter by water source type
-3. **Preferences**: Let users enable/disable specific water source types
-4. **Statistics**: Show count of each water source type in current view
-5. **Photos**: Integrate photos from OpenStreetMap for water sources
-
-## Technical Notes
-
-- The color coding function uses a priority system: source type first, then falls back to the `colour` tag, then default
-- The query timeout is set to 25 seconds to handle larger result sets
-- Relations are included in addition to nodes to capture complex water features
-- All color codes use Material Design color palette for consistency
+- [ ] Verify non-drinkable water sources show crossed-out markers and warning popups
+- [ ] Verify performance remains smooth with increased data量

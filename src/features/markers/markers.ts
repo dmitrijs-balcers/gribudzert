@@ -8,10 +8,32 @@ import { COLOUR_MAP, MARKER_RADIUS, MARKER_STYLE } from '../../core/config';
 import { createPopupContent, attachPopupHandlers } from './popup';
 
 /**
+ * Check if water source is drinkable
+ */
+function isDrinkable(element: Element): boolean {
+	const drinkingWater = (element.tags.drinking_water || '').toLowerCase();
+	// Explicit "no" means not drinkable
+	if (drinkingWater === 'no') {
+		return false;
+	}
+	// amenity=drinking_water is assumed drinkable unless tagged otherwise
+	if (element.tags.amenity === 'drinking_water') {
+		return true;
+	}
+	// For other water sources, assume drinkable if not explicitly marked
+	return drinkingWater !== 'no';
+}
+
+/**
  * Get marker color based on water source type
  * Priority: source type > colour tag > default
  */
 function getWaterSourceColor(element: Element): string {
+	// Non-drinkable water gets a warning color
+	if (!isDrinkable(element)) {
+		return '#FF5722'; // Deep Orange - warning color for non-drinkable
+	}
+
 	// Check for specific water source types and assign colors
 	if (element.tags.natural === 'spring') {
 		return '#00BCD4'; // Cyan - natural spring
@@ -56,9 +78,45 @@ function isSeasonalMarker(element: Element): boolean {
 }
 
 /**
+ * Create a crossed-out circle marker for non-drinkable water
+ */
+function createCrossedOutMarker(element: Element, color: string, radius: number): L.Marker {
+	const size = radius * 2 + 4;
+	const center = size / 2;
+
+	// Create SVG with circle and diagonal cross
+	const svgIcon = L.divIcon({
+		html: `
+			<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+				<circle cx="${center}" cy="${center}" r="${radius}"
+					fill="${color}"
+					fill-opacity="0.6"
+					stroke="#333"
+					stroke-width="2"/>
+				<line x1="${center - radius * 0.6}" y1="${center - radius * 0.6}"
+					x2="${center + radius * 0.6}" y2="${center + radius * 0.6}"
+					stroke="#333"
+					stroke-width="2.5"
+					stroke-linecap="round"/>
+				<line x1="${center + radius * 0.6}" y1="${center - radius * 0.6}"
+					x2="${center - radius * 0.6}" y2="${center + radius * 0.6}"
+					stroke="#333"
+					stroke-width="2.5"
+					stroke-linecap="round"/>
+			</svg>
+		`,
+		className: 'non-drinkable-marker',
+		iconSize: [size, size],
+		iconAnchor: [center, center],
+	});
+
+	return L.marker([element.lat, element.lon], { icon: svgIcon });
+}
+
+/**
  * Create a circle marker for a water tap element
  */
-function createMarker(element: Element, isNearest = false): L.CircleMarker | null {
+function createMarker(element: Element, isNearest = false): L.CircleMarker | L.Marker | null {
 	// Validate coordinates
 	if (!Number.isFinite(element.lat) || !Number.isFinite(element.lon)) {
 		return null;
@@ -67,6 +125,11 @@ function createMarker(element: Element, isNearest = false): L.CircleMarker | nul
 	const color = getWaterSourceColor(element);
 	const radius = getMarkerRadius(element);
 	const seasonal = isSeasonalMarker(element);
+
+	// Use crossed-out marker for non-drinkable water
+	if (!isDrinkable(element)) {
+		return createCrossedOutMarker(element, color, radius + 2);
+	}
 
 	const marker = L.circleMarker([element.lat, element.lon], {
 		radius: isNearest ? radius + 3 : radius,

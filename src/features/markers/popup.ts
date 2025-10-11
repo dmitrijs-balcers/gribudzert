@@ -31,19 +31,38 @@ function getWaterSourceLabel(element: Element): { label: string; icon: string; c
 }
 
 /**
+ * Check if water is drinkable
+ */
+function isDrinkable(element: Element): boolean {
+	const drinkingWater = (element.tags.drinking_water || '').toLowerCase();
+	return drinkingWater !== 'no';
+}
+
+/**
  * Create HTML content for popup
  */
 export function createPopupContent(element: Element): string {
 	const parts: string[] = [];
 	const sourceInfo = getWaterSourceLabel(element);
+	const drinkable = isDrinkable(element);
 
 	// Title with type and icon
 	parts.push(
-		`<strong style="color: ${sourceInfo.color};">` +
+		`<strong style="color: ${drinkable ? sourceInfo.color : '#FF5722'};">` +
 		`${sourceInfo.icon} ${sourceInfo.label}` +
 		`</strong>` +
 		`<div style="font-size: 0.85em; color: #666;">ID: ${element.id}</div>`
 	);
+
+	// Non-drinkable warning
+	if (!drinkable) {
+		parts.push(
+			`<div style="background: #FFF3E0; border-left: 3px solid #FF9800; padding: 8px; margin: 8px 0; border-radius: 4px;">` +
+			`<strong style="color: #F57C00;">⚠️ Not Drinkable</strong><br>` +
+			`<span style="font-size: 0.9em; color: #666;">This water source is not safe for drinking.</span>` +
+			`</div>`
+		);
+	}
 
 	// Distance (if available)
 	if (element.distanceFromUser !== undefined) {
