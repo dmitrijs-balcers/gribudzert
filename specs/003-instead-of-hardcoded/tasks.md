@@ -132,23 +132,23 @@ Single project structure with paths at repository root: `src/`, `tests/`
 
 ### Implementation
 
-- [ ] T049 [US3] Create `src/features/navigation/navigation.ts` module for map movement handlers
-- [ ] T050 [US3] Implement `hasMovedSignificantly()` function in `navigation.ts`: compare bounds using haversine distance, 25% viewport threshold
-- [ ] T051 [US3] Implement `setupMapNavigationHandlers()` function in `navigation.ts`: attach to `moveend` event with 300ms debounce
-- [ ] T052 [US3] Add cleanup function return from `setupMapNavigationHandlers()` to remove event listeners and clear timers
-- [ ] T053 [US3] Track `lastFetchBounds` in navigation handlers to avoid redundant fetches
-- [ ] T054 [US3] Call `onBoundsChange` callback only when movement exceeds threshold
-- [ ] T055 [US3] Integrate navigation handlers in `src/index.ts`: call `setupMapNavigationHandlers()` after initial water points load
-- [ ] T056 [US3] Implement bounds change handler in `src/index.ts`: show loading, fetch new points, clear markers, re-render
-- [ ] T057 [US3] Recalculate nearest point relative to map center (not user location) when panning without location
-- [ ] T058 [US3] Handle case where user pans to area with no water points: show "No water points found in this area" message
+- [x] T049 [US3] Create `src/features/navigation/navigation.ts` module for map movement handlers
+- [x] T050 [US3] Implement `hasMovedSignificantly()` function in `navigation.ts`: compare bounds using haversine distance, 25% viewport threshold
+- [x] T051 [US3] Implement `setupMapNavigationHandlers()` function in `navigation.ts`: attach to `moveend` event with 300ms debounce
+- [x] T052 [US3] Add cleanup function return from `setupMapNavigationHandlers()` to remove event listeners and clear timers
+- [x] T053 [US3] Track `lastFetchBounds` in navigation handlers to avoid redundant fetches
+- [x] T054 [US3] Call `onBoundsChange` callback only when movement exceeds threshold
+- [x] T055 [US3] Integrate navigation handlers in `src/index.ts`: call `setupMapNavigationHandlers()` after initial water points load
+- [x] T056 [US3] Implement bounds change handler in `src/index.ts`: show loading, fetch new points, clear markers, re-render
+- [x] T057 [US3] Recalculate nearest point relative to map center (not user location) when panning without location
+- [x] T058 [US3] Handle case where user pans to area with no water points: show "No water points found in this area" message
 
 ### Testing
 
-- [ ] T059 [P] [US3] Write unit test for `hasMovedSignificantly()` in `tests/unit/features/navigation.test.ts` (various movement scenarios)
-- [ ] T060 [P] [US3] Write unit test for debouncing in `setupMapNavigationHandlers()` in `tests/unit/features/navigation.test.ts`
-- [ ] T061 [US3] Write integration test for pan → refetch water points in `tests/integration/location-flow.test.ts`
-- [ ] T062 [US3] Write integration test for zoom → refetch water points in `tests/integration/location-flow.test.ts`
+- [x] T059 [P] [US3] Write unit test for `hasMovedSignificantly()` in `tests/unit/features/navigation.test.ts` (various movement scenarios)
+- [x] T060 [P] [US3] Write unit test for debouncing in `setupMapNavigationHandlers()` in `tests/unit/features/navigation.test.ts`
+- [x] T061 [US3] Write integration test for pan → refetch water points in `tests/integration/location-flow.test.ts`
+- [x] T062 [US3] Write integration test for zoom → refetch water points in `tests/integration/location-flow.test.ts`
 - [ ] T063 [US3] Manually test: pan map 50% viewport distance, verify water points update
 - [ ] T064 [US3] Manually test: pan map 10% viewport distance, verify NO refetch occurs
 - [ ] T065 [US3] Manually test: zoom in/out, verify water points update appropriately

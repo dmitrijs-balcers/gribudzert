@@ -9,6 +9,7 @@ import { showNotification } from './ui/notifications';
 import { showLoading, hideLoading } from './ui/loading';
 import * as logger from './utils/logger';
 import { RIGA_CENTER, DEFAULT_ZOOM, MAX_ZOOM, OSM_TILE_URL, OSM_ATTRIBUTION } from './core/config';
+import { setupMapNavigationHandlers } from './features/navigation/navigation';
 import type { Element } from './types/overpass';
 
 /**
@@ -60,86 +61,21 @@ async function initializeApp(): Promise<void> {
 		// Layer to hold water points
 		const pointsLayer: L.FeatureGroup<L.CircleMarker> = L.featureGroup().addTo(map);
 
-		// Show loading indicator while fetching water points
-		showLoading(200);
-
-		// Fetch water points based on current map bounds
-		const result = await fetchWaterPointsInBounds(drinkingWater, map.getBounds());
-
-		hideLoading();
-
-		if (!isOk(result)) {
-			// Handle fetch error
-			const errorMessages = {
-				network:
-					'Failed to load water points. Please check your internet connection and try refreshing the page.',
-				timeout: 'Request timed out while loading water points. Please try refreshing the page.',
-				parse: 'Failed to parse water point data. Please try refreshing the page.',
-			};
-
-			const message =
-				errorMessages[result.error.type] ||
-				'Failed to load water points. Please try refreshing the page.';
-			showNotification(message, 'error', 0);
-			logger.error('Failed to fetch water points:', result.error);
-			return;
-		}
-
-		let nodes = result.value;
-
-		// Handle empty state
-		if (nodes.length === 0) {
-			showNotification(
-				'No water points found in the current area. Try zooming out or refreshing the page.',
-				'warning',
-				0
-			);
-			logger.warn('No water points returned from API');
-			return;
-		}
-
-		// Calculate nearest point and distances if user location is available
-		let nearestPoint: Element | null = null;
-		if (userLocation) {
-			nearestPoint = findNearestWaterPoint(userLocation.lat, userLocation.lon, nodes);
-
-			// Enrich nodes with distance information
-			nodes = nodes.map((node) => ({
-				...node,
-				distanceFromUser: haversineDistance(
-					userLocation.lat,
-					userLocation.lon,
-					node.lat,
-					node.lon
-				),
-				isNearest: nearestPoint !== null && node.id === nearestPoint.id,
-			}));
-
-			if (nearestPoint) {
-				const distanceKm = nodes.find(n => n.id === nearestPoint?.id)?.distanceFromUser || 0;
-				const distanceStr = distanceKm < 1000
-					? `${Math.round(distanceKm)}m`
-					: `${(distanceKm / 1000).toFixed(2)}km`;
-				logger.info(`Nearest water point: ${nearestPoint.id} (${distanceStr} away)`);
-			}
-		}
-
-		// Add markers to map with nearest point highlighting
-		addMarkers(nodes, pointsLayer, map, nearestPoint);
+		// Load initial water points
+		await loadWaterPoints(map, pointsLayer, userLocation);
 
 		// Add layer control
 		L.control.layers(undefined, { 'Water taps': pointsLayer }, { collapsed: false }).addTo(map);
 
-		// Fit bounds to points if available (but don't zoom in too much if we have location)
-		const bounds = pointsLayer.getBounds();
-		if (bounds.isValid() && !userLocation) {
-			map.fitBounds(bounds.pad(0.01), { maxZoom: 15 });
-		}
-
 		// Setup locate control
 		setupLocateControl(map);
 
-		logger.info(`Successfully loaded ${nodes.length} water points`);
+		// Setup map navigation handlers for dynamic refetching
+		setupMapNavigationHandlers(map, async (bounds: L.LatLngBounds) => {
+			await loadWaterPoints(map, pointsLayer, userLocation, bounds);
+		});
+
+		logger.info('App initialization complete');
 	} catch (error) {
 		hideLoading();
 		showNotification(
@@ -149,6 +85,101 @@ async function initializeApp(): Promise<void> {
 		);
 		logger.error('App initialization error:', error instanceof Error ? error.message : error);
 	}
+}
+
+/**
+ * Load water points for given bounds and update markers
+ */
+async function loadWaterPoints(
+	map: L.Map,
+	pointsLayer: L.FeatureGroup<L.CircleMarker>,
+	userLocation: { lat: number; lon: number } | null,
+	bounds?: L.LatLngBounds
+): Promise<void> {
+	// Show loading indicator while fetching water points
+	showLoading(200);
+
+	// Use provided bounds or current map bounds
+	const fetchBounds = bounds || map.getBounds();
+
+	// Fetch water points based on bounds
+	const result = await fetchWaterPointsInBounds(drinkingWater, fetchBounds);
+
+	hideLoading();
+
+	if (!isOk(result)) {
+		// Handle fetch error
+		const errorMessages = {
+			network:
+				'Failed to load water points. Please check your internet connection and try again.',
+			timeout: 'Request timed out while loading water points. Please try again.',
+			parse: 'Failed to parse water point data. Please try again.',
+		};
+
+		const message =
+			errorMessages[result.error.type] ||
+			'Failed to load water points. Please try again.';
+		showNotification(message, 'error', 5000);
+		logger.error('Failed to fetch water points:', result.error);
+		return;
+	}
+
+	let nodes = result.value;
+
+	// Handle empty state
+	if (nodes.length === 0) {
+		showNotification(
+			'No water points found in this area. Try zooming out or panning to a different location.',
+			'info',
+			5000
+		);
+		logger.warn('No water points returned from API for current bounds');
+
+		// Clear existing markers
+		pointsLayer.clearLayers();
+		return;
+	}
+
+	// Calculate nearest point relative to reference location
+	let nearestPoint: Element | null = null;
+	let referenceLocation: { lat: number; lon: number } | null = null;
+
+	if (userLocation) {
+		// Use user location if available
+		referenceLocation = userLocation;
+		nearestPoint = findNearestWaterPoint(userLocation.lat, userLocation.lon, nodes);
+	} else {
+		// Use map center as reference when panning without user location
+		const mapCenter = map.getCenter();
+		referenceLocation = { lat: mapCenter.lat, lon: mapCenter.lng };
+		nearestPoint = findNearestWaterPoint(mapCenter.lat, mapCenter.lng, nodes);
+	}
+
+	// Enrich nodes with distance information
+	nodes = nodes.map((node) => ({
+		...node,
+		distanceFromUser: haversineDistance(
+			referenceLocation.lat,
+			referenceLocation.lon,
+			node.lat,
+			node.lon
+		),
+		isNearest: nearestPoint !== null && node.id === nearestPoint.id,
+	}));
+
+	if (nearestPoint) {
+		const distanceKm = nodes.find(n => n.id === nearestPoint?.id)?.distanceFromUser || 0;
+		const distanceStr = distanceKm < 1000
+			? `${Math.round(distanceKm)}m`
+			: `${(distanceKm / 1000).toFixed(2)}km`;
+		logger.info(`Nearest water point: ${nearestPoint.id} (${distanceStr} away)`);
+	}
+
+	// Clear existing markers and add new ones
+	pointsLayer.clearLayers();
+	addMarkers(nodes, pointsLayer, map, nearestPoint);
+
+	logger.info(`Successfully loaded ${nodes.length} water points`);
 }
 
 /**

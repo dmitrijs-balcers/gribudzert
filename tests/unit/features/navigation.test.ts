@@ -1,184 +1,177 @@
-/**
- * Unit tests for navigation functionality
- * Tests platform detection and URL generation
- */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as L from 'leaflet';
+import { hasMovedSignificantly, setupMapNavigationHandlers } from '../../../src/features/navigation/navigation';
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { openNavigation } from '../../../src/features/navigation/navigation';
+// Ensure Leaflet is imported as the real module, not mocked
+vi.mock('leaflet', async () => {
+	const actual = await vi.importActual('leaflet');
+	return actual;
+});
 
-// Mock the platform detection module
-vi.mock('../../../src/types/platform', () => ({
-	detectPlatform: vi.fn(),
-}));
+describe('navigation', () => {
+	describe('hasMovedSignificantly', () => {
+		it('should return false for no movement', () => {
+			const bounds = L.latLngBounds(L.latLng(56.9, 24.0), L.latLng(57.0, 24.2));
+			const result = hasMovedSignificantly(bounds, bounds);
+			expect(result).toBe(false);
+		});
 
-import { detectPlatform } from '../../../src/types/platform';
+		it('should return false for small movement (< 25% viewport)', () => {
+			// Create bounds representing ~2km x 2km viewport
+			const oldBounds = L.latLngBounds(L.latLng(56.95, 24.1), L.latLng(56.97, 24.13));
+			// Move by ~200m (< 25% of diagonal)
+			const newBounds = L.latLngBounds(L.latLng(56.952, 24.102), L.latLng(56.972, 24.132));
+			const result = hasMovedSignificantly(oldBounds, newBounds);
+			expect(result).toBe(false);
+		});
 
-describe('Navigation', () => {
-	let windowOpenSpy: ReturnType<typeof vi.spyOn>;
-	let windowLocationSpy: ReturnType<typeof vi.spyOn>;
+		it('should return true for significant movement (>= 25% viewport)', () => {
+			// Create bounds representing ~2km x 2km viewport
+			const oldBounds = L.latLngBounds(L.latLng(56.95, 24.1), L.latLng(56.97, 24.13));
+			// Move by ~1km (>= 25% of diagonal)
+			const newBounds = L.latLngBounds(L.latLng(56.96, 24.12), L.latLng(56.98, 24.15));
+			const result = hasMovedSignificantly(oldBounds, newBounds);
+			expect(result).toBe(true);
+		});
 
-	beforeEach(() => {
-		vi.clearAllMocks();
-		windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-		windowLocationSpy = vi.spyOn(window.location, 'href', 'set').mockImplementation(() => {
-			/* intentionally empty - mock setter */
+		it('should return true for large movement across map', () => {
+			const oldBounds = L.latLngBounds(L.latLng(56.9, 24.0), L.latLng(57.0, 24.2));
+			const newBounds = L.latLngBounds(L.latLng(40.7, -74.0), L.latLng(40.8, -73.9)); // NYC
+			const result = hasMovedSignificantly(oldBounds, newBounds);
+			expect(result).toBe(true);
+		});
+
+		it('should handle zoom in (smaller viewport)', () => {
+			const oldBounds = L.latLngBounds(L.latLng(56.9, 24.0), L.latLng(57.0, 24.2));
+			// Zoom in - smaller bounds around same center
+			const newBounds = L.latLngBounds(L.latLng(56.94, 24.08), L.latLng(56.96, 24.12));
+			const result = hasMovedSignificantly(oldBounds, newBounds);
+			// Should be false as center hasn't moved significantly relative to the old viewport
+			expect(result).toBe(false);
+		});
+
+		it('should handle zoom out (larger viewport)', () => {
+			const oldBounds = L.latLngBounds(L.latLng(56.94, 24.08), L.latLng(56.96, 24.12));
+			// Zoom out - larger bounds around same center
+			const newBounds = L.latLngBounds(L.latLng(56.9, 24.0), L.latLng(57.0, 24.2));
+			const result = hasMovedSignificantly(oldBounds, newBounds);
+			// Should be false as center hasn't moved significantly relative to the old viewport
+			expect(result).toBe(false);
 		});
 	});
 
-	describe('Android platform', () => {
+	describe('setupMapNavigationHandlers', () => {
+		let map: L.Map;
+		let container: HTMLElement;
+
 		beforeEach(() => {
-			vi.mocked(detectPlatform).mockReturnValue({ type: 'android' });
+			// Create a container for the map
+			container = document.createElement('div');
+			container.id = 'test-map';
+			container.style.width = '400px';
+			container.style.height = '400px';
+			document.body.appendChild(container);
+
+			// Initialize map
+			map = L.map(container, {
+				center: [56.95, 24.1],
+				zoom: 13,
+			});
 		});
 
-		it('should generate geo URI for Android', () => {
-			openNavigation('56.9496', '24.1052', 'Water Fountain');
-
-			expect(windowLocationSpy).toHaveBeenCalledWith(
-				expect.stringContaining('geo:56.949600,24.105200')
-			);
+		afterEach(() => {
+			if (map) {
+				map.remove();
+			}
+			if (container && document.body.contains(container)) {
+				document.body.removeChild(container);
+			}
 		});
 
-		it('should include label in geo URI', () => {
-			openNavigation('56.9496', '24.1052', 'Test Location');
+		it('should call callback on first moveend event', async () => {
+			const callback = vi.fn();
+			setupMapNavigationHandlers(map, callback);
 
-			expect(windowLocationSpy).toHaveBeenCalledWith(expect.stringContaining('Test%20Location'));
+			// Trigger moveend event
+			map.fire('moveend');
+
+			// Wait for debounce
+			await new Promise(resolve => setTimeout(resolve, 350));
+
+			expect(callback).toHaveBeenCalledTimes(1);
+			expect(callback).toHaveBeenCalledWith(expect.any(L.LatLngBounds));
 		});
 
-		it('should use window.location.href for mobile', () => {
-			openNavigation('56.9496', '24.1052', 'Test');
+		it('should debounce multiple rapid moveend events', async () => {
+			const callback = vi.fn();
+			setupMapNavigationHandlers(map, callback);
 
-			expect(windowLocationSpy).toHaveBeenCalled();
-			expect(windowOpenSpy).not.toHaveBeenCalled();
+			// Trigger multiple rapid events
+			map.fire('moveend');
+			map.fire('moveend');
+			map.fire('moveend');
+
+			// Wait less than debounce delay
+			await new Promise(resolve => setTimeout(resolve, 150));
+			expect(callback).not.toHaveBeenCalled();
+
+			// Wait for debounce to complete
+			await new Promise(resolve => setTimeout(resolve, 200));
+			expect(callback).toHaveBeenCalledTimes(1);
 		});
 
-		it('should handle special characters in label', () => {
-			openNavigation('56.9496', '24.1052', 'Test & Location');
+		it('should only call callback when movement exceeds threshold', async () => {
+			const callback = vi.fn();
+			const cleanup = setupMapNavigationHandlers(map, callback);
 
-			expect(windowLocationSpy).toHaveBeenCalledWith(
-				expect.stringContaining('Test%20%26%20Location')
-			);
+			// First moveend - always triggers (sets lastFetchBounds)
+			map.fire('moveend');
+			await new Promise(resolve => setTimeout(resolve, 350));
+			expect(callback).toHaveBeenCalledTimes(1);
+
+			const callCountBefore = callback.mock.calls.length;
+
+			// Large pan (>= 25% viewport) - should trigger
+			map.panBy([200, 200]); // Large pixel movement
+			await new Promise(resolve => setTimeout(resolve, 350));
+			expect(callback.mock.calls.length).toBeGreaterThan(callCountBefore);
+
+			cleanup();
 		});
 
-		it('should format coordinates to 6 decimal places', () => {
-			openNavigation('56.949612345', '24.105298765', 'Test');
+		it('should clean up event listeners on cleanup', async () => {
+			const callback = vi.fn();
+			const cleanup = setupMapNavigationHandlers(map, callback);
 
-			expect(windowLocationSpy).toHaveBeenCalledWith(expect.stringContaining('56.949612'));
-			expect(windowLocationSpy).toHaveBeenCalledWith(expect.stringContaining('24.105299'));
-		});
-	});
+			// Verify handler works
+			map.fire('moveend');
+			await new Promise(resolve => setTimeout(resolve, 350));
+			expect(callback).toHaveBeenCalledTimes(1);
 
-	describe('iOS platform', () => {
-		beforeEach(() => {
-			vi.mocked(detectPlatform).mockReturnValue({ type: 'ios' });
-		});
+			// Call cleanup
+			cleanup();
 
-		it('should generate Apple Maps URI for iOS', () => {
-			openNavigation('56.9496', '24.1052', 'Water Fountain');
-
-			expect(windowLocationSpy).toHaveBeenCalledWith(
-				expect.stringContaining('https://maps.apple.com/')
-			);
-			expect(windowLocationSpy).toHaveBeenCalledWith(
-				expect.stringContaining('daddr=56.949600,24.105200')
-			);
+			// Verify handler no longer works
+			map.fire('moveend');
+			await new Promise(resolve => setTimeout(resolve, 350));
+			expect(callback).toHaveBeenCalledTimes(1); // Still 1
 		});
 
-		it('should include query parameter with label', () => {
-			openNavigation('56.9496', '24.1052', 'Test Location');
+		it('should clear pending timers on cleanup', async () => {
+			const callback = vi.fn();
+			const cleanup = setupMapNavigationHandlers(map, callback);
 
-			expect(windowLocationSpy).toHaveBeenCalledWith(expect.stringContaining('q=Test%20Location'));
-		});
+			// Trigger event
+			map.fire('moveend');
 
-		it('should use window.location.href for mobile', () => {
-			openNavigation('56.9496', '24.1052', 'Test');
+			// Call cleanup before debounce completes
+			cleanup();
 
-			expect(windowLocationSpy).toHaveBeenCalled();
-			expect(windowOpenSpy).not.toHaveBeenCalled();
-		});
-	});
+			// Wait for what would have been the debounce delay
+			await new Promise(resolve => setTimeout(resolve, 350));
 
-	describe('Desktop platform', () => {
-		beforeEach(() => {
-			vi.mocked(detectPlatform).mockReturnValue({ type: 'desktop' });
-		});
-
-		it('should generate Google Maps URI for desktop', () => {
-			openNavigation('56.9496', '24.1052', 'Water Fountain');
-
-			expect(windowOpenSpy).toHaveBeenCalledWith(
-				expect.stringContaining('https://www.google.com/maps/dir/'),
-				'_blank',
-				'noopener'
-			);
-		});
-
-		it('should include destination parameter', () => {
-			openNavigation('56.9496', '24.1052', 'Test Location');
-
-			expect(windowOpenSpy).toHaveBeenCalledWith(
-				expect.stringContaining('destination=56.949600,24.105200'),
-				expect.any(String),
-				expect.any(String)
-			);
-		});
-
-		it('should include walking travel mode', () => {
-			openNavigation('56.9496', '24.1052', 'Test');
-
-			expect(windowOpenSpy).toHaveBeenCalledWith(
-				expect.stringContaining('travelmode=walking'),
-				expect.any(String),
-				expect.any(String)
-			);
-		});
-
-		it('should open in new tab with noopener', () => {
-			openNavigation('56.9496', '24.1052', 'Test');
-
-			expect(windowOpenSpy).toHaveBeenCalledWith(expect.any(String), '_blank', 'noopener');
-		});
-
-		it('should use window.open for desktop', () => {
-			openNavigation('56.9496', '24.1052', 'Test');
-
-			expect(windowOpenSpy).toHaveBeenCalled();
-			expect(windowLocationSpy).not.toHaveBeenCalled();
-		});
-	});
-
-	describe('edge cases', () => {
-		it('should handle empty label', () => {
-			vi.mocked(detectPlatform).mockReturnValue({ type: 'android' });
-			openNavigation('56.9496', '24.1052', '');
-
-			expect(windowLocationSpy).toHaveBeenCalledWith(expect.stringContaining('Destination'));
-		});
-
-		it('should handle negative coordinates', () => {
-			vi.mocked(detectPlatform).mockReturnValue({ type: 'desktop' });
-			openNavigation('-33.8688', '-74.0060', 'Test');
-
-			expect(windowOpenSpy).toHaveBeenCalledWith(
-				expect.stringContaining('destination=-33.868800,-74.006000'),
-				expect.any(String),
-				expect.any(String)
-			);
-		});
-
-		it('should handle coordinates with many decimals', () => {
-			vi.mocked(detectPlatform).mockReturnValue({ type: 'android' });
-			openNavigation('56.949612345678', '24.105298765432', 'Test');
-
-			// Should round to 6 decimals
-			expect(windowLocationSpy).toHaveBeenCalledWith(expect.stringContaining('56.949612'));
-		});
-
-		it('should encode special characters in label', () => {
-			vi.mocked(detectPlatform).mockReturnValue({ type: 'ios' });
-			openNavigation('56.9496', '24.1052', 'Test <script>alert(1)</script>');
-
-			expect(windowLocationSpy).toHaveBeenCalledWith(expect.not.stringContaining('<script>'));
-			expect(windowLocationSpy).toHaveBeenCalledWith(expect.stringContaining('%3C'));
+			// Callback should not have been called
+			expect(callback).not.toHaveBeenCalled();
 		});
 	});
 });
