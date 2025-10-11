@@ -8,9 +8,28 @@ import { COLOUR_MAP, MARKER_RADIUS, MARKER_STYLE } from '../../core/config';
 import { createPopupContent, attachPopupHandlers } from './popup';
 
 /**
- * Get marker color based on element tags
+ * Get marker color based on water source type
+ * Priority: source type > colour tag > default
  */
-function getMarkerColor(element: Element): string {
+function getWaterSourceColor(element: Element): string {
+	// Check for specific water source types and assign colors
+	if (element.tags.natural === 'spring') {
+		return '#00BCD4'; // Cyan - natural spring
+	}
+	if (element.tags.man_made === 'water_well') {
+		return '#795548'; // Brown - water well
+	}
+	if (element.tags.man_made === 'water_tap') {
+		return '#2196F3'; // Blue - water tap
+	}
+	if (element.tags.waterway === 'water_point') {
+		return '#009688'; // Teal - water point
+	}
+	if (element.tags.amenity === 'drinking_water') {
+		return '#4CAF50'; // Green - drinking water amenity
+	}
+
+	// Fallback to color tag if present
 	const colorTag = (element.tags.colour || '').toLowerCase();
 	const color = (COLOUR_MAP as Record<string, string>)[colorTag];
 	return color ?? COLOUR_MAP.default ?? '#0078ff';
@@ -45,7 +64,7 @@ function createMarker(element: Element, isNearest = false): L.CircleMarker | nul
 		return null;
 	}
 
-	const color = getMarkerColor(element);
+	const color = getWaterSourceColor(element);
 	const radius = getMarkerRadius(element);
 	const seasonal = isSeasonalMarker(element);
 

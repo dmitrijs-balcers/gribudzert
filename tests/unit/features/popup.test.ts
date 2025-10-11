@@ -37,7 +37,7 @@ describe('Popup', () => {
 		it('should create basic popup content', () => {
 			const content = createPopupContent(basicElement);
 
-			expect(content).toContain('water_tap');
+			expect(content).toContain('Drinking Water');
 			expect(content).toContain('123456789');
 		});
 
@@ -153,7 +153,7 @@ describe('Popup', () => {
 			it('should include aria-label on navigate button', () => {
 				const content = createPopupContent(basicElement);
 
-				expect(content).toContain('aria-label="Navigate to water tap 123456789"');
+				expect(content).toContain('aria-label="Navigate to drinking water 123456789"');
 			});
 
 			it('should include aria-hidden on icon', () => {
