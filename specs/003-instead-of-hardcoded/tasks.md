@@ -20,13 +20,13 @@ Single project structure with paths at repository root: `src/`, `tests/`
 
 **Goal**: Ensure all dependencies are in place and codebase is stable before feature work
 
-- [ ] T001 [P] Verify TypeScript 5.9.2 strict mode enabled in `tsconfig.json`
-- [ ] T002 [P] Verify Leaflet 1.9.4 installed and types available (`@types/leaflet`)
-- [ ] T003 [P] Verify Vitest 2.1.8 and @testing-library/dom installed for testing
-- [ ] T004 Audit existing geolocation implementation in `src/features/location/geolocation.ts`
-- [ ] T005 Audit existing map initialization in `src/core/map.ts` and `src/index.ts`
-- [ ] T006 Audit existing fetch logic in `src/features/data/fetch.ts`
-- [ ] T007 Run existing test suite to ensure baseline stability: `npm test`
+- [x] T001 [P] Verify TypeScript 5.9.2 strict mode enabled in `tsconfig.json`
+- [x] T002 [P] Verify Leaflet 1.9.4 installed and types available (`@types/leaflet`)
+- [x] T003 [P] Verify Vitest 2.1.8 and @testing-library/dom installed for testing
+- [x] T004 Audit existing geolocation implementation in `src/features/location/geolocation.ts`
+- [x] T005 Audit existing map initialization in `src/core/map.ts` and `src/index.ts`
+- [x] T006 Audit existing fetch logic in `src/features/data/fetch.ts`
+- [x] T007 Run existing test suite to ensure baseline stability: `npm test`
 
 **Checkpoint**: All dependencies verified, existing tests pass, codebase stable
 
@@ -40,20 +40,20 @@ Single project structure with paths at repository root: `src/`, `tests/`
 
 ### Type Definitions
 
-- [ ] T008 [P] [Foundation] Create LocationError discriminated union in `src/types/errors.ts` with types: permission-denied, position-unavailable, timeout, not-supported
-- [ ] T009 [P] [Foundation] Create LocationPermissionState discriminated union in `src/types/platform.ts` with states: pending, granted, denied, timeout
-- [ ] T010 [P] [Foundation] Extend Element type in `src/types/overpass.ts` to add optional `distanceFromUser?: number` and `isNearest: boolean` fields
+- [x] T008 [P] [Foundation] Create LocationError discriminated union in `src/types/errors.ts` with types: permission-denied, position-unavailable, timeout, not-supported
+- [x] T009 [P] [Foundation] Create LocationPermissionState discriminated union in `src/types/platform.ts` with states: pending, granted, denied, timeout
+- [x] T010 [P] [Foundation] Extend Element type in `src/types/overpass.ts` to add optional `distanceFromUser?: number` and `isNearest: boolean` fields
 
 ### Geometry Utilities
 
-- [ ] T011 [P] [Foundation] Create `src/utils/geometry.ts` with `haversineDistance()` function (lat1, lon1, lat2, lon2 → meters)
-- [ ] T012 [Foundation] Add `findNearestWaterPoint()` function to `src/utils/geometry.ts` (userLat, userLon, points[] → Element | null)
-- [ ] T013 [P] [Foundation] Write unit tests for `haversineDistance()` in `tests/unit/utils/geometry.test.ts` (same point = 0, known distances)
-- [ ] T014 [P] [Foundation] Write unit tests for `findNearestWaterPoint()` in `tests/unit/utils/geometry.test.ts` (empty array, single point, multiple points)
+- [x] T011 [P] [Foundation] Create `src/utils/geometry.ts` with `haversineDistance()` function (lat1, lon1, lat2, lon2 → meters)
+- [x] T012 [Foundation] Add `findNearestWaterPoint()` function to `src/utils/geometry.ts` (userLat, userLon, points[] → Element | null)
+- [x] T013 [P] [Foundation] Write unit tests for `haversineDistance()` in `tests/unit/utils/geometry.test.ts` (same point = 0, known distances)
+- [x] T014 [P] [Foundation] Write unit tests for `findNearestWaterPoint()` in `tests/unit/utils/geometry.test.ts` (empty array, single point, multiple points)
 
 ### Configuration
 
-- [ ] T015 [Foundation] Add location detection config to `src/core/config.ts`: LOCATION_TIMEOUT (10000ms), LOCATION_HIGH_ACCURACY (true)
+- [x] T015 [Foundation] Add location detection config to `src/core/config.ts`: LOCATION_TIMEOUT (10000ms), LOCATION_HIGH_ACCURACY (true)
 
 **Checkpoint**: All foundational types compile, geometry functions tested, ready for user story implementation
 
@@ -329,4 +329,3 @@ Upon completion, verify these success criteria from spec.md:
 **Parallel Opportunities**: 28 tasks can run in parallel within their phases
 
 **Suggested MVP**: Phases 1-4 only (35 tasks, ~10-12 hours) delivers core value - automatic location detection with graceful fallback.
-

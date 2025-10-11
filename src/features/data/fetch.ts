@@ -7,6 +7,7 @@ import type { Result } from '../../types/result';
 import type { FetchError } from '../../types/errors';
 import { Ok, Err } from '../../types/result';
 import { OVERPASS_API_URL } from '../../core/config';
+import type * as L from 'leaflet';
 
 /**
  * Fetch water points from Overpass API
@@ -21,6 +22,63 @@ export async function fetchWaterPoints(query: string): Promise<Result<Element[],
 		const response = await fetch(OVERPASS_API_URL, {
 			method: 'POST',
 			body: `data=${encodeURIComponent(query)}`,
+			signal: controller.signal,
+		});
+
+		clearTimeout(timeoutId);
+
+		if (!response.ok) {
+			return Err({
+				type: 'network',
+				message: `HTTP error! status: ${response.status}`,
+			});
+		}
+
+		const data: Overpass = await response.json();
+		return Ok(data.elements);
+	} catch (err) {
+		if (err instanceof Error) {
+			if (err.name === 'AbortError') {
+				return Err({
+					type: 'timeout',
+					message: 'Request timed out after 30 seconds',
+				});
+			}
+			return Err({
+				type: 'network',
+				message: err.message,
+			});
+		}
+		return Err({
+			type: 'network',
+			message: 'Unknown error occurred during fetch',
+		});
+	}
+}
+
+/**
+ * Fetch water points within specific map bounds
+ * @param query - Overpass QL query string with [bbox] placeholder
+ * @param bounds - Leaflet LatLngBounds for the visible map area
+ * @returns Result with elements or fetch error
+ */
+export async function fetchWaterPointsInBounds(
+	query: string,
+	bounds: L.LatLngBounds
+): Promise<Result<Element[], FetchError>> {
+	// Convert Leaflet bounds to Overpass format (south,west,north,east)
+	const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
+
+	// Inject bbox into query - replace [bbox] placeholder
+	const modifiedQuery = query.replace(/\[bbox\]/g, bbox);
+
+	try {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+		const response = await fetch(OVERPASS_API_URL, {
+			method: 'POST',
+			body: `data=${encodeURIComponent(modifiedQuery)}`,
 			signal: controller.signal,
 		});
 

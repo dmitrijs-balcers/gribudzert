@@ -96,3 +96,10 @@ export const GEOLOCATION_OPTIONS: PositionOptions = {
 	timeout: 10000,
 };
 export const geolocationOptions = GEOLOCATION_OPTIONS; // Alias
+
+/**
+ * Location detection configuration
+ */
+export const LOCATION_TIMEOUT = 10000; // 10 seconds
+export const LOCATION_HIGH_ACCURACY = true;
+
