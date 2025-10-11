@@ -11,6 +11,8 @@ export type Element = {
 	readonly lat: number;
 	readonly lon: number;
 	readonly tags: Tags;
+	readonly distanceFromUser?: number;
+	readonly isNearest?: boolean;
 };
 
 export type Tags = {

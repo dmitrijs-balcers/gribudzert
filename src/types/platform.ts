@@ -29,3 +29,13 @@ export const detectPlatform = (): Platform => {
 
 	return { type: 'desktop' };
 };
+
+/**
+ * Location permission state discriminated union
+ * Represents the state of location detection and permission
+ */
+export type LocationPermissionState =
+	| { readonly kind: 'pending' }
+	| { readonly kind: 'granted'; readonly position: GeolocationPosition }
+	| { readonly kind: 'denied'; readonly reason: 'user-denied' | 'unavailable' }
+	| { readonly kind: 'timeout' };

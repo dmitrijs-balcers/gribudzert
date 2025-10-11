@@ -6,6 +6,9 @@ import * as L from 'leaflet';
 import { GEOLOCATION_OPTIONS, USER_LOCATION_STYLE } from '../../core/config';
 import { showNotification } from '../../ui/notifications';
 import { showLoading, hideLoading } from '../../ui/loading';
+import type { Result } from '../../types/result';
+import type { LocationError } from '../../types/errors';
+import { Ok, Err } from '../../types/result';
 
 /**
  * Check if geolocation is available and context is secure
@@ -44,10 +47,84 @@ function getGeolocationErrorMessage(error: GeolocationPositionError): string {
 }
 
 /**
+ * Map GeolocationPositionError to LocationError discriminated union
+ * @param error - Browser geolocation error
+ * @returns LocationError with appropriate type
+ */
+export function mapGeolocationError(error: GeolocationPositionError): LocationError {
+	switch (error.code) {
+		case error.PERMISSION_DENIED:
+			return {
+				type: 'permission-denied',
+				message: 'User denied location permission',
+			};
+		case error.POSITION_UNAVAILABLE:
+			return {
+				type: 'position-unavailable',
+				message: 'Location information is unavailable',
+			};
+		case error.TIMEOUT:
+			return {
+				type: 'timeout',
+				message: 'Location request timed out',
+			};
+		default:
+			return {
+				type: 'position-unavailable',
+				message: `Unknown geolocation error: ${error.message}`,
+			};
+	}
+}
+
+/**
+ * Detect user's initial location on page load
+ * @returns Result containing GeolocationPosition or LocationError
+ */
+export function detectInitialLocation(): Promise<Result<GeolocationPosition, LocationError>> {
+	// Check if geolocation is supported
+	if (!('geolocation' in navigator)) {
+		return Promise.resolve(
+			Err({
+				type: 'not-supported',
+				message: 'Geolocation is not supported in this browser',
+			})
+		);
+	}
+
+	// Check for secure context (HTTPS or localhost)
+	const isSecure =
+		location.protocol === 'https:' ||
+		location.hostname === 'localhost' ||
+		location.hostname === '127.0.0.1';
+
+	if (!isSecure) {
+		return Promise.resolve(
+			Err({
+				type: 'not-supported',
+				message: 'Geolocation requires a secure context (HTTPS or localhost)',
+			})
+		);
+	}
+
+	// Request current position
+	return new Promise((resolve) => {
+		navigator.geolocation.getCurrentPosition(
+			(position) => resolve(Ok(position)),
+			(error) => resolve(Err(mapGeolocationError(error))),
+			GEOLOCATION_OPTIONS
+		);
+	});
+}
+
+/**
  * Locate user on map and show their position
  * @param map - Leaflet map instance
+ * @param onLocationUpdate - Optional callback called with new location after map is centered
  */
-export function locateUser(map: L.Map): void {
+export function locateUser(
+	map: L.Map,
+	onLocationUpdate?: (lat: number, lon: number) => void | Promise<void>
+): void {
 	// Check availability
 	const availabilityError = checkGeolocationAvailability();
 	if (availabilityError) {
@@ -84,6 +161,11 @@ export function locateUser(map: L.Map): void {
 
 			// Success notification
 			showNotification('Location found! Centered on your position.', 'success', 3000);
+
+			// Call the callback if provided to trigger water points refetch and nearest point recalculation
+			if (onLocationUpdate) {
+				onLocationUpdate(lat, lon);
+			}
 		},
 		(error) => {
 			hideLoading();

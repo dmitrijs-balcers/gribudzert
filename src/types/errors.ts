@@ -21,6 +21,16 @@ export type GeolocationError =
 	| { readonly type: 'insecure_context'; readonly message: string };
 
 /**
+ * Location detection errors for initial location detection
+ * Uses discriminated union for exhaustive type checking
+ */
+export type LocationError =
+	| { readonly type: 'permission-denied'; readonly message: string }
+	| { readonly type: 'position-unavailable'; readonly message: string }
+	| { readonly type: 'timeout'; readonly message: string }
+	| { readonly type: 'not-supported'; readonly message: string };
+
+/**
  * Map initialization errors
  */
 export type MapError =
@@ -38,4 +48,4 @@ export type ParseError =
 /**
  * General application errors
  */
-export type AppError = FetchError | GeolocationError | MapError | ParseError;
+export type AppError = FetchError | GeolocationError | MapError | ParseError | LocationError;

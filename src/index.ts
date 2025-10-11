@@ -1,29 +1,61 @@
 import * as L from 'leaflet';
 import drinkingWater from './oql/drinking_water.overpassql?raw';
 import { isOk } from './types/result';
-import { fetchWaterPoints } from './features/data/fetch';
+import { fetchWaterPointsInBounds } from './features/data/fetch';
 import { addMarkers } from './features/markers/markers';
-import { locateUser } from './features/location/geolocation';
+import { detectInitialLocation, locateUser } from './features/location/geolocation';
+import { findNearestWaterPoint, haversineDistance } from './utils/geometry';
 import { showNotification } from './ui/notifications';
 import { showLoading, hideLoading } from './ui/loading';
 import * as logger from './utils/logger';
-import { rigaLatLng, defaultZoom, maxZoom, tileLayerUrl, osmAttribution } from './core/config';
+import { RIGA_CENTER, DEFAULT_ZOOM, MAX_ZOOM, OSM_TILE_URL, OSM_ATTRIBUTION } from './core/config';
+import { setupMapNavigationHandlers } from './features/navigation/navigation';
+import type { Element } from './types/overpass';
 
 /**
  * Initialize and setup the map
  */
 async function initializeApp(): Promise<void> {
 	try {
-		// Basic map setup
+		// Show loading indicator for location detection
+		showLoading(200);
+
+		// Detect initial location
+		const locationResult = await detectInitialLocation();
+
+		let mapCenter: L.LatLngTuple = RIGA_CENTER;
+		let userLocation: { lat: number; lon: number } | null = null;
+		let isUserLocation = false;
+
+		if (isOk(locationResult)) {
+			// Location detected successfully
+			const { latitude, longitude } = locationResult.value.coords;
+			mapCenter = [latitude, longitude];
+			userLocation = { lat: latitude, lon: longitude };
+			isUserLocation = true;
+			logger.info('Location detected:', latitude, longitude);
+		} else {
+			// Location detection failed - fall back to Riga
+			logger.warn('Location detection failed:', locationResult.error.message);
+			showNotification(
+				'Could not detect your location. Showing Riga area.',
+				'info',
+				5000
+			);
+		}
+
+		hideLoading();
+
+		// Initialize map with determined center
 		const map = L.map('map', {
-			center: rigaLatLng,
-			zoom: defaultZoom,
+			center: mapCenter,
+			zoom: DEFAULT_ZOOM,
 			zoomControl: true,
 		});
 
-		L.tileLayer(tileLayerUrl, {
-			maxZoom: maxZoom,
-			attribution: osmAttribution,
+		L.tileLayer(OSM_TILE_URL, {
+			maxZoom: MAX_ZOOM,
+			attribution: OSM_ATTRIBUTION,
 		}).addTo(map);
 
 		L.control.scale({ metric: true, imperial: false }).addTo(map);
@@ -31,60 +63,26 @@ async function initializeApp(): Promise<void> {
 		// Layer to hold water points
 		const pointsLayer: L.FeatureGroup<L.CircleMarker> = L.featureGroup().addTo(map);
 
-		// Show loading indicator while fetching data
-		showLoading(200);
-
-		// Fetch water points from Overpass API
-		const result = await fetchWaterPoints(drinkingWater);
-
-		hideLoading();
-
-		if (!isOk(result)) {
-			// Handle fetch error
-			const errorMessages = {
-				network:
-					'Failed to load water points. Please check your internet connection and try refreshing the page.',
-				timeout: 'Request timed out while loading water points. Please try refreshing the page.',
-				parse: 'Failed to parse water point data. Please try refreshing the page.',
-			};
-
-			const message =
-				errorMessages[result.error.type] ||
-				'Failed to load water points. Please try refreshing the page.';
-			showNotification(message, 'error', 0); // 0 = no auto-dismiss
-			logger.error('Failed to fetch water points:', result.error);
-			return;
-		}
-
-		const nodes = result.value;
-
-		// Handle empty state
-		if (nodes.length === 0) {
-			showNotification(
-				'No water points found in the current area. Try zooming out or refreshing the page.',
-				'warning',
-				0
-			);
-			logger.warn('No water points returned from API');
-			return;
-		}
-
-		// Add markers to map
-		addMarkers(nodes, pointsLayer, map);
+		// Load initial water points
+		await loadWaterPoints(map, pointsLayer, userLocation);
 
 		// Add layer control
 		L.control.layers(undefined, { 'Water taps': pointsLayer }, { collapsed: false }).addTo(map);
 
-		// Fit bounds to points if available
-		const bounds = pointsLayer.getBounds();
-		if (bounds.isValid()) {
-			map.fitBounds(bounds.pad(0.01), { maxZoom: 15 });
-		}
+		// Setup locate control with callback to update user location and refetch water points
+		setupLocateControl(map, pointsLayer, (lat: number, lon: number) => {
+			// Update user location reference
+			userLocation = { lat, lon };
+			// The map.setView in locateUser will trigger moveend event,
+			// which will automatically refetch water points via navigation handlers
+		});
 
-		// Setup locate control
-		setupLocateControl(map);
+		// Setup map navigation handlers for dynamic refetching
+		setupMapNavigationHandlers(map, async (bounds: L.LatLngBounds) => {
+			await loadWaterPoints(map, pointsLayer, userLocation, bounds);
+		});
 
-		logger.info(`Successfully loaded ${nodes.length} water points`);
+		logger.info('App initialization complete');
 	} catch (error) {
 		hideLoading();
 		showNotification(
@@ -97,9 +95,108 @@ async function initializeApp(): Promise<void> {
 }
 
 /**
+ * Load water points for given bounds and update markers
+ */
+async function loadWaterPoints(
+	map: L.Map,
+	pointsLayer: L.FeatureGroup<L.CircleMarker>,
+	userLocation: { lat: number; lon: number } | null,
+	bounds?: L.LatLngBounds
+): Promise<void> {
+	// Show loading indicator while fetching water points
+	showLoading(200);
+
+	// Use provided bounds or current map bounds
+	const fetchBounds = bounds || map.getBounds();
+
+	// Fetch water points based on bounds
+	const result = await fetchWaterPointsInBounds(drinkingWater, fetchBounds);
+
+	hideLoading();
+
+	if (!isOk(result)) {
+		// Handle fetch error
+		const errorMessages = {
+			network:
+				'Failed to load water points. Please check your internet connection and try again.',
+			timeout: 'Request timed out while loading water points. Please try again.',
+			parse: 'Failed to parse water point data. Please try again.',
+		};
+
+		const message =
+			errorMessages[result.error.type] ||
+			'Failed to load water points. Please try again.';
+		showNotification(message, 'error', 5000);
+		logger.error('Failed to fetch water points:', result.error);
+		return;
+	}
+
+	let nodes = result.value;
+
+	// Handle empty state
+	if (nodes.length === 0) {
+		showNotification(
+			'No water points found in this area. Try zooming out or panning to a different location.',
+			'info',
+			5000
+		);
+		logger.warn('No water points returned from API for current bounds');
+
+		// Clear existing markers
+		pointsLayer.clearLayers();
+		return;
+	}
+
+	// Calculate nearest point relative to reference location
+	let nearestPoint: Element | null = null;
+	let referenceLocation: { lat: number; lon: number } | null = null;
+
+	if (userLocation) {
+		// Use user location if available
+		referenceLocation = userLocation;
+		nearestPoint = findNearestWaterPoint(userLocation.lat, userLocation.lon, nodes);
+	} else {
+		// Use map center as reference when panning without user location
+		const mapCenter = map.getCenter();
+		referenceLocation = { lat: mapCenter.lat, lon: mapCenter.lng };
+		nearestPoint = findNearestWaterPoint(mapCenter.lat, mapCenter.lng, nodes);
+	}
+
+	// Enrich nodes with distance information
+	nodes = nodes.map((node) => ({
+		...node,
+		distanceFromUser: haversineDistance(
+			referenceLocation.lat,
+			referenceLocation.lon,
+			node.lat,
+			node.lon
+		),
+		isNearest: nearestPoint !== null && node.id === nearestPoint.id,
+	}));
+
+	if (nearestPoint) {
+		const distanceKm = nodes.find(n => n.id === nearestPoint?.id)?.distanceFromUser || 0;
+		const distanceStr = distanceKm < 1000
+			? `${Math.round(distanceKm)}m`
+			: `${(distanceKm / 1000).toFixed(2)}km`;
+		logger.info(`Nearest water point: ${nearestPoint.id} (${distanceStr} away)`);
+	}
+
+	// Clear existing markers and add new ones
+	pointsLayer.clearLayers();
+	addMarkers(nodes, pointsLayer, map, nearestPoint);
+
+	logger.info(`Successfully loaded ${nodes.length} water points`);
+}
+
+/**
  * Setup the locate control button
  */
-function setupLocateControl(map: L.Map): void {
+function setupLocateControl(
+	map: L.Map,
+	pointsLayer: L.FeatureGroup<L.CircleMarker>,
+	onLocationUpdate: (lat: number, lon: number) => void
+): void {
 	const LocateControl = L.Control.extend({
 		onAdd: () => {
 			const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control locate-control');
@@ -115,7 +212,7 @@ function setupLocateControl(map: L.Map): void {
 			const handleClick = (e: Event) => {
 				e.preventDefault();
 				e.stopPropagation();
-				locateUser(map);
+				locateUser(map, onLocationUpdate);
 			};
 
 			L.DomEvent.on(link, 'click', handleClick);
@@ -124,7 +221,7 @@ function setupLocateControl(map: L.Map): void {
 			link.addEventListener('keydown', (e: KeyboardEvent) => {
 				if (e.key === 'Enter' || e.key === ' ') {
 					e.preventDefault();
-					locateUser(map);
+					locateUser(map, onLocationUpdate);
 				}
 			});
 

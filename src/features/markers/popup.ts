@@ -9,13 +9,75 @@ import { openNavigation } from '../navigation/navigation';
 import * as logger from '../../utils/logger';
 
 /**
+ * Get user-friendly label and icon for water source type
+ */
+function getWaterSourceLabel(element: Element): { label: string; icon: string; color: string } {
+	if (element.tags.natural === 'spring') {
+		return { label: 'Natural Spring', icon: '💧', color: '#00BCD4' };
+	}
+	if (element.tags.man_made === 'water_well') {
+		return { label: 'Water Well', icon: '🪣', color: '#795548' };
+	}
+	if (element.tags.man_made === 'water_tap') {
+		return { label: 'Water Tap', icon: '🚰', color: '#2196F3' };
+	}
+	if (element.tags.waterway === 'water_point') {
+		return { label: 'Water Point', icon: '🌊', color: '#009688' };
+	}
+	if (element.tags.amenity === 'drinking_water') {
+		return { label: 'Drinking Water', icon: '🚰', color: '#4CAF50' };
+	}
+	return { label: 'Water Source', icon: '💧', color: '#0078ff' };
+}
+
+/**
+ * Check if water is drinkable
+ */
+function isDrinkable(element: Element): boolean {
+	const drinkingWater = (element.tags.drinking_water || '').toLowerCase();
+	return drinkingWater !== 'no';
+}
+
+/**
  * Create HTML content for popup
  */
 export function createPopupContent(element: Element): string {
 	const parts: string[] = [];
+	const sourceInfo = getWaterSourceLabel(element);
+	const drinkable = isDrinkable(element);
 
-	// Title
-	parts.push(`<strong>water_tap (id: ${element.id})</strong>`);
+	// Title with type and icon
+	parts.push(
+		`<strong style="color: ${drinkable ? sourceInfo.color : '#FF5722'};">` +
+		`${sourceInfo.icon} ${sourceInfo.label}` +
+		`</strong>` +
+		`<div style="font-size: 0.85em; color: #666;">ID: ${element.id}</div>`
+	);
+
+	// Non-drinkable warning
+	if (!drinkable) {
+		parts.push(
+			`<div style="background: #FFF3E0; border-left: 3px solid #FF9800; padding: 8px; margin: 8px 0; border-radius: 4px;">` +
+			`<strong style="color: #F57C00;">⚠️ Not Drinkable</strong><br>` +
+			`<span style="font-size: 0.9em; color: #666;">This water source is not safe for drinking.</span>` +
+			`</div>`
+		);
+	}
+
+	// Distance (if available)
+	if (element.distanceFromUser !== undefined) {
+		const distanceKm = element.distanceFromUser / 1000;
+		const distanceStr =
+			distanceKm < 1
+				? `${Math.round(element.distanceFromUser)}m`
+				: `${distanceKm.toFixed(2)}km`;
+		parts.push(`<div><strong>Distance: ${distanceStr}</strong></div>`);
+	}
+
+	// Nearest marker indicator
+	if (element.isNearest) {
+		parts.push(`<div style="color: #FFD700;">⭐ Nearest water point</div>`);
+	}
 
 	// Tags
 	if (element.tags.operator) {
@@ -37,12 +99,12 @@ export function createPopupContent(element: Element): string {
 	// Actions
 	parts.push(
 		`<div class="popup-actions">` +
-			`<button type="button" class="navigate-btn" data-lat="${element.lat}" data-lon="${element.lon}" aria-label="Navigate to water tap ${element.id}">` +
+			`<button type="button" class="navigate-btn" data-lat="${element.lat}" data-lon="${element.lon}" aria-label="Navigate to ${sourceInfo.label.toLowerCase()} ${element.id}">` +
 			`<span class="icon" aria-hidden="true">🧭</span>` +
 			`<span class="label">Navigate</span>` +
 			`</button>` +
 			`<a class="popup-secondary" target="_blank" rel="noreferrer" href="https://www.openstreetmap.org/node/${element.id}">` +
-			`Open node on OpenStreetMap` +
+			`Open on OpenStreetMap` +
 			`</a>` +
 			`</div>`
 	);

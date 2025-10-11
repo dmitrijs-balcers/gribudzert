@@ -10,11 +10,12 @@ import { isActivationKey } from '../utils/dom';
 /**
  * Initialize the Leaflet map
  * @param containerId - ID of the HTML element to contain the map
+ * @param center - Optional center coordinates (defaults to Riga)
  * @returns Leaflet Map instance
  */
-export function initializeMap(containerId: string): L.Map {
+export function initializeMap(containerId: string, center?: L.LatLngTuple): L.Map {
 	const map = L.map(containerId, {
-		center: RIGA_CENTER,
+		center: center || RIGA_CENTER,
 		zoom: DEFAULT_ZOOM,
 		zoomControl: true,
 	});
