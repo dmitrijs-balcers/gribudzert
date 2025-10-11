@@ -13,6 +13,32 @@ import { setupMapNavigationHandlers } from './features/navigation/navigation';
 import type { Element } from './types/overpass';
 
 /**
+ * Update the location info display in the bottom right
+ */
+function updateLocationInfo(lat: number, lon: number, isUserLocation: boolean): void {
+	const locationInfoEl = document.getElementById('location-info');
+	if (!locationInfoEl) return;
+
+	// Use Nominatim to reverse geocode the coordinates
+	const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
+
+	fetch(url)
+		.then(response => response.json())
+		.then(data => {
+			const city = data.address?.city || data.address?.town || data.address?.village || 'Unknown';
+			const country = data.address?.country || '';
+			const locationText = country ? `${city}, ${country}` : city;
+			locationInfoEl.textContent = isUserLocation ? `${locationText} (Your Location)` : locationText;
+		})
+		.catch(() => {
+			// Fallback if geocoding fails
+			locationInfoEl.textContent = isUserLocation
+				? `${lat.toFixed(4)}, ${lon.toFixed(4)} (Your Location)`
+				: `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+		});
+}
+
+/**
  * Initialize and setup the map
  */
 async function initializeApp(): Promise<void> {
@@ -25,12 +51,14 @@ async function initializeApp(): Promise<void> {
 
 		let mapCenter: L.LatLngTuple = RIGA_CENTER;
 		let userLocation: { lat: number; lon: number } | null = null;
+		let isUserLocation = false;
 
 		if (isOk(locationResult)) {
 			// Location detected successfully
 			const { latitude, longitude } = locationResult.value.coords;
 			mapCenter = [latitude, longitude];
 			userLocation = { lat: latitude, lon: longitude };
+			isUserLocation = true;
 			logger.info('Location detected:', latitude, longitude);
 		} else {
 			// Location detection failed - fall back to Riga
@@ -57,6 +85,9 @@ async function initializeApp(): Promise<void> {
 		}).addTo(map);
 
 		L.control.scale({ metric: true, imperial: false }).addTo(map);
+
+		// Update location info display
+		updateLocationInfo(mapCenter[0], mapCenter[1], isUserLocation);
 
 		// Layer to hold water points
 		const pointsLayer: L.FeatureGroup<L.CircleMarker> = L.featureGroup().addTo(map);

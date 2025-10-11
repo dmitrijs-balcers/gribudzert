@@ -54,7 +54,26 @@ ID: 123456789
 Distance: 150m
 ```
 
-### 4. Test Updates
+### 4. Dynamic Location Info Display (`index.html`, `src/index.ts`)
+
+Fixed the hardcoded "Centered on: Riga, Latvia" text in the bottom-right info box:
+- Now shows **actual map center location** using reverse geocoding
+- Displays city and country names (e.g., "Berlin, Germany")
+- Shows "(Your Location)" indicator when centered on user's detected position
+- Falls back to coordinates if geocoding fails
+- Updates dynamically based on where the map is actually centered
+
+### 5. Navigation Function Implementation (`src/features/navigation/navigation.ts`)
+
+Added the missing `openNavigation()` function that was causing runtime errors:
+- Platform detection (iOS/Android/Desktop)
+- Opens Apple Maps on iOS devices
+- Opens Google Maps on Android devices
+- Opens Google Maps web on desktop browsers
+- Validates coordinates before navigation
+- Proper security attributes (`noopener`, `noreferrer`)
+
+### 6. Test Updates
 
 Updated test suite to expect new user-friendly labels:
 - Changed assertions from `"water_tap"` to `"Drinking Water"`
@@ -107,4 +126,3 @@ Potential improvements for future iterations:
 - The query timeout is set to 25 seconds to handle larger result sets
 - Relations are included in addition to nodes to capture complex water features
 - All color codes use Material Design color palette for consistency
-
