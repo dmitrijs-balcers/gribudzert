@@ -57,8 +57,8 @@ export const colourMap = COLOUR_MAP; // Alias
  * Marker radius configurations
  */
 export const MARKER_RADIUS = {
-	default: 6,
-	bottle: 7,
+	default: 8,
+	bottle: 8,
 	wheelchair: 8,
 } as const;
 export const defaultMarkerRadius = MARKER_RADIUS.default; // Alias
