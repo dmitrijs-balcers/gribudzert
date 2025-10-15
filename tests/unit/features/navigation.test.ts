@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as L from 'leaflet';
-import { hasMovedSignificantly, setupMapNavigationHandlers } from '../../../src/features/navigation/navigation';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	hasMovedSignificantly,
+	setupMapNavigationHandlers,
+} from '../../../src/features/navigation/navigation';
 
 // Ensure Leaflet is imported as the real module, not mocked
 vi.mock('leaflet', async () => {
@@ -96,7 +99,7 @@ describe('navigation', () => {
 			map.fire('moveend');
 
 			// Wait for debounce
-			await new Promise(resolve => setTimeout(resolve, 350));
+			await new Promise((resolve) => setTimeout(resolve, 350));
 
 			expect(callback).toHaveBeenCalledTimes(1);
 			expect(callback).toHaveBeenCalledWith(expect.any(L.LatLngBounds));
@@ -112,11 +115,11 @@ describe('navigation', () => {
 			map.fire('moveend');
 
 			// Wait less than debounce delay
-			await new Promise(resolve => setTimeout(resolve, 150));
+			await new Promise((resolve) => setTimeout(resolve, 150));
 			expect(callback).not.toHaveBeenCalled();
 
 			// Wait for debounce to complete
-			await new Promise(resolve => setTimeout(resolve, 200));
+			await new Promise((resolve) => setTimeout(resolve, 200));
 			expect(callback).toHaveBeenCalledTimes(1);
 		});
 
@@ -126,14 +129,14 @@ describe('navigation', () => {
 
 			// First moveend - always triggers (sets lastFetchBounds)
 			map.fire('moveend');
-			await new Promise(resolve => setTimeout(resolve, 350));
+			await new Promise((resolve) => setTimeout(resolve, 350));
 			expect(callback).toHaveBeenCalledTimes(1);
 
 			const callCountBefore = callback.mock.calls.length;
 
 			// Large pan (>= 25% viewport) - should trigger
 			map.panBy([200, 200]); // Large pixel movement
-			await new Promise(resolve => setTimeout(resolve, 350));
+			await new Promise((resolve) => setTimeout(resolve, 350));
 			expect(callback.mock.calls.length).toBeGreaterThan(callCountBefore);
 
 			cleanup();
@@ -145,7 +148,7 @@ describe('navigation', () => {
 
 			// Verify handler works
 			map.fire('moveend');
-			await new Promise(resolve => setTimeout(resolve, 350));
+			await new Promise((resolve) => setTimeout(resolve, 350));
 			expect(callback).toHaveBeenCalledTimes(1);
 
 			// Call cleanup
@@ -153,7 +156,7 @@ describe('navigation', () => {
 
 			// Verify handler no longer works
 			map.fire('moveend');
-			await new Promise(resolve => setTimeout(resolve, 350));
+			await new Promise((resolve) => setTimeout(resolve, 350));
 			expect(callback).toHaveBeenCalledTimes(1); // Still 1
 		});
 
@@ -168,7 +171,7 @@ describe('navigation', () => {
 			cleanup();
 
 			// Wait for what would have been the debounce delay
-			await new Promise(resolve => setTimeout(resolve, 350));
+			await new Promise((resolve) => setTimeout(resolve, 350));
 
 			// Callback should not have been called
 			expect(callback).not.toHaveBeenCalled();

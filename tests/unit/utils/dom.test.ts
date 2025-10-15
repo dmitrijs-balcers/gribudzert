@@ -3,12 +3,12 @@
  * Tests edge cases and type guards
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-	isHTMLElement,
 	getAttribute,
-	queryHTMLElement,
 	isActivationKey,
+	isHTMLElement,
+	queryHTMLElement,
 } from '../../../src/utils/dom';
 
 describe('DOM Utilities', () => {
@@ -190,22 +190,23 @@ describe('DOM Utilities', () => {
 		});
 	});
 });
+
 /**
  * Unit tests for Result type
  * Tests all Result ADT functions: Ok, Err, map, flatMap, unwrap, etc.
  */
 
 import {
-	Ok,
 	Err,
-	isOk,
-	isErr,
-	mapResult,
-	mapErr,
 	flatMap,
+	isErr,
+	isOk,
+	mapErr,
+	mapResult,
+	Ok,
+	type Result,
 	unwrap,
 	unwrapOr,
-	type Result,
 } from '../../../src/types/result';
 
 describe('Result Type', () => {

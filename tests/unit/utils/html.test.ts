@@ -3,7 +3,7 @@
  * Comprehensive XSS prevention tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { escapeHtml } from '../../../src/utils/html';
 
 describe('HTML Utilities', () => {

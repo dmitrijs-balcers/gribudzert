@@ -1,16 +1,17 @@
 import * as L from 'leaflet';
-import drinkingWater from './oql/drinking_water.overpassql?raw';
-import { isOk } from './types/result';
-import { fetchWaterPointsInBounds } from './features/data/fetch';
-import { addMarkers } from './features/markers/markers';
+import { DEFAULT_ZOOM, MAX_ZOOM, OSM_ATTRIBUTION, OSM_TILE_URL, RIGA_CENTER } from './core/config';
+import { fetchFacilitiesInBounds, fetchWaterPointsInBounds } from './features/data/fetch';
 import { detectInitialLocation, locateUser } from './features/location/geolocation';
-import { findNearestWaterPoint, haversineDistance } from './utils/geometry';
-import { showNotification } from './ui/notifications';
-import { showLoading, hideLoading } from './ui/loading';
-import * as logger from './utils/logger';
-import { RIGA_CENTER, DEFAULT_ZOOM, MAX_ZOOM, OSM_TILE_URL, OSM_ATTRIBUTION } from './core/config';
+import { addMarkers, addToiletMarkers } from './features/markers/markers';
 import { setupMapNavigationHandlers } from './features/navigation/navigation';
+import drinkingWater from './oql/drinking_water.overpassql?raw';
+import publicToilets from './oql/public_toilets.overpassql?raw';
 import type { Element } from './types/overpass';
+import { isOk } from './types/result';
+import { hideLoading, showLoading } from './ui/loading';
+import { showNotification } from './ui/notifications';
+import { findNearestWaterPoint, haversineDistance } from './utils/geometry';
+import * as logger from './utils/logger';
 
 /**
  * Initialize and setup the map
@@ -25,23 +26,19 @@ async function initializeApp(): Promise<void> {
 
 		let mapCenter: L.LatLngTuple = RIGA_CENTER;
 		let userLocation: { lat: number; lon: number } | null = null;
-		let isUserLocation = false;
+		let _isUserLocation = false;
 
 		if (isOk(locationResult)) {
 			// Location detected successfully
 			const { latitude, longitude } = locationResult.value.coords;
 			mapCenter = [latitude, longitude];
 			userLocation = { lat: latitude, lon: longitude };
-			isUserLocation = true;
+			_isUserLocation = true;
 			logger.info('Location detected:', latitude, longitude);
 		} else {
 			// Location detection failed - fall back to Riga
 			logger.warn('Location detection failed:', locationResult.error.message);
-			showNotification(
-				'Could not detect your location. Showing Riga area.',
-				'info',
-				5000
-			);
+			showNotification('Could not detect your location. Showing Riga area.', 'info', 5000);
 		}
 
 		hideLoading();
@@ -61,13 +58,45 @@ async function initializeApp(): Promise<void> {
 		L.control.scale({ metric: true, imperial: false }).addTo(map);
 
 		// Layer to hold water points
-		const pointsLayer: L.FeatureGroup<L.CircleMarker> = L.featureGroup().addTo(map);
+		const pointsLayer: L.FeatureGroup<L.CircleMarker | L.Marker> = L.featureGroup().addTo(map);
+
+		// Layer to hold toilet markers (hidden by default)
+		const toiletLayer: L.FeatureGroup<L.CircleMarker | L.Marker> = L.featureGroup();
 
 		// Load initial water points
 		await loadWaterPoints(map, pointsLayer, userLocation);
 
-		// Add layer control
-		L.control.layers(undefined, { 'Water taps': pointsLayer }, { collapsed: false }).addTo(map);
+		// Add layer control with both water and toilet layers
+		L.control
+			.layers(
+				undefined,
+				{
+					'Drinking Points': pointsLayer,
+					'Public Toilets': toiletLayer,
+				},
+				{ collapsed: false }
+			)
+			.addTo(map);
+
+		// Track which layers are active
+		let toiletLayerActive = false;
+
+		// Event handler for when toilet layer is added
+		map.on('overlayadd', async (e: L.LayersControlEvent) => {
+			if (e.name === 'Public Toilets') {
+				toiletLayerActive = true;
+				toiletLayer.addTo(map);
+				await loadToilets(map, toiletLayer, userLocation);
+			}
+		});
+
+		// Event handler for when toilet layer is removed
+		map.on('overlayremove', (e: L.LayersControlEvent) => {
+			if (e.name === 'Public Toilets') {
+				toiletLayerActive = false;
+				toiletLayer.clearLayers();
+			}
+		});
 
 		// Setup locate control with callback to update user location and refetch water points
 		setupLocateControl(map, pointsLayer, (lat: number, lon: number) => {
@@ -80,6 +109,10 @@ async function initializeApp(): Promise<void> {
 		// Setup map navigation handlers for dynamic refetching
 		setupMapNavigationHandlers(map, async (bounds: L.LatLngBounds) => {
 			await loadWaterPoints(map, pointsLayer, userLocation, bounds);
+			// Also refetch toilets if layer is active
+			if (toiletLayerActive) {
+				await loadToilets(map, toiletLayer, userLocation, bounds);
+			}
 		});
 
 		logger.info('App initialization complete');
@@ -117,15 +150,13 @@ async function loadWaterPoints(
 	if (!isOk(result)) {
 		// Handle fetch error
 		const errorMessages = {
-			network:
-				'Failed to load water points. Please check your internet connection and try again.',
+			network: 'Failed to load water points. Please check your internet connection and try again.',
 			timeout: 'Request timed out while loading water points. Please try again.',
 			parse: 'Failed to parse water point data. Please try again.',
 		};
 
 		const message =
-			errorMessages[result.error.type] ||
-			'Failed to load water points. Please try again.';
+			errorMessages[result.error.type] || 'Failed to load water points. Please try again.';
 		showNotification(message, 'error', 5000);
 		logger.error('Failed to fetch water points:', result.error);
 		return;
@@ -175,10 +206,9 @@ async function loadWaterPoints(
 	}));
 
 	if (nearestPoint) {
-		const distanceKm = nodes.find(n => n.id === nearestPoint?.id)?.distanceFromUser || 0;
-		const distanceStr = distanceKm < 1000
-			? `${Math.round(distanceKm)}m`
-			: `${(distanceKm / 1000).toFixed(2)}km`;
+		const distanceKm = nodes.find((n) => n.id === nearestPoint?.id)?.distanceFromUser || 0;
+		const distanceStr =
+			distanceKm < 1000 ? `${Math.round(distanceKm)}m` : `${(distanceKm / 1000).toFixed(2)}km`;
 		logger.info(`Nearest water point: ${nearestPoint.id} (${distanceStr} away)`);
 	}
 
@@ -190,11 +220,81 @@ async function loadWaterPoints(
 }
 
 /**
+ * Load public toilets for given bounds and update markers
+ */
+async function loadToilets(
+	map: L.Map,
+	toiletLayer: L.FeatureGroup<L.CircleMarker>,
+	userLocation: { lat: number; lon: number } | null,
+	bounds?: L.LatLngBounds
+): Promise<void> {
+	// Show loading indicator while fetching toilets
+	showLoading(200);
+
+	// Use provided bounds or current map bounds
+	const fetchBounds = bounds || map.getBounds();
+
+	// Fetch toilet data based on bounds
+	const result = await fetchFacilitiesInBounds(publicToilets, fetchBounds);
+
+	hideLoading();
+
+	if (!isOk(result)) {
+		// Handle fetch error
+		const errorMessages = {
+			network: 'Failed to load toilet data. Please check your internet connection and try again.',
+			timeout: 'Request timed out while loading toilet data. Please try again.',
+			parse: 'Failed to parse toilet data. Please try again.',
+		};
+
+		const message =
+			errorMessages[result.error.type] || 'Failed to load toilet data. Please try again.';
+		showNotification(message, 'error', 5000);
+		logger.error('Failed to fetch toilet data:', result.error);
+		return;
+	}
+
+	let toilets = result.value;
+
+	// Handle empty state
+	if (toilets.length === 0) {
+		showNotification('No public toilets found in this area.', 'info', 5000);
+		logger.warn('No toilets returned from API for current bounds');
+
+		// Clear existing toilet markers
+		toiletLayer.clearLayers();
+		return;
+	}
+
+	// Enrich toilets with distance information from user location
+	if (userLocation) {
+		toilets = toilets.map((toilet) => ({
+			...toilet,
+			distanceFromUser: haversineDistance(
+				userLocation.lat,
+				userLocation.lon,
+				toilet.lat,
+				toilet.lon
+			),
+		}));
+
+		// Sort toilets by distance
+		toilets.sort((a, b) => a.distanceFromUser - b.distanceFromUser);
+	}
+
+	// Clear existing toilet markers and add new ones
+	toiletLayer.clearLayers();
+	addToiletMarkers(toilets, toiletLayer, map);
+
+	logger.info(`Successfully loaded ${toilets.length} public toilets`);
+}
+
+/**
  * Setup the locate control button
  */
 function setupLocateControl(
 	map: L.Map,
-	pointsLayer: L.FeatureGroup<L.CircleMarker>,
+	_pointsLayer: L.FeatureGroup<L.CircleMarker>,
 	onLocationUpdate: (lat: number, lon: number) => void
 ): void {
 	const LocateControl = L.Control.extend({

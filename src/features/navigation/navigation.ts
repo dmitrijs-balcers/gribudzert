@@ -71,12 +71,7 @@ export function hasMovedSignificantly(
 	// Calculate approximate viewport size (diagonal) in meters
 	const oldNE = oldBounds.getNorthEast();
 	const oldSW = oldBounds.getSouthWest();
-	const viewportDiagonal = haversineDistance(
-		oldNE.lat,
-		oldNE.lng,
-		oldSW.lat,
-		oldSW.lng
-	);
+	const viewportDiagonal = haversineDistance(oldNE.lat, oldNE.lng, oldSW.lat, oldSW.lng);
 
 	// Check if movement is >= 25% of viewport diagonal
 	const threshold = viewportDiagonal * MOVEMENT_THRESHOLD_PERCENTAGE;

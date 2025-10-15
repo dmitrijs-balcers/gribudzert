@@ -2,8 +2,8 @@
  * Unit tests for branded domain types
  */
 
-import { describe, it, expect } from 'vitest';
-import { nodeId, latitude, longitude, colorCode, coordinates } from '../../../src/types/domain';
+import { describe, expect, it } from 'vitest';
+import { colorCode, coordinates, latitude, longitude, nodeId } from '../../../src/types/domain';
 
 describe('Domain Types', () => {
 	describe('NodeId', () => {

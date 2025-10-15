@@ -1,20 +1,21 @@
 /**
  * Data fetching functionality
+ * Generic facility data fetching from Overpass API
  */
 
-import type { Overpass, Element } from '../../types/overpass';
-import type { Result } from '../../types/result';
-import type { FetchError } from '../../types/errors';
-import { Ok, Err } from '../../types/result';
-import { OVERPASS_API_URL } from '../../core/config';
 import type * as L from 'leaflet';
+import { OVERPASS_API_URL } from '../../core/config';
+import type { FetchError } from '../../types/errors';
+import type { Element, Overpass } from '../../types/overpass';
+import type { Result } from '../../types/result';
+import { Err, Ok } from '../../types/result';
 
 /**
- * Fetch water points from Overpass API
+ * Fetch facilities from Overpass API
  * @param query - Overpass QL query string
  * @returns Result with elements or fetch error
  */
-export async function fetchWaterPoints(query: string): Promise<Result<Element[], FetchError>> {
+export async function fetchFacilities(query: string): Promise<Result<Element[], FetchError>> {
 	try {
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
@@ -57,12 +58,12 @@ export async function fetchWaterPoints(query: string): Promise<Result<Element[],
 }
 
 /**
- * Fetch water points within specific map bounds
+ * Fetch facilities within specific map bounds
  * @param query - Overpass QL query string with [bbox] placeholder
  * @param bounds - Leaflet LatLngBounds for the visible map area
  * @returns Result with elements or fetch error
  */
-export async function fetchWaterPointsInBounds(
+export async function fetchFacilitiesInBounds(
 	query: string,
 	bounds: L.LatLngBounds
 ): Promise<Result<Element[], FetchError>> {
@@ -112,3 +113,14 @@ export async function fetchWaterPointsInBounds(
 		});
 	}
 }
+
+// Backward compatibility aliases for existing water point code
+/**
+ * @deprecated Use fetchFacilities instead
+ */
+export const fetchWaterPoints = fetchFacilities;
+
+/**
+ * @deprecated Use fetchFacilitiesInBounds instead
+ */
+export const fetchWaterPointsInBounds = fetchFacilitiesInBounds;
