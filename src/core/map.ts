@@ -3,9 +3,9 @@
  */
 
 import * as L from 'leaflet';
-import { RIGA_CENTER, DEFAULT_ZOOM, MAX_ZOOM, OSM_TILE_URL, OSM_ATTRIBUTION } from './config';
 import { locateUser } from '../features/location/geolocation';
 import { isActivationKey } from '../utils/dom';
+import { DEFAULT_ZOOM, MAX_ZOOM, OSM_ATTRIBUTION, OSM_TILE_URL, RIGA_CENTER } from './config';
 
 /**
  * Initialize the Leaflet map

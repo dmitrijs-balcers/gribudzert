@@ -36,14 +36,14 @@ Single project structure: `src/`, `tests/` at repository root
 
 **NOTE: Write these tests FIRST, ensure they PASS (to verify no regression)**
 
-- [ ] T004 [P] [REFACTOR] Unit test for `getWaterMarkerStyle()` in `tests/unit/features/markers/styling.test.ts`
-- [ ] T005 [P] [REFACTOR] Unit test for `createGenericMarker()` in `tests/unit/features/markers/styling.test.ts`
-- [ ] T006 [P] [REFACTOR] Integration test verifying existing water tap functionality still works in `tests/integration/water-markers.test.ts`
+- [x] T004 [P] [REFACTOR] Unit test for `getWaterMarkerStyle()` in `tests/unit/features/markers/styling.test.ts`
+- [x] T005 [P] [REFACTOR] Unit test for `createGenericMarker()` in `tests/unit/features/markers/styling.test.ts`
+- [x] T006 [P] [REFACTOR] Integration test verifying existing water tap functionality still works in `tests/integration/water-markers.test.ts`
 
 ### Implementation for Foundational Refactoring
 
-- [ ] T007 [P] [REFACTOR] Create `src/types/facilities.ts` with discriminated union types (copy from `specs/004-public-toilet-search/contracts/facilities.ts`)
-- [ ] T008 [REFACTOR] Create `src/features/markers/styling.ts` with extracted styling logic:
+- [x] T007 [P] [REFACTOR] Create `src/types/facilities.ts` with discriminated union types (copy from `specs/004-public-toilet-search/contracts/facilities.ts`)
+- [x] T008 [REFACTOR] Create `src/features/markers/styling.ts` with extracted styling logic:
   - Extract color determination logic from `markers.ts` → `getWaterSourceColor()`
   - Extract radius determination logic → `getMarkerRadius()`
   - Extract opacity logic for seasonal markers → `isSeasonalMarker()`
@@ -51,18 +51,18 @@ Single project structure: `src/`, `tests/` at repository root
   - Create `getWaterMarkerStyle(element, options): MarkerStyle` function
   - Create `createGenericMarker(lat, lon, style): L.CircleMarker` factory function
   - Copy color palettes and constants from `specs/004-public-toilet-search/contracts/marker-styles.ts`
-- [ ] T009 [REFACTOR] Refactor `src/features/markers/markers.ts` to use generic styling:
+- [x] T009 [REFACTOR] Refactor `src/features/markers/markers.ts` to use generic styling:
   - Import `MarkerStyle` and functions from `./styling.ts`
   - Simplify `createMarker()` to call `getWaterMarkerStyle()` + `createGenericMarker()`
   - Keep `addMarkers()` function signature unchanged for backward compatibility
   - Remove old color/radius logic (now in styling.ts)
-- [ ] T010 [REFACTOR] Generalize `src/features/data/fetch.ts`:
+- [x] T010 [REFACTOR] Generalize `src/features/data/fetch.ts`:
   - Rename `fetchWaterPoints` → `fetchFacilities` (keep old name as alias)
   - Rename `fetchWaterPointsInBounds` → `fetchFacilitiesInBounds` (keep alias)
   - Update JSDoc comments to be facility-agnostic
   - Keep backward compatibility - no breaking changes
-- [ ] T011 [REFACTOR] Run existing tests to verify no regression: `npm test`
-- [ ] T012 [REFACTOR] Run linter to verify code quality: `npm run lint`
+- [x] T011 [REFACTOR] Run existing tests to verify no regression: `npm test`
+- [x] T012 [REFACTOR] Run linter to verify code quality: `npm run lint`
 
 **Checkpoint**: Foundation ready - existing water tap functionality still works, generic infrastructure available for new facility types
 
@@ -78,41 +78,41 @@ Single project structure: `src/`, `tests/` at repository root
 
 **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T013 [P] [US1] Unit test for `elementToToiletFacility()` transformer in `tests/unit/features/data/transformers.test.ts`
-- [ ] T014 [P] [US1] Unit test for `getToiletMarkerStyle()` in `tests/unit/features/markers/styling.test.ts`
-- [ ] T015 [P] [US1] Unit test for toilet tag parsing (wheelchair, changing_table, fee) in `tests/unit/features/data/transformers.test.ts`
+- [X] T013 [P] [US1] Unit test for `elementToToiletFacility()` transformer in `tests/unit/features/data/transformers.test.ts`
+- [X] T014 [P] [US1] Unit test for `getToiletMarkerStyle()` in `tests/unit/features/markers/styling.test.ts`
+- [X] T015 [P] [US1] Unit test for toilet tag parsing (wheelchair, changing_table, fee) in `tests/unit/features/data/transformers.test.ts`
 - [ ] T016 [US1] Integration test for toilet layer toggle (enable/disable) in `tests/integration/toilet-layer.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T017 [P] [US1] Create `src/oql/public_toilets.overpassql` with Overpass query for `amenity=toilets` + `access=yes/public/permissive`
-- [ ] T018 [US1] Create `src/features/data/transformers.ts` with toilet transformation logic:
+- [X] T017 [P] [US1] Create `src/oql/public_toilets.overpassql` with Overpass query for `amenity=toilets` + `access=yes/public/permissive`
+- [X] T018 [US1] Create `src/features/data/transformers.ts` with toilet transformation logic:
   - `elementToWaterFacility(element): WaterFacility`
   - `elementToToiletFacility(element): ToiletFacility`
   - `extractAccessibility(element): ToiletAccessibility`
   - `extractToiletDetails(element): ToiletDetails`
   - Helper functions: `parseWheelchairTag()`, `parseChangingTableTag()`, `parseFeeTag()`, `parseUnisexTag()`
   - Copy logic from `specs/004-public-toilet-search/contracts/transformers.ts`
-- [ ] T019 [US1] Add `getToiletMarkerStyle()` function to `src/features/markers/styling.ts`:
+- [X] T019 [US1] Add `getToiletMarkerStyle()` function to `src/features/markers/styling.ts`:
   - Use brown/tan color palette for toilets
   - Differentiate accessible toilets (darker brown)
   - Support highlighting and seasonal opacity
-- [ ] T020 [US1] Create toilet marker helper functions in `src/features/markers/markers.ts`:
+- [x] T020 [US1] Create toilet marker helper functions in `src/features/markers/markers.ts`:
   - `createToiletMarker(element, isNearest)` using generic factory
   - `addToiletMarkers(toilets, layer, options)` similar to existing `addMarkers()`
-- [ ] T021 [US1] Add toilet layer to `src/index.ts`:
+- [x] T021 [US1] Add toilet layer to `src/index.ts`:
   - Create `toiletLayer = L.featureGroup()` (parallel to waterLayer)
   - Add to Leaflet layer control: `{ "Public Toilets": toiletLayer }`
   - Set toilet layer hidden by default (not added to map initially)
   - Wire up `overlayadd` event listener to fetch toilets when enabled
   - Wire up `overlayremove` event listener to clear toilets when disabled
-- [ ] T022 [US1] Implement toilet fetching in `src/features/data/fetch.ts`:
+- [x] T022 [US1] Implement toilet fetching in `src/features/data/fetch.ts`:
   - Add `fetchToilets(bounds): Promise<Result<Element[], FetchError>>` function
   - Load `public_toilets.overpassql` template
   - Use existing `fetchFromOverpass()` infrastructure
-- [ ] T023 [US1] Test end-to-end: Load map → enable toilets → verify markers appear with brown styling
-- [ ] T024 [US1] Test map pan/zoom with toilets enabled → verify markers update correctly
-- [ ] T025 [US1] Verify no regression: Water taps still work independently
+- [x] T023 [US1] Test end-to-end: Load map → enable toilets → verify markers appear with brown styling
+- [x] T024 [US1] Test map pan/zoom with toilets enabled → verify markers update correctly
+- [x] T025 [US1] Verify no regression: Water taps still work independently
 
 **Checkpoint**: User Story 1 complete - Users can display public toilets on the map as distinct markers
 
@@ -132,7 +132,7 @@ Single project structure: `src/`, `tests/` at repository root
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Add `getToiletPopupContent()` to `src/features/markers/popup.ts`:
+- [x] T029 [US2] Add `getToiletPopupContent()` to `src/features/markers/popup.ts`:
   - Display location/name from tags
   - Show wheelchair accessibility status with icon/text
   - Show changing table availability
@@ -141,16 +141,16 @@ Single project structure: `src/`, `tests/` at repository root
   - Show unisex/gendered status if available
   - Handle missing data gracefully ("Information not available")
   - Include navigation button (reuse existing `getNavigationButton()`)
-- [ ] T030 [US2] Wire up popup in `createToiletMarker()` in `src/features/markers/markers.ts`:
+- [x] T030 [US2] Wire up popup in `createToiletMarker()` in `src/features/markers/markers.ts`:
   - Call `getToiletPopupContent(element)` for toilet facilities
   - Bind popup to marker using `.bindPopup()`
   - Follow same pattern as water tap popups
-- [ ] T031 [US2] Test toilet popup content displays correctly for various scenarios:
+- [x] T031 [US2] Test toilet popup content displays correctly for various scenarios:
   - Fully-specified toilet (all data present)
   - Minimal data toilet (only coordinates + amenity tag)
   - Accessible toilet with changing table
   - Paid toilet with specific hours
-- [ ] T032 [US2] Test navigation button in toilet popup works correctly
+- [x] T032 [US2] Test navigation button in toilet popup works correctly
 
 **Checkpoint**: User Story 2 complete - Users can view detailed toilet information including accessibility features
 
@@ -368,4 +368,3 @@ Task T020: "Create toilet marker helpers"
 **Parallel Opportunities**: 18 tasks marked [P] can run in parallel within their phases
 
 **Test Coverage**: 14 test tasks (23% of total) - follows TDD approach
-

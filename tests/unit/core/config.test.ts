@@ -2,15 +2,15 @@
  * Unit tests for application configuration
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-	RIGA_CENTER,
+	COLOUR_MAP,
 	DEFAULT_ZOOM,
 	MAX_ZOOM,
-	OSM_TILE_URL,
 	OSM_ATTRIBUTION,
+	OSM_TILE_URL,
 	OVERPASS_API_URL,
-	COLOUR_MAP,
+	RIGA_CENTER,
 } from '../../../src/core/config';
 
 describe('Configuration', () => {

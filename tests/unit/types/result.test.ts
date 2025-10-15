@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-	Ok,
 	Err,
-	isOk,
-	isErr,
-	mapResult,
-	mapErr,
 	flatMap,
+	isErr,
+	isOk,
+	mapErr,
+	mapResult,
+	Ok,
+	type Result,
 	unwrap,
 	unwrapOr,
-	type Result,
 } from '../../../src/types/result';
 
 describe('Result Type', () => {

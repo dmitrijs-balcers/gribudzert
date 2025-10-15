@@ -1,6 +1,15 @@
 # Gribudzert
 
-Interactive map application using Leaflet and OpenStreetMap to display points of interest in Riga.
+Interactive map application using Leaflet and OpenStreetMap to display points of interest.
+
+## ✨ Features
+
+- 🚰 **Water Sources**: Find drinking water taps, springs, wells, and water points
+- 🚻 **Public Toilets**: Discover public and accessible toilets with detailed information
+- ♿ **Accessibility Info**: View wheelchair access, changing tables, and fee status
+- 📍 **Location-Based**: Automatic location detection with nearest point highlighting
+- 🗺️ **Interactive Map**: Pan and zoom to explore different areas
+- 🧭 **Navigation**: Get directions to any water source or toilet
 
 ## 🚀 Development
 

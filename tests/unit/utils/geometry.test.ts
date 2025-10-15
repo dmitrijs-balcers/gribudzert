@@ -2,9 +2,9 @@
  * Tests for geometry utility functions
  */
 
-import { describe, it, expect } from 'vitest';
-import { haversineDistance, findNearestWaterPoint } from '../../../src/utils/geometry';
+import { describe, expect, it } from 'vitest';
 import type { Element } from '../../../src/types/overpass';
+import { findNearestWaterPoint, haversineDistance } from '../../../src/utils/geometry';
 
 describe('haversineDistance', () => {
 	it('should return 0 for the same point', () => {

@@ -3,8 +3,8 @@
  * Tests basic functionality and error handling
  */
 
-import { describe, it, expect } from 'vitest';
-import { showNotification, dismissNotification } from '../../../src/ui/notifications';
+import { describe, expect, it } from 'vitest';
+import { dismissNotification, showNotification } from '../../../src/ui/notifications';
 
 describe('Notifications', () => {
 	describe('showNotification', () => {

@@ -3,8 +3,8 @@
  * Tests content generation, escaping, and accessibility
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createPopupContent, attachPopupHandlers } from '../../../src/features/markers/popup';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { attachPopupHandlers, createPopupContent } from '../../../src/features/markers/popup';
 import type { Element } from '../../../src/types/overpass';
 
 // Mock dependencies
@@ -323,12 +323,12 @@ describe('Popup', () => {
  */
 
 import {
-	nodeId,
-	latitude,
-	longitude,
 	colorCode,
 	coordinates,
+	latitude,
+	longitude,
 	type NodeId,
+	nodeId,
 } from '../../../src/types/domain';
 
 describe('Domain Types', () => {

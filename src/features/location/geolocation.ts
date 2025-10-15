@@ -4,11 +4,11 @@
 
 import * as L from 'leaflet';
 import { GEOLOCATION_OPTIONS, USER_LOCATION_STYLE } from '../../core/config';
-import { showNotification } from '../../ui/notifications';
-import { showLoading, hideLoading } from '../../ui/loading';
-import type { Result } from '../../types/result';
 import type { LocationError } from '../../types/errors';
-import { Ok, Err } from '../../types/result';
+import type { Result } from '../../types/result';
+import { Err, Ok } from '../../types/result';
+import { hideLoading, showLoading } from '../../ui/loading';
+import { showNotification } from '../../ui/notifications';
 
 /**
  * Check if geolocation is available and context is secure
