@@ -25,11 +25,11 @@
 
 **Purpose**: Create the analytics module structure and core infrastructure
 
-- [ ] T001 Create analytics module directory structure at src/analytics/
-- [ ] T002 [P] Create Umami type declarations in src/analytics/types.ts (UmamiTracker, UmamiTrackFunction, UmamiEventData from contracts/analytics.ts)
-- [ ] T003 [P] Create event type definitions in src/analytics/types.ts (AnalyticsEvent discriminated union with all event kinds from data-model.md)
-- [ ] T004 Implement core tracker with safeTrack, isUmamiAvailable, and respectsDoNotTrack in src/analytics/tracker.ts (per research.md patterns)
-- [ ] T005 Implement debounce utility in src/analytics/tracker.ts (trailing-edge, 2000ms for area_explored per research.md)
+- [X] T001 Create analytics module directory structure at src/analytics/
+- [X] T002 [P] Create Umami type declarations in src/analytics/types.ts (re-export UmamiTracker, UmamiTrackFunction, UmamiEventData from contracts/analytics.ts - DO NOT duplicate, import and re-export)
+- [X] T003 [P] Create event type definitions in src/analytics/types.ts (AnalyticsEvent discriminated union with all event kinds from data-model.md; import FacilityType from types/facilities, LayerName from core/config, LocationFailureCategory from types/errors)
+- [X] T004 Implement core tracker with safeTrack, isUmamiAvailable (type guard for window.umami), and respectsDoNotTrack in src/analytics/tracker.ts (per research.md patterns; isUmamiAvailable must be a proper type guard: (umami: unknown) => umami is UmamiTracker)
+- [X] T005 Implement debounce utility in src/analytics/tracker.ts (trailing-edge, 2000ms for area_explored per research.md)
 
 ---
 
@@ -39,9 +39,9 @@
 
 **⚠️ CRITICAL**: No user story tracking can work until this phase is complete
 
-- [ ] T006 Create isAnalyticsEnabled function in src/analytics/tracker.ts (checks Umami availability + DNT)
-- [ ] T007 Create public API exports in src/analytics/index.ts (export only from this file per quickstart.md)
-- [ ] T008 [P] Create unit test file for tracker in tests/unit/analytics/tracker.test.ts (test isUmamiAvailable, respectsDoNotTrack, safeTrack silent failure)
+- [X] T006 Create isAnalyticsEnabled function in src/analytics/tracker.ts (checks Umami availability + DNT)
+- [X] T007 Create public API exports in src/analytics/index.ts (export only from this file per quickstart.md)
+- [X] T008 [P] Create unit test file for tracker in tests/unit/analytics/tracker.test.ts (test isUmamiAvailable, respectsDoNotTrack, safeTrack silent failure)
 
 **Checkpoint**: Analytics module core ready - event tracking can now be implemented
 
@@ -55,19 +55,19 @@
 
 ### Tests for User Story 1
 
-- [ ] T009 [P] [US1] Unit test for trackMapLoaded in tests/unit/analytics/events.test.ts
-- [ ] T010 [P] [US1] Unit test for trackMarkerClicked in tests/unit/analytics/events.test.ts
-- [ ] T011 [P] [US1] Unit test for trackNavigationStarted in tests/unit/analytics/events.test.ts
+- [X] T009 [P] [US1] Unit test for trackMapLoaded in tests/unit/analytics/events.test.ts
+- [X] T010 [P] [US1] Unit test for trackMarkerClicked in tests/unit/analytics/events.test.ts
+- [X] T011 [P] [US1] Unit test for trackNavigationStarted in tests/unit/analytics/events.test.ts
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Implement trackMapLoaded function in src/analytics/events.ts (accepts LocationType: 'user' | 'default')
-- [ ] T013 [P] [US1] Implement trackMarkerClicked function in src/analytics/events.ts (accepts FacilityType: 'water' | 'toilet')
-- [ ] T014 [P] [US1] Implement trackNavigationStarted function in src/analytics/events.ts (accepts FacilityType: 'water' | 'toilet')
-- [ ] T015 [US1] Export trackMapLoaded, trackMarkerClicked, trackNavigationStarted from src/analytics/index.ts
-- [ ] T016 [US1] Integrate trackMapLoaded call in src/core/map.ts (after successful map initialization)
-- [ ] T017 [US1] Integrate trackMarkerClicked call in src/features/markers/markers.ts (on marker click event)
-- [ ] T018 [US1] Integrate trackNavigationStarted call in src/features/markers/popup.ts (on Navigate button click)
+- [X] T012 [P] [US1] Implement trackMapLoaded function in src/analytics/events.ts (accepts LocationType: 'user' | 'default')
+- [X] T013 [P] [US1] Implement trackMarkerClicked function in src/analytics/events.ts (accepts FacilityType: 'water' | 'toilet')
+- [X] T014 [P] [US1] Implement trackNavigationStarted function in src/analytics/events.ts (accepts FacilityType: 'water' | 'toilet')
+- [X] T015 [US1] Export trackMapLoaded, trackMarkerClicked, trackNavigationStarted from src/analytics/index.ts
+- [X] T016 [US1] Integrate trackMapLoaded call in src/index.ts (after successful map initialization)
+- [X] T017 [US1] Integrate trackMarkerClicked call in src/features/markers/popup.ts (on marker popupopen event)
+- [X] T018 [US1] Integrate trackNavigationStarted call in src/features/markers/popup.ts (on Navigate button click)
 
 **Checkpoint**: Map engagement tracking complete - verify in Umami dashboard
 
@@ -81,15 +81,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T019 [P] [US2] Unit test for trackLayerEnabled in tests/unit/analytics/events.test.ts
-- [ ] T020 [P] [US2] Unit test for trackLayerDisabled in tests/unit/analytics/events.test.ts
+- [X] T019 [P] [US2] Unit test for trackLayerEnabled in tests/unit/analytics/events.test.ts
+- [X] T020 [P] [US2] Unit test for trackLayerDisabled in tests/unit/analytics/events.test.ts
 
 ### Implementation for User Story 2
 
-- [ ] T021 [P] [US2] Implement trackLayerEnabled function in src/analytics/events.ts (accepts LayerName and activeLayerCount)
-- [ ] T022 [P] [US2] Implement trackLayerDisabled function in src/analytics/events.ts (accepts LayerName and activeLayerCount)
-- [ ] T023 [US2] Export trackLayerEnabled, trackLayerDisabled from src/analytics/index.ts
-- [ ] T024 [US2] Integrate layer tracking in src/core/map.ts (on overlayadd and overlayremove events)
+- [X] T021 [P] [US2] Implement trackLayerEnabled function in src/analytics/events.ts (accepts LayerName and activeLayerCount)
+- [X] T022 [P] [US2] Implement trackLayerDisabled function in src/analytics/events.ts (accepts LayerName and activeLayerCount)
+- [X] T023 [US2] Export trackLayerEnabled, trackLayerDisabled from src/analytics/index.ts
+- [X] T024 [US2] Integrate layer tracking in src/index.ts (on overlayadd and overlayremove events)
 
 **Checkpoint**: Layer usage tracking complete - verify toggling layers shows events in Umami
 
@@ -103,17 +103,17 @@
 
 ### Tests for User Story 3
 
-- [ ] T025 [P] [US3] Unit test for trackLocateRequested in tests/unit/analytics/events.test.ts
-- [ ] T026 [P] [US3] Unit test for trackLocateSuccess in tests/unit/analytics/events.test.ts
-- [ ] T027 [P] [US3] Unit test for trackLocateFailed in tests/unit/analytics/events.test.ts
+- [X] T025 [P] [US3] Unit test for trackLocateRequested in tests/unit/analytics/events.test.ts
+- [X] T026 [P] [US3] Unit test for trackLocateSuccess in tests/unit/analytics/events.test.ts
+- [X] T027 [P] [US3] Unit test for trackLocateFailed in tests/unit/analytics/events.test.ts
 
 ### Implementation for User Story 3
 
-- [ ] T028 [P] [US3] Implement trackLocateRequested function in src/analytics/events.ts
-- [ ] T029 [P] [US3] Implement trackLocateSuccess function in src/analytics/events.ts
-- [ ] T030 [P] [US3] Implement trackLocateFailed function in src/analytics/events.ts (accepts LocationFailureReason)
-- [ ] T031 [US3] Export trackLocateRequested, trackLocateSuccess, trackLocateFailed from src/analytics/index.ts
-- [ ] T032 [US3] Integrate location tracking in src/features/location/geolocation.ts (on button click, success, and error callbacks)
+- [X] T028 [P] [US3] Implement trackLocateRequested function in src/analytics/events.ts
+- [X] T029 [P] [US3] Implement trackLocateSuccess function in src/analytics/events.ts
+- [X] T030 [P] [US3] Implement trackLocateFailed function in src/analytics/events.ts (accepts LocationFailureCategory)
+- [X] T031 [US3] Export trackLocateRequested, trackLocateSuccess, trackLocateFailed from src/analytics/index.ts
+- [X] T032 [US3] Integrate location tracking in src/features/location/geolocation.ts (on button click, success, and error callbacks)
 
 **Checkpoint**: Location tracking complete - verify locate button interactions show in Umami
 
@@ -127,16 +127,16 @@
 
 ### Tests for User Story 4
 
-- [ ] T033 [P] [US4] Unit test for trackAreaExplored (including debounce behavior) in tests/unit/analytics/events.test.ts
-- [ ] T034 [P] [US4] Unit test for trackEmptyArea in tests/unit/analytics/events.test.ts
+- [X] T033 [P] [US4] Unit test for trackAreaExplored (including debounce behavior) in tests/unit/analytics/events.test.ts
+- [X] T034 [P] [US4] Unit test for trackEmptyArea in tests/unit/analytics/events.test.ts
 
 ### Implementation for User Story 4
 
-- [ ] T035 [P] [US4] Implement trackAreaExplored function in src/analytics/events.ts (uses debounced safeTrack, 2000ms)
-- [ ] T036 [P] [US4] Implement trackEmptyArea function in src/analytics/events.ts (accepts FacilityType)
-- [ ] T037 [US4] Export trackAreaExplored, trackEmptyArea from src/analytics/index.ts
-- [ ] T038 [US4] Integrate area exploration tracking in src/features/data/fetch.ts (after data loads for new area)
-- [ ] T039 [US4] Integrate empty area tracking in src/features/data/fetch.ts (when no facilities found)
+- [X] T035 [P] [US4] Implement trackAreaExplored function in src/analytics/events.ts (uses debounced safeTrack, 2000ms)
+- [X] T036 [P] [US4] Implement trackEmptyArea function in src/analytics/events.ts (accepts FacilityType)
+- [X] T037 [US4] Export trackAreaExplored, trackEmptyArea from src/analytics/index.ts
+- [X] T038 [US4] Integrate area exploration tracking in src/index.ts (after data loads for new area)
+- [X] T039 [US4] Integrate empty area tracking in src/index.ts (when no facilities found)
 
 **Checkpoint**: Area exploration tracking complete - verify panning triggers debounced events
 
@@ -146,11 +146,11 @@
 
 **Purpose**: Cleanup, validation, and final quality checks
 
-- [ ] T040 Verify all analytics functions fail silently when Umami unavailable (edge case from spec.md)
-- [ ] T041 Verify Do Not Track preference is respected across all tracking functions
-- [ ] T042 Run all tests (npm test) and ensure 100% pass rate
-- [ ] T043 Run lint (npm run lint) and fix any issues
-- [ ] T044 Run quickstart.md validation scenarios manually
+- [X] T040 Verify all analytics functions fail silently when Umami unavailable (edge case from spec.md) - verified in unit tests
+- [X] T041 Verify Do Not Track preference is respected across all tracking functions - verified in unit tests
+- [X] T042 Run all tests (npm test) and ensure 100% pass rate - 334 tests passing
+- [X] T043 Run lint (npm run lint) and fix any issues - fixed any[] to unknown[]
+- [X] T044 Run quickstart.md validation scenarios manually - validated via Playwright automation
 - [ ] T045 Verify 10 distinct event types in Umami dashboard (per SC-001)
 
 ---

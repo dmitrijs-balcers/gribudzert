@@ -24,7 +24,7 @@ vi.mock('leaflet', () => {
 	};
 
 	const createMockFeatureGroup = () => {
-		const layers: any[] = [];
+		const layers: unknown[] = [];
 		return {
 			addTo: vi.fn().mockReturnThis(),
 			getLayers: vi.fn(() => layers),

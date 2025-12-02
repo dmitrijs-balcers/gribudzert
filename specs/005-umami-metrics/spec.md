@@ -85,7 +85,7 @@ As a product owner, I want to understand how users explore the map so that I can
 - **FR-001**: System MUST track custom events using Umami's event tracking API
 - **FR-002**: System MUST NOT block or delay user interactions while tracking events
 - **FR-003**: System MUST fail silently if Umami is unavailable (blocked, offline, script error)
-- **FR-004**: System MUST debounce high-frequency events (map panning) to prevent excessive event volume
+- **FR-004**: System MUST debounce high-frequency events (map panning) to max 1 event per 2000ms to prevent excessive event volume
 - **FR-005**: System MUST include relevant metadata with each event (facility type, layer name, location type)
 - **FR-006**: System MUST NOT include personally identifiable information (PII) in event data
 - **FR-007**: System MUST NOT include precise user coordinates in event data (privacy protection)

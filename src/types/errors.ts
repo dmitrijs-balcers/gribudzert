@@ -49,3 +49,49 @@ export type ParseError =
  * General application errors
  */
 export type AppError = FetchError | GeolocationError | MapError | ParseError | LocationError;
+
+/**
+ * Location failure categories for analytics
+ * Uses snake_case per Umami event naming convention
+ * Single source of truth for analytics location failure tracking
+ */
+export type LocationFailureCategory =
+	| 'permission_denied'
+	| 'position_unavailable'
+	| 'timeout'
+	| 'not_supported'
+	| 'insecure_context';
+
+/**
+ * Map LocationError to LocationFailureCategory for analytics
+ * Pure function with exhaustive type checking
+ * @param error - LocationError from geolocation operations
+ * @returns LocationFailureCategory for analytics tracking
+ */
+export const toLocationFailureCategory = (error: LocationError): LocationFailureCategory => {
+	const mapping: Record<LocationError['type'], LocationFailureCategory> = {
+		'permission-denied': 'permission_denied',
+		'position-unavailable': 'position_unavailable',
+		'timeout': 'timeout',
+		'not-supported': 'not_supported',
+	};
+	return mapping[error.type];
+};
+
+/**
+ * Map GeolocationError to LocationFailureCategory for analytics
+ * Handles additional 'insecure_context' case from GeolocationError
+ * @param error - GeolocationError from browser geolocation API
+ * @returns LocationFailureCategory for analytics tracking
+ */
+export const geolocationToFailureCategory = (
+	error: GeolocationError
+): LocationFailureCategory => {
+	const mapping: Record<GeolocationError['type'], LocationFailureCategory> = {
+		'permission_denied': 'permission_denied',
+		'unavailable': 'position_unavailable',
+		'timeout': 'timeout',
+		'insecure_context': 'insecure_context',
+	};
+	return mapping[error.type];
+};

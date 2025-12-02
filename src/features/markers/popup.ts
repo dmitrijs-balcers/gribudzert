@@ -3,6 +3,8 @@
  */
 
 import type * as L from 'leaflet';
+import { trackMarkerClicked, trackNavigationStarted } from '../../analytics';
+import type { FacilityType } from '../../analytics/types';
 import type { Element } from '../../types/overpass';
 import { escapeHtml } from '../../utils/html';
 import * as logger from '../../utils/logger';
@@ -223,7 +225,14 @@ export function createPopupContent(element: Element): string {
  * Attach event handlers to popup
  */
 export function attachPopupHandlers(marker: L.CircleMarker, element: Element): void {
+	// Determine facility type for analytics (water or toilet)
+	const analyticsFacilityType: FacilityType = isToilet(element) ? 'toilet' : 'water';
+
+	// Track marker click when popup opens
 	marker.on('popupopen', (e) => {
+		// Track marker clicked event
+		trackMarkerClicked(analyticsFacilityType);
+
 		try {
 			const popupEl = e.popup.getElement();
 			if (!popupEl) return;
@@ -238,6 +247,9 @@ export function attachPopupHandlers(marker: L.CircleMarker, element: Element): v
 
 				navBtn.addEventListener('click', (ev) => {
 					ev.preventDefault();
+					// Track navigation started event
+					trackNavigationStarted(analyticsFacilityType);
+
 					const lat = navBtn.getAttribute('data-lat');
 					const lon = navBtn.getAttribute('data-lon');
 					if (lat && lon) {

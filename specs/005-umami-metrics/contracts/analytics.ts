@@ -48,14 +48,17 @@ declare global {
 }
 
 // =============================================================================
-// Facility Types (used by multiple events)
+// Facility Types (derived from domain types - single source of truth)
 // =============================================================================
+
+import type { Facility } from '../../../src/types/facilities';
 
 /**
  * Type of facility being interacted with.
+ * DERIVED from Facility['kind'] to ensure type safety and single source of truth.
  * Used for marker clicks, navigation, and empty area events.
  */
-export type FacilityType = 'water' | 'toilet';
+export type FacilityType = Facility['kind'];
 
 // =============================================================================
 // Map Engagement Events (P1)
@@ -93,14 +96,11 @@ export type TrackMarkerClicked = (facilityType: FacilityType) => void;
 export type TrackNavigationStarted = (facilityType: FacilityType) => void;
 
 // =============================================================================
-// Layer Events (P2)
+// Layer Events (P2) - LayerName imported from config for single source of truth
 // =============================================================================
 
-/**
- * Valid layer names in the application.
- * Must match exactly what appears in the layer control.
- */
-export type LayerName = 'Drinking Points' | 'Public Toilets';
+import type { LayerName } from '../../../src/core/config';
+export type { LayerName };
 
 /**
  * Tracked when user enables a layer in the layer control.
@@ -119,19 +119,17 @@ export type TrackLayerEnabled = (layerName: LayerName, activeLayerCount: number)
 export type TrackLayerDisabled = (layerName: LayerName, activeLayerCount: number) => void;
 
 // =============================================================================
-// Location Events (P2)
+// Location Events (P2) - LocationFailureReason imported from errors for reuse
 // =============================================================================
 
+import type { LocationFailureCategory } from '../../../src/types/errors';
+
 /**
- * Categories of location failure.
+ * Categories of location failure for analytics.
+ * Re-exported from errors.ts for single source of truth.
  * Must NOT contain PII or precise error messages.
  */
-export type LocationFailureReason =
-	| 'permission_denied'
-	| 'position_unavailable'
-	| 'timeout'
-	| 'not_supported'
-	| 'insecure_context';
+export type LocationFailureReason = LocationFailureCategory;
 
 /**
  * Tracked when user clicks the locate button.
