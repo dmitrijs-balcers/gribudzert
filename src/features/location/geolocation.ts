@@ -3,8 +3,14 @@
  */
 
 import * as L from 'leaflet';
+import {
+	trackLocateFailed,
+	trackLocateRequested,
+	trackLocateSuccess,
+} from '../../analytics';
 import { GEOLOCATION_OPTIONS, USER_LOCATION_STYLE } from '../../core/config';
 import type { LocationError } from '../../types/errors';
+import { geolocationToFailureCategory } from '../../types/errors';
 import type { Result } from '../../types/result';
 import { Err, Ok } from '../../types/result';
 import { hideLoading, showLoading } from '../../ui/loading';
@@ -125,9 +131,18 @@ export function locateUser(
 	map: L.Map,
 	onLocationUpdate?: (lat: number, lon: number) => void | Promise<void>
 ): void {
+	// Track locate requested event
+	trackLocateRequested();
+
 	// Check availability
 	const availabilityError = checkGeolocationAvailability();
 	if (availabilityError) {
+		// Track locate failed - determine reason from error message
+		if (availabilityError.includes('not available')) {
+			trackLocateFailed('not_supported');
+		} else if (availabilityError.includes('secure context')) {
+			trackLocateFailed('insecure_context');
+		}
 		showNotification(availabilityError, 'error', 5000);
 		return;
 	}
@@ -139,6 +154,8 @@ export function locateUser(
 	navigator.geolocation.getCurrentPosition(
 		(position) => {
 			hideLoading();
+			// Track locate success event
+			trackLocateSuccess();
 
 			const lat = position.coords.latitude;
 			const lon = position.coords.longitude;
@@ -169,6 +186,19 @@ export function locateUser(
 		},
 		(error) => {
 			hideLoading();
+			// Track locate failed with appropriate reason using the mapping function
+			const geolocationError = {
+				type: error.code === error.PERMISSION_DENIED
+					? 'permission_denied' as const
+					: error.code === error.POSITION_UNAVAILABLE
+						? 'unavailable' as const
+						: error.code === error.TIMEOUT
+							? 'timeout' as const
+							: 'unavailable' as const,
+				message: error.message,
+			};
+			trackLocateFailed(geolocationToFailureCategory(geolocationError));
+
 			const message = getGeolocationErrorMessage(error);
 			showNotification(message, 'error', 5000);
 		},

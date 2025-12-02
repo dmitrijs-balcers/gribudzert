@@ -1,5 +1,12 @@
 import * as L from 'leaflet';
-import { DEFAULT_ZOOM, MAX_ZOOM, OSM_ATTRIBUTION, OSM_TILE_URL, RIGA_CENTER } from './core/config';
+import {
+	trackAreaExplored,
+	trackEmptyArea,
+	trackLayerDisabled,
+	trackLayerEnabled,
+	trackMapLoaded,
+} from './analytics';
+import { DEFAULT_ZOOM, LAYER_NAMES, MAX_ZOOM, OSM_ATTRIBUTION, OSM_TILE_URL, RIGA_CENTER } from './core/config';
 import { fetchFacilitiesInBounds, fetchWaterPointsInBounds } from './features/data/fetch';
 import { detectInitialLocation, locateUser } from './features/location/geolocation';
 import { addMarkers, addToiletMarkers } from './features/markers/markers';
@@ -42,6 +49,9 @@ async function initializeApp(): Promise<void> {
 		}
 
 		hideLoading();
+
+		// Track map loaded event for analytics
+		trackMapLoaded(_isUserLocation ? 'user' : 'default');
 
 		// Initialize map with determined center
 		const map = L.map('map', {
@@ -86,6 +96,8 @@ async function initializeApp(): Promise<void> {
 			if (e.name === 'Public Toilets') {
 				toiletLayerActive = true;
 				toiletLayer.addTo(map);
+				// Track layer enabled - count both layers as active
+				trackLayerEnabled(LAYER_NAMES.TOILET, 2);
 				await loadToilets(map, toiletLayer, userLocation);
 			}
 		});
@@ -95,6 +107,8 @@ async function initializeApp(): Promise<void> {
 			if (e.name === 'Public Toilets') {
 				toiletLayerActive = false;
 				toiletLayer.clearLayers();
+				// Track layer disabled - only water layer remains active
+				trackLayerDisabled(LAYER_NAMES.TOILET, 1);
 			}
 		});
 
@@ -166,6 +180,9 @@ async function loadWaterPoints(
 
 	// Handle empty state
 	if (nodes.length === 0) {
+		// Track empty area for water facilities
+		trackEmptyArea('water');
+
 		showNotification(
 			'No water points found in this area. Try zooming out or panning to a different location.',
 			'info',
@@ -177,6 +194,9 @@ async function loadWaterPoints(
 		pointsLayer.clearLayers();
 		return;
 	}
+
+	// Track area explored (debounced)
+	trackAreaExplored();
 
 	// Calculate nearest point relative to reference location
 	let nearestPoint: Element | null = null;
@@ -258,6 +278,9 @@ async function loadToilets(
 
 	// Handle empty state
 	if (toilets.length === 0) {
+		// Track empty area for toilet facilities
+		trackEmptyArea('toilet');
+
 		showNotification('No public toilets found in this area.', 'info', 5000);
 		logger.warn('No toilets returned from API for current bounds');
 
@@ -265,6 +288,9 @@ async function loadToilets(
 		toiletLayer.clearLayers();
 		return;
 	}
+
+	// Track area explored (debounced)
+	trackAreaExplored();
 
 	// Enrich toilets with distance information from user location
 	if (userLocation) {

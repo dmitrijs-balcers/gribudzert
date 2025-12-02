@@ -102,3 +102,19 @@ export const geolocationOptions = GEOLOCATION_OPTIONS; // Alias
  */
 export const LOCATION_TIMEOUT = 10000; // 10 seconds
 export const LOCATION_HIGH_ACCURACY = true;
+
+/**
+ * Layer name constants
+ * Used by both UI layer controls and analytics tracking
+ * Single source of truth - update here to change everywhere
+ */
+export const LAYER_NAMES = {
+	WATER: 'Drinking Points',
+	TOILET: 'Public Toilets',
+} as const;
+
+/**
+ * LayerName type derived from LAYER_NAMES constant
+ * Ensures type safety between UI and analytics
+ */
+export type LayerName = (typeof LAYER_NAMES)[keyof typeof LAYER_NAMES];
