@@ -48,6 +48,8 @@ export const fetchErrorMessage = (kind: LayerKind, error: RefreshError): string 
 			return `Request timed out while loading ${subject}. Please try again.`;
 		case 'parse':
 			return `Failed to read ${subject} data. Please try again.`;
+		case 'busy':
+			return 'The map data service is busy right now. Please wait a moment and try again.';
 		default: {
 			const exhaustive: never = error;
 			return exhaustive;

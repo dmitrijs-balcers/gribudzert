@@ -10,7 +10,14 @@ export type FetchError =
 	| { readonly type: 'network'; readonly message: string }
 	| { readonly type: 'parse'; readonly message: string }
 	| { readonly type: 'timeout'; readonly message: string }
-	| { readonly type: 'aborted'; readonly message: string };
+	| { readonly type: 'aborted'; readonly message: string }
+	/** Server is rate-limiting or overloaded (HTTP 429/503/504); not a client connectivity problem */
+	| {
+			readonly type: 'busy';
+			readonly status: number;
+			readonly retryAfterMs: number | null;
+			readonly message: string;
+	  };
 
 /**
  * Geolocation errors

@@ -31,6 +31,16 @@ export const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const MIN_FETCH_ZOOM = 12;
 
 /**
+ * How much larger than the visible viewport the area fetched from Overpass is: 1 fetches
+ * exactly the viewport, 2 fetches an area twice as wide and twice as tall, centered on the
+ * viewport. The public Overpass API only grants 2 request slots per IP, and every
+ * significant pan or zoom used to trigger a fresh request for exactly the visible bounds;
+ * padding the fetched area lets panning and zooming within it reuse already-loaded data
+ * instead of exhausting those slots.
+ */
+export const FETCH_PADDING_FACTOR = 2;
+
+/**
  * Minimum interval between two "nothing found here" notifications for the same layer kind
  */
 export const EMPTY_AREA_NOTIFICATION_COOLDOWN_MS = 30_000;

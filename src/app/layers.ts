@@ -1,9 +1,14 @@
 /**
  * Facility layers
  * A FacilityLayer is the aggregate for one kind of facility on the map: it owns the Leaflet
- * group holding the markers, knows the Overpass query that fills it, and tracks the single
- * request allowed to be in flight for it. Refreshing a layer aborts the previous request,
- * and a superseded request never touches the markers.
+ * group holding the markers and the Overpass selector fragment that fills it. The single
+ * request allowed to be in flight, however, is NOT tracked per layer: the public Overpass
+ * API only grants 2 concurrent request slots per IP, so every active layer is refreshed by
+ * one shared request per viewport (see `refreshLayers`), and its `AbortController` lives on
+ * the `FacilityLayers` aggregate (`inflight`) rather than on any one layer. Starting a new
+ * viewport refresh aborts the previous one regardless of which layers it served; disabling a
+ * single layer never aborts it on the other layers' behalf; a superseded (or since-disabled)
+ * layer's result is simply not applied to its markers.
  */
 
 import * as L from 'leaflet';
@@ -11,7 +16,8 @@ import type { LayerName } from '../core/config';
 import { LAYER_NAMES } from '../core/config';
 import type { Facility, FacilityKind, Located } from '../domain';
 import { markNearest, withDistances } from '../domain';
-import { fetchFacilities } from '../features/data';
+import type { OverpassSelector } from '../features/data';
+import { composeQuery, fetchFacilities } from '../features/data';
 import { addMarkers } from '../features/markers/markers';
 import type { FetchError } from '../types/errors';
 import type { Result } from '../types/result';
@@ -40,19 +46,20 @@ export type FacilityLayer = {
 	readonly kind: LayerKind;
 	/** Name shown in the layer control and reported to analytics */
 	readonly label: LayerName;
-	/** Overpass QL query with `[bbox]` placeholders */
-	readonly query: string;
+	/** Overpass QL selector fragment for this kind, composed with the others by `refreshLayers` */
+	readonly selector: OverpassSelector;
 	readonly group: FacilityLayerGroup;
 	/** Whether the layer is on the map and should follow viewport changes */
 	active: boolean;
-	/** Controller of the request currently loading this layer, if any */
-	inflight: AbortController | null;
 };
 
 /**
- * All facility layers, keyed by kind
+ * All facility layers, keyed by kind, plus the controller for the single Overpass request
+ * shared by whichever layers a viewport refresh is currently serving
  */
-export type FacilityLayers = Readonly<Record<LayerKind, FacilityLayer>>;
+export type FacilityLayers = Readonly<Record<LayerKind, FacilityLayer>> & {
+	inflight: AbortController | null;
+};
 
 /**
  * Layer-control label for a layer kind
@@ -92,31 +99,31 @@ export const layerKindOf = (name: string): LayerKind | null =>
 /**
  * Create an inactive, empty facility layer
  * @param kind - Facility kind
- * @param query - Overpass QL query for this kind
+ * @param selector - Overpass QL selector fragment for this kind
  * @param group - Leaflet group to render into (default: a fresh feature group)
  */
 export const createFacilityLayer = (
 	kind: LayerKind,
-	query: string,
+	selector: OverpassSelector,
 	group: FacilityLayerGroup = L.featureGroup()
 ): FacilityLayer => ({
 	kind,
 	label: labelOf(kind),
-	query,
+	selector,
 	group,
 	active: false,
-	inflight: null,
 });
 
 /**
- * Create one layer per kind
- * @param queries - Overpass QL query per kind
+ * Create one layer per kind, sharing a single (initially idle) in-flight controller
+ * @param selectors - Overpass QL selector fragment per kind
  */
 export const createFacilityLayers = (
-	queries: Readonly<Record<LayerKind, string>>
+	selectors: Readonly<Record<LayerKind, OverpassSelector>>
 ): FacilityLayers => ({
-	water: createFacilityLayer('water', queries.water),
-	toilet: createFacilityLayer('toilet', queries.toilet),
+	water: createFacilityLayer('water', selectors.water),
+	toilet: createFacilityLayer('toilet', selectors.toilet),
+	inflight: null,
 });
 
 /**
@@ -125,20 +132,23 @@ export const createFacilityLayers = (
 export type LayerHost = Pick<L.Map, 'addLayer' | 'removeLayer'>;
 
 /**
- * Abort the in-flight request of a layer, if any
+ * Abort the viewport-level request in flight, if any. Cancels the load for every layer it
+ * was serving, not just one - use this for viewport-wide events (a new refresh, the zoom
+ * guard), never to react to a single layer being disabled.
  */
-export const abortInflight = (layer: FacilityLayer): void => {
-	if (layer.inflight !== null) {
-		layer.inflight.abort();
-		layer.inflight = null;
+export const abortInflight = (layers: FacilityLayers): void => {
+	if (layers.inflight !== null) {
+		layers.inflight.abort();
+		layers.inflight = null;
 	}
 };
 
 /**
- * Drop every marker and cancel any request that would add more
+ * Drop a layer's own markers. Does not touch the shared in-flight request: other layers may
+ * still need it, so nothing here cancels it - a result that arrives for a since-disabled
+ * layer is simply not applied (see `refreshLayers`).
  */
 export const clearLayerMarkers = (layer: FacilityLayer): void => {
-	abortInflight(layer);
 	layer.group.clearLayers();
 };
 
@@ -151,7 +161,9 @@ export const enableLayer = (layer: FacilityLayer, host: LayerHost): void => {
 };
 
 /**
- * Take the layer off the map, drop its markers and cancel any pending request
+ * Take the layer off the map and drop its markers. Any shared request still in flight keeps
+ * running for the other layers it serves; this layer's own result, once it arrives, is
+ * dropped rather than rendered because `active` is now false.
  */
 export const disableLayer = (layer: FacilityLayer, host: LayerHost): void => {
 	layer.active = false;
@@ -208,6 +220,14 @@ export type RefreshOutcome =
 	| { readonly kind: 'failed'; readonly error: RefreshError };
 
 /**
+ * One layer's outcome from a `refreshLayers` call
+ */
+export type LayerRefresh = {
+	readonly kind: LayerKind;
+	readonly outcome: RefreshOutcome;
+};
+
+/**
  * Facility loader, shaped like `fetchFacilities`
  */
 export type FetchFacilities = (
@@ -222,7 +242,7 @@ export type FetchFacilities = (
 export type AddMarkers = (items: readonly Located<Facility>[], group: FacilityLayerGroup) => void;
 
 /**
- * Collaborators of `refreshLayer`, injectable for tests
+ * Collaborators of `refreshLayers`, injectable for tests
  */
 export type RefreshDeps = {
 	readonly fetchFacilities: FetchFacilities;
@@ -235,46 +255,92 @@ export type RefreshDeps = {
 export const defaultRefreshDeps: RefreshDeps = { fetchFacilities, addMarkers };
 
 /**
- * Reload the layer for the given bounds. Any request still in flight for the layer is
- * aborted first; if this request is itself superseded before it completes, its result is
- * discarded and the markers are not touched.
- * @param layer - Layer to refresh
+ * Split facilities by kind, in `LAYER_KINDS` order
+ */
+const byKind = (facilities: readonly Facility[]): Readonly<Record<LayerKind, readonly Facility[]>> => {
+	const grouped: Record<LayerKind, Facility[]> = { water: [], toilet: [] };
+	for (const facility of facilities) {
+		grouped[facility.kind].push(facility);
+	}
+	return grouped;
+};
+
+/**
+ * Apply one layer's share of a completed fetch: cleared and skipped when the layer was
+ * disabled while the request was in flight, otherwise rendered or reported empty.
+ */
+const applyToLayer = (
+	layer: FacilityLayer,
+	facilities: readonly Facility[],
+	origin: Origin,
+	deps: RefreshDeps
+): RefreshOutcome => {
+	if (!layer.active) {
+		return { kind: 'superseded' };
+	}
+	if (facilities.length === 0) {
+		layer.group.clearLayers();
+		return { kind: 'empty' };
+	}
+	const items = locateFacilities(layer.kind, facilities, origin);
+	layer.group.clearLayers();
+	deps.addMarkers(items, layer.group);
+	return { kind: 'loaded', items };
+};
+
+/**
+ * Refresh every given layer for the same viewport with a single Overpass request: one query
+ * composed from all their selectors, one `fetchFacilities` call, and the resulting
+ * facilities partitioned by kind before each layer's own apply step (clear, locate, render,
+ * or report empty) runs. Any request still in flight for the viewport is aborted first; if
+ * this request is itself superseded before it completes - by a newer refresh - every
+ * targeted layer's outcome is `superseded` and no markers are touched. A layer disabled
+ * after the request started is treated the same way, checked via its `active` flag once the
+ * response is in.
+ * @param layers - Aggregate whose shared `inflight` controller is replaced for this call
+ * @param targets - Layers to refresh (already filtered to active + requested kinds)
  * @param bounds - Visible map area to query
  * @param origin - Reference point for distances and nearest-marking
  * @param deps - Collaborators (default: real fetch and marker rendering)
  */
-export async function refreshLayer(
-	layer: FacilityLayer,
+export async function refreshLayers(
+	layers: FacilityLayers,
+	targets: readonly FacilityLayer[],
 	bounds: L.LatLngBounds,
 	origin: Origin,
 	deps: RefreshDeps = defaultRefreshDeps
-): Promise<RefreshOutcome> {
-	abortInflight(layer);
-	const controller = new AbortController();
-	layer.inflight = controller;
-
-	const result = await deps.fetchFacilities(layer.query, bounds, controller.signal);
-
-	if (controller.signal.aborted || layer.inflight !== controller) {
-		return { kind: 'superseded' };
+): Promise<readonly LayerRefresh[]> {
+	if (targets.length === 0) {
+		return [];
 	}
-	layer.inflight = null;
+
+	abortInflight(layers);
+	const controller = new AbortController();
+	layers.inflight = controller;
+
+	const query = composeQuery(targets.map((layer) => layer.selector));
+	const result = await deps.fetchFacilities(query, bounds, controller.signal);
+
+	const superseded = controller.signal.aborted || layers.inflight !== controller;
+	if (!superseded) {
+		layers.inflight = null;
+	}
 
 	if (isErr(result)) {
 		const error = result.error;
-		if (error.type === 'aborted') {
-			return { kind: 'superseded' };
+		if (superseded || error.type === 'aborted') {
+			return targets.map((layer) => ({ kind: layer.kind, outcome: { kind: 'superseded' } }));
 		}
-		return { kind: 'failed', error };
+		return targets.map((layer) => ({ kind: layer.kind, outcome: { kind: 'failed', error } }));
 	}
 
-	if (result.value.length === 0) {
-		layer.group.clearLayers();
-		return { kind: 'empty' };
+	if (superseded) {
+		return targets.map((layer) => ({ kind: layer.kind, outcome: { kind: 'superseded' } }));
 	}
 
-	const items = locateFacilities(layer.kind, result.value, origin);
-	layer.group.clearLayers();
-	deps.addMarkers(items, layer.group);
-	return { kind: 'loaded', items };
+	const grouped = byKind(result.value);
+	return targets.map((layer) => ({
+		kind: layer.kind,
+		outcome: applyToLayer(layer, grouped[layer.kind], origin, deps),
+	}));
 }

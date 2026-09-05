@@ -5,6 +5,7 @@
 
 import { waitFor, within } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_ZOOM } from '../../src/core/config';
 import {
 	NEAREST_TO_USER,
 	NON_DRINKABLE,
@@ -13,7 +14,7 @@ import {
 	USER,
 	WATER_MARKER_COUNT,
 } from '../fixtures';
-import { bboxCenter, GEO_PERMISSION_DENIED, renderApp } from '../harness';
+import { bboxCenter, GEO_PERMISSION_DENIED, renderApp, unpaddedViewportBbox } from '../harness';
 
 const NEARBY = 0.003;
 
@@ -30,6 +31,16 @@ describe('Arriving at the map', () => {
 
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		expect(app.userLocation()).toEqual({ markers: 1, circles: 1 });
+	});
+
+	it('fetches a padded area, larger than the visible viewport, so nearby panning is free', async () => {
+		const app = await renderApp({ geolocation: { position: USER } });
+
+		const padded = app.overpass.lastRequest().bbox;
+		const raw = unpaddedViewportBbox(USER, DEFAULT_ZOOM);
+
+		expect(padded.east - padded.west).toBeGreaterThan(raw.east - raw.west);
+		expect(padded.north - padded.south).toBeGreaterThan(raw.north - raw.south);
 	});
 
 	it('draws the non-drinkable source with the crossed-out icon and warns in its popup', async () => {

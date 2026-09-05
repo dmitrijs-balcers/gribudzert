@@ -1,5 +1,7 @@
 import type * as L from 'leaflet';
+import { FETCH_PADDING_FACTOR, MIN_FETCH_ZOOM } from '../../core/config';
 import { haversineDistance } from '../../utils/geometry';
+import { padBounds } from './bounds';
 
 /**
  * Open external navigation app to navigate to coordinates
@@ -55,37 +57,6 @@ const diagonalMeters = (bounds: L.LatLngBounds): number => {
 };
 
 /**
- * Check if the map has moved significantly enough to warrant a refetch
- *
- * @param oldBounds - Previous bounds
- * @param newBounds - Current bounds
- * @returns true if movement exceeds threshold
- */
-export function hasMovedSignificantly(
-	oldBounds: L.LatLngBounds,
-	newBounds: L.LatLngBounds
-): boolean {
-	// Get centers of both bounds
-	const oldCenter = oldBounds.getCenter();
-	const newCenter = newBounds.getCenter();
-
-	// Calculate distance between centers in meters
-	const distanceMoved = haversineDistance(
-		oldCenter.lat,
-		oldCenter.lng,
-		newCenter.lat,
-		newCenter.lng
-	);
-
-	// Calculate approximate viewport size (diagonal) in meters
-	const viewportDiagonal = diagonalMeters(oldBounds);
-
-	// Check if movement is >= 25% of viewport diagonal
-	const threshold = viewportDiagonal * MOVEMENT_THRESHOLD_PERCENTAGE;
-	return distanceMoved >= threshold;
-}
-
-/**
  * Callback function when bounds change significantly
  */
 export type BoundsChangeCallback = (bounds: L.LatLngBounds) => void;
@@ -102,38 +73,58 @@ export type NavigationHandlerOptions = {
 };
 
 /**
- * Whether the viewport size changed by at least the movement threshold (i.e. the map was zoomed).
- * A pure zoom keeps the centre in place, so centre movement alone would never detect it.
+ * Whether the viewport grew by at least the movement threshold relative to `oldBounds`.
+ *
+ * Only growth counts, not shrinkage: zooming in only narrows the area a fetch would need
+ * to cover, and the wider, already-loaded padded area covers a narrower view by
+ * definition, so shrinking never by itself warrants a refetch. Zooming out can outgrow
+ * what was loaded even when a bounds comparison lands right on the boundary (e.g. one zoom
+ * level, which roughly doubles the viewport, against a padding factor of exactly 2), so
+ * this backs up the containment check in `shouldRefetch` rather than replacing it.
  *
  * @param oldBounds - Previous bounds
  * @param newBounds - Current bounds
- * @returns true when the viewport diagonal changed by >= 25%
+ * @returns true when the viewport diagonal grew by >= 25%
  */
-export function hasZoomedSignificantly(
+export function hasGrownSignificantly(
 	oldBounds: L.LatLngBounds,
 	newBounds: L.LatLngBounds
 ): boolean {
 	const oldDiagonal = diagonalMeters(oldBounds);
 	const newDiagonal = diagonalMeters(newBounds);
 	if (oldDiagonal === 0) {
-		return newDiagonal !== 0;
+		return newDiagonal > 0;
 	}
-	return Math.abs(newDiagonal - oldDiagonal) / oldDiagonal >= MOVEMENT_THRESHOLD_PERCENTAGE;
+	return (newDiagonal - oldDiagonal) / oldDiagonal >= MOVEMENT_THRESHOLD_PERCENTAGE;
 }
 
 /**
- * Whether a refetch is warranted: the map was panned or zoomed significantly
+ * Whether a refetch is warranted: the current viewport no longer fits inside the padded
+ * area that was loaded for `lastFetchBounds`, or it grew enough that a borderline fit
+ * can't be trusted. Panning or zooming in while staying inside the padded area is free —
+ * the data already loaded for the wider area covers it.
+ *
+ * @param lastFetchBounds - Unpadded viewport bounds that triggered the last fetch
+ * @param currentBounds - Current viewport bounds
  */
-export function shouldRefetch(oldBounds: L.LatLngBounds, newBounds: L.LatLngBounds): boolean {
-	return (
-		hasMovedSignificantly(oldBounds, newBounds) || hasZoomedSignificantly(oldBounds, newBounds)
-	);
+export function shouldRefetch(
+	lastFetchBounds: L.LatLngBounds,
+	currentBounds: L.LatLngBounds
+): boolean {
+	const loadedBounds = padBounds(lastFetchBounds, FETCH_PADDING_FACTOR);
+	if (!loadedBounds.contains(currentBounds)) {
+		return true;
+	}
+	return hasGrownSignificantly(lastFetchBounds, currentBounds);
 }
 
 /**
  * Setup map navigation handlers for panning and zooming
  * Debounces `moveend` (which Leaflet also fires after a zoom) and only fires the callback
- * when the viewport moved or resized beyond the threshold.
+ * when the viewport is no longer covered by the last loaded (padded) area. `lastFetchBounds`
+ * tracks the raw viewport that triggered the last fetch, not the padded area itself — it is
+ * padded on demand with the same helper `exploreViewport` uses to compute what was actually
+ * loaded, so the padding factor lives in exactly one place.
  *
  * @param map - Leaflet map instance
  * @param onBoundsChange - Callback to execute when bounds change significantly
@@ -159,7 +150,17 @@ export function setupMapNavigationHandlers(
 			debounceTimer = null;
 			const currentBounds = map.getBounds();
 
-			// First fetch - always trigger
+			if (map.getZoom() < MIN_FETCH_ZOOM) {
+				// Too zoomed out for a fetch: the visible layers were just cleared (see
+				// `passZoomGuard` in app/explore.ts), so nothing is "loaded" any more.
+				// Forget it, so the next fetchable view always reloads rather than being
+				// judged against a now-meaningless, possibly much smaller, old area.
+				lastFetchBounds = null;
+				onBoundsChange(currentBounds);
+				return;
+			}
+
+			// First fetch, or the loaded area no longer covers the view - trigger
 			if (lastFetchBounds === null || shouldRefetch(lastFetchBounds, currentBounds)) {
 				lastFetchBounds = currentBounds;
 				onBoundsChange(currentBounds);

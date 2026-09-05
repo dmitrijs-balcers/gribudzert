@@ -5,9 +5,11 @@
  */
 
 import { fireEvent, waitFor } from '@testing-library/dom';
+import * as L from 'leaflet';
 import { expect, vi } from 'vitest';
 import type { OverpassElement } from './fixtures';
 import { USER, WATER_ELEMENTS } from './fixtures';
+import { MAP_HEIGHT, MAP_WIDTH } from './setup';
 
 // ---------------------------------------------------------------------------
 // Overpass fake
@@ -29,9 +31,57 @@ export const bboxCenter = (bbox: Bbox): { lat: number; lon: number } => ({
 });
 
 /**
- * What the fake Overpass answers: elements, a failure, or nothing until the app gives up
+ * Bounds Leaflet would compute for a plain, unpadded viewport centred on `center` at
+ * `zoom`, using the same container size the tests give the map (see `MAP_WIDTH`/`MAP_HEIGHT`
+ * in tests/setup.ts). Spins up a detached, throwaway map to get the real projection math
+ * rather than reimplementing it — used to verify that a fetch's bbox was padded beyond the
+ * visible area.
  */
-export type OverpassReply = readonly OverpassElement[] | Error | 'timeout';
+export function unpaddedViewportBbox(center: { readonly lat: number; readonly lon: number }, zoom: number): Bbox {
+	const probe = document.createElement('div');
+	Object.defineProperty(probe, 'clientWidth', { configurable: true, value: MAP_WIDTH });
+	Object.defineProperty(probe, 'clientHeight', { configurable: true, value: MAP_HEIGHT });
+	probe.getBoundingClientRect = () =>
+		({
+			x: 0,
+			y: 0,
+			top: 0,
+			left: 0,
+			right: MAP_WIDTH,
+			bottom: MAP_HEIGHT,
+			width: MAP_WIDTH,
+			height: MAP_HEIGHT,
+			toJSON: () => ({}),
+		}) as DOMRect;
+
+	const map = L.map(probe, {
+		center: [center.lat, center.lon],
+		zoom,
+		zoomControl: false,
+		attributionControl: false,
+	});
+	const bounds = map.getBounds();
+	map.remove();
+
+	const sw = bounds.getSouthWest();
+	const ne = bounds.getNorthEast();
+	return { south: sw.lat, west: sw.lng, north: ne.lat, east: ne.lng };
+}
+
+/**
+ * An HTTP response the fake Overpass answers with instead of a 200
+ */
+export type OverpassStatusReply = {
+	readonly status: number;
+	/** Seconds to report in the `Retry-After` header, when given */
+	readonly retryAfter?: number;
+};
+
+/**
+ * What the fake Overpass answers: elements, a non-2xx status, a thrown failure, or nothing
+ * until the app gives up
+ */
+export type OverpassReply = readonly OverpassElement[] | OverpassStatusReply | Error | 'timeout';
 
 export type OverpassRequest = {
 	readonly bbox: Bbox;
@@ -81,7 +131,22 @@ const jsonResponse = (elements: readonly OverpassElement[]): Response =>
 		ok: true,
 		status: 200,
 		statusText: 'OK',
+		headers: { get: () => null },
 		json: async () => ({ elements }),
+	}) as unknown as Response;
+
+const statusResponse = (reply: OverpassStatusReply): Response =>
+	({
+		ok: reply.status >= 200 && reply.status < 300,
+		status: reply.status,
+		statusText: '',
+		headers: {
+			get: (name: string) =>
+				reply.retryAfter !== undefined && name.toLowerCase() === 'retry-after'
+					? String(reply.retryAfter)
+					: null,
+		},
+		json: async () => ({ elements: [] }),
 	}) as unknown as Response;
 
 /**
@@ -136,6 +201,8 @@ export function fakeOverpass(initial: OverpassHandler): OverpassFake {
 					finish();
 					if (reply instanceof Error) {
 						reject(reply);
+					} else if ('status' in reply) {
+						resolve(statusResponse(reply));
 					} else {
 						resolve(jsonResponse(reply));
 					}

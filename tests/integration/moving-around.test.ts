@@ -18,6 +18,12 @@ describe('Moving around the map', () => {
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		app.overpass.respondWith((request) => waterNodesAt(bboxCenter(request.bbox), [301, 302]));
 
+		// The fetched area is padded, so a single pan stays inside it; only once a second
+		// pan pushes the viewport past the padded edge does a new area need loading.
+		app.pan('right');
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		expect(app.overpass.requests).toHaveLength(1);
+
 		app.pan('right');
 
 		await waitFor(() => expect(app.overpass.requests).toHaveLength(2));
@@ -36,8 +42,15 @@ describe('Moving around the map', () => {
 			app.overpass.requests.length === 2 ? stale.promise : latest.promise
 		);
 
+		// Two pans to cross the padded area's edge and trigger the first new fetch. Leaflet
+		// ignores a keyboard pan while the previous one is still animating, so space them out.
+		app.pan('right');
+		await new Promise((resolve) => setTimeout(resolve, 500));
 		app.pan('right');
 		await waitFor(() => expect(app.overpass.requests).toHaveLength(2));
+		// ...then two more to cross the edge of *that* newly loaded area, cancelling it.
+		app.pan('right');
+		await new Promise((resolve) => setTimeout(resolve, 500));
 		app.pan('right');
 		await waitFor(() => expect(app.overpass.requests).toHaveLength(3));
 
@@ -61,13 +74,18 @@ describe('Moving around the map', () => {
 		await waitFor(() => expect(app.toasts()).toContain(NO_WATER_NOTICE));
 		expect(app.markers()).toHaveLength(0);
 
-		app.zoomOut(); // a new, still empty view shortly after
+		app.zoomOut(); // a new, still empty view shortly after (zooming out always outgrows the loaded area)
 		await waitFor(() => expect(app.overpass.requests).toHaveLength(2));
 		await vi.advanceTimersByTimeAsync(1_000);
 		expect(app.toastHistory().filter((toast) => toast === NO_WATER_NOTICE)).toHaveLength(1);
 
 		await vi.advanceTimersByTimeAsync(31_000);
-		app.zoomIn(); // another empty view, after the cooldown
+		// Panning past the padded area for another empty view, after the cooldown. Zooming
+		// back in wouldn't do it: that stays inside the (empty) area already loaded. Leaflet
+		// ignores a keyboard pan while the previous one is still animating, so space them out.
+		app.pan('right');
+		await vi.advanceTimersByTimeAsync(500);
+		app.pan('right');
 		await waitFor(() => expect(app.overpass.requests).toHaveLength(3));
 		await waitFor(() =>
 			expect(app.toastHistory().filter((toast) => toast === NO_WATER_NOTICE)).toHaveLength(2)

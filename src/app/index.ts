@@ -14,6 +14,7 @@ export type {
 	FetchFacilities,
 	LayerHost,
 	LayerKind,
+	LayerRefresh,
 	RefreshDeps,
 	RefreshError,
 	RefreshOutcome,
@@ -33,7 +34,7 @@ export {
 	labelOf,
 	layerKindOf,
 	locateFacilities,
-	refreshLayer,
+	refreshLayers,
 } from './layers';
 export {
 	emptyAreaMessage,

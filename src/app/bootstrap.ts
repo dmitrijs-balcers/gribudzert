@@ -16,6 +16,7 @@ import {
 	showUserLocation,
 	toUserPosition,
 } from '../features/location/geolocation';
+import { overpassSelector } from '../features/data';
 import { setupMapNavigationHandlers } from '../features/navigation/navigation';
 import drinkingWater from '../oql/drinking_water.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
@@ -143,7 +144,10 @@ const start = async (): Promise<void> => {
 	const userLocation: LatLon | null =
 		startPosition === null ? null : { lat: startPosition.lat, lon: startPosition.lon };
 	const app: App = {
-		layers: createFacilityLayers({ water: drinkingWater, toilet: publicToilets }),
+		layers: createFacilityLayers({
+			water: overpassSelector(drinkingWater),
+			toilet: overpassSelector(publicToilets),
+		}),
 		session: createSession(initialState(userLocation)),
 	};
 

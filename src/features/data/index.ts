@@ -20,3 +20,5 @@ export {
 	toFacilities,
 	toFacility,
 } from './overpass';
+export type { OverpassSelector } from './query';
+export { composeQuery, overpassSelector } from './query';

@@ -6,9 +6,10 @@
 
 import type * as L from 'leaflet';
 import { trackAreaExplored, trackEmptyArea } from '../analytics';
-import { MIN_FETCH_ZOOM } from '../core/config';
+import { FETCH_PADDING_FACTOR, MIN_FETCH_ZOOM } from '../core/config';
 import type { LatLon } from '../domain';
 import { formatDistance, nearestOf } from '../domain';
+import { padBounds } from '../features/navigation/bounds';
 import { withLoading } from '../ui/loading';
 import type { NotificationType } from '../ui/notifications';
 import { showNotification } from '../ui/notifications';
@@ -21,11 +22,12 @@ import type {
 	RefreshOutcome,
 } from './layers';
 import {
+	abortInflight,
 	activeLayers,
 	clearLayerMarkers,
 	defaultRefreshDeps,
 	LAYER_KINDS,
-	refreshLayer,
+	refreshLayers,
 } from './layers';
 import { emptyAreaMessage, fetchErrorMessage, ZOOMED_OUT_MESSAGE } from './messages';
 import type { Session } from './session';
@@ -95,8 +97,9 @@ export const defaultExploreDeps: ExploreDeps = {
 };
 
 /**
- * Apply the zoom guard: below MIN_FETCH_ZOOM every layer is emptied and the viewer is told
- * to zoom in, once per zoomed-out stretch.
+ * Apply the zoom guard: below MIN_FETCH_ZOOM every layer is emptied, the shared in-flight
+ * request (if any) is cancelled, and the viewer is told to zoom in, once per zoomed-out
+ * stretch.
  * @returns true when fetching may proceed
  */
 const passZoomGuard = (app: App, viewport: Viewport, deps: ExploreDeps): boolean => {
@@ -105,6 +108,7 @@ const passZoomGuard = (app: App, viewport: Viewport, deps: ExploreDeps): boolean
 		return true;
 	}
 
+	abortInflight(app.layers);
 	for (const kind of LAYER_KINDS) {
 		clearLayerMarkers(app.layers[kind]);
 	}
@@ -117,12 +121,15 @@ const passZoomGuard = (app: App, viewport: Viewport, deps: ExploreDeps): boolean
 
 /**
  * React to the outcome of one layer refresh
+ * @param notifyFailure - Whether a failure should reach the viewer. Every layer in a refresh
+ * shares one Overpass request, so one failure is announced once, not once per layer.
  */
 const handleOutcome = (
 	app: App,
 	layer: FacilityLayer,
 	outcome: RefreshOutcome,
-	deps: ExploreDeps
+	deps: ExploreDeps,
+	notifyFailure: boolean
 ): void => {
 	switch (outcome.kind) {
 		case 'loaded': {
@@ -149,7 +156,9 @@ const handleOutcome = (
 		case 'superseded':
 			return;
 		case 'failed': {
-			deps.notify(fetchErrorMessage(layer.kind, outcome.error), 'error', 5000);
+			if (notifyFailure) {
+				deps.notify(fetchErrorMessage(layer.kind, outcome.error), 'error', 5000);
+			}
 			logger.error(`Failed to fetch ${layer.kind} facilities:`, outcome.error);
 			return;
 		}
@@ -161,7 +170,9 @@ const handleOutcome = (
 };
 
 /**
- * Refresh facility layers for the visible area.
+ * Refresh facility layers for the visible area. Every targeted layer is served by a single
+ * Overpass request (see `refreshLayers`), so panning with both layers on never uses more
+ * than one of Overpass's 2 concurrent request slots.
  * @param app - Layers and session
  * @param viewport - Visible area to explore
  * @param deps - Collaborators (default: production)
@@ -179,13 +190,16 @@ export async function exploreViewport(
 
 	const origin = resolveOrigin(app.session.get(), viewport.center);
 	const targets = activeLayers(app.layers).filter((layer) => kinds.includes(layer.kind));
+	// Fetch a larger area than what's visible so panning and zooming within it can reuse
+	// this data instead of hitting Overpass's rate limit again.
+	const loadBounds = padBounds(viewport.bounds, FETCH_PADDING_FACTOR);
 
-	await Promise.all(
-		targets.map(async (layer) => {
-			const outcome = await withLoading(() =>
-				refreshLayer(layer, viewport.bounds, origin, deps.refresh)
-			);
-			handleOutcome(app, layer, outcome, deps);
-		})
+	const results = await withLoading(() =>
+		refreshLayers(app.layers, targets, loadBounds, origin, deps.refresh)
 	);
+
+	const firstFailed = results.find(({ outcome }) => outcome.kind === 'failed');
+	for (const result of results) {
+		handleOutcome(app, app.layers[result.kind], result.outcome, deps, result === firstFailed);
+	}
 }
