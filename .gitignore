@@ -1,4 +1,9 @@
 /node_modules/
 /dist
+/coverage
 /.idea
 .vscode
+.DS_Store
+.playwright-mcp/
+.env.local
+.env.*.local

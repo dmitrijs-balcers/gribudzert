@@ -3,20 +3,23 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Map of Riga (Leaflet + OpenStreetMap)</title>
+        <title>Gribudzert – drinking water &amp; public toilets map</title>
+        <meta
+            name="description"
+            content="Find free drinking water taps and public toilets near you on an interactive OpenStreetMap-based map."
+        />
+        <meta name="theme-color" content="#0078ff" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
         <link rel="manifest" href="manifest.json" />
-        <!-- Leaflet CSS -->
-        <link
-            rel="stylesheet"
-            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-            crossorigin=""
-        />
 
+        <!-- Umami analytics: stripped by vite.config.ts unless building in production mode -->
         <script
             defer
+            data-analytics="umami"
             src="https://cloud.umami.is/script.js"
-            data-website-id="9aad9379-5532-44f3-be3b-f0096b298962"
+            data-website-id="%VITE_UMAMI_WEBSITE_ID%"
+            data-do-not-track="true"
         ></script>
 
         <style>
