@@ -1,10 +1,17 @@
 {
-  "name": "Gribudzert - Riga Map",
+  "name": "Gribudzert - drinking water & public toilets map",
   "short_name": "Gribudzert",
-  "description": "Interactive map of Riga using Leaflet and OpenStreetMap",
+  "description": "Find free drinking water taps and public toilets near you on an interactive OpenStreetMap-based map.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f7f7",
   "theme_color": "#0078ff",
-  "icons": []
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }

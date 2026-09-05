@@ -1,77 +1,154 @@
 /**
- * Loading spinner with accessibility support
+ * Loading overlay with accessibility support
+ *
+ * The overlay is reference counted: every `showLoading` must be balanced by a `hideLoading`,
+ * and the overlay stays visible while at least one caller is still loading. Concurrent
+ * operations (e.g. two layers refreshing at once) therefore share a single overlay that
+ * disappears only when the last one finishes. Prefer `withLoading` over manual pairing so a
+ * thrown error can never leave the overlay stuck.
  */
-
-let loadingElement: HTMLDivElement | null = null;
-let loadingTimeout: number | null = null;
-let isLoading = false;
 
 /**
- * Show loading spinner with optional delay to prevent flashing
- * @param delay - Delay in ms before showing spinner (default: 200ms)
+ * Delay before the overlay becomes visible, so quick operations never flash it
  */
-export function showLoading(delay: number = 200): void {
-	if (isLoading) return;
-	isLoading = true;
+export const DEFAULT_LOADING_DELAY_MS = 200;
 
-	// Clear any existing timeout
-	if (loadingTimeout !== null) {
-		clearTimeout(loadingTimeout);
+/**
+ * Duration of the fade-out transition before the overlay is removed from the DOM
+ */
+const HIDE_ANIMATION_MS = 300;
+
+let loadingElement: HTMLDivElement | null = null;
+let showTimer: ReturnType<typeof setTimeout> | null = null;
+let removeTimer: ReturnType<typeof setTimeout> | null = null;
+let pending = 0;
+
+const clearShowTimer = (): void => {
+	if (showTimer !== null) {
+		clearTimeout(showTimer);
+		showTimer = null;
 	}
+};
 
-	// Delay showing to prevent flashing for quick operations
-	loadingTimeout = window.setTimeout(() => {
-		if (!isLoading) return; // Check if hideLoading was called during delay
+const clearRemoveTimer = (): void => {
+	if (removeTimer !== null) {
+		clearTimeout(removeTimer);
+		removeTimer = null;
+	}
+};
 
-		if (!loadingElement) {
-			loadingElement = document.createElement('div');
-			loadingElement.className = 'loading-overlay';
-			loadingElement.setAttribute('role', 'status');
-			loadingElement.setAttribute('aria-live', 'polite');
-			loadingElement.setAttribute('aria-label', 'Loading');
-
-			loadingElement.innerHTML = `
+const createOverlay = (): HTMLDivElement => {
+	const element = document.createElement('div');
+	element.className = 'loading-overlay';
+	element.setAttribute('role', 'status');
+	element.setAttribute('aria-live', 'polite');
+	element.setAttribute('aria-label', 'Loading');
+	element.innerHTML = `
         <div class="loading-spinner">
           <div class="spinner"></div>
           <span class="loading-text">Loading...</span>
         </div>
       `;
+	document.body.appendChild(element);
+	return element;
+};
 
-			document.body.appendChild(loadingElement);
-		}
+const revealOverlay = (): void => {
+	showTimer = null;
+	if (pending === 0) {
+		return;
+	}
+	clearRemoveTimer();
+	loadingElement ??= createOverlay();
+	loadingElement.classList.add('loading-visible');
+};
 
-		loadingElement.classList.add('loading-visible');
-	}, delay);
+/**
+ * Register one loading operation. The overlay appears after `delay` ms unless every
+ * registered operation has finished by then.
+ * @param delay - Delay in ms before showing the overlay (default: 200ms)
+ */
+export function showLoading(delay: number = DEFAULT_LOADING_DELAY_MS): void {
+	pending += 1;
+	if (pending > 1) {
+		return;
+	}
+	clearShowTimer();
+	showTimer = setTimeout(revealOverlay, delay);
 }
 
 /**
- * Hide loading spinner
+ * Finish one loading operation. The overlay hides once no operation is pending.
+ * Extra calls (without a matching `showLoading`) are ignored.
  */
 export function hideLoading(): void {
-	isLoading = false;
-
-	// Clear timeout if spinner hasn't appeared yet
-	if (loadingTimeout !== null) {
-		clearTimeout(loadingTimeout);
-		loadingTimeout = null;
+	if (pending === 0) {
+		return;
+	}
+	pending -= 1;
+	if (pending > 0) {
+		return;
 	}
 
-	if (!loadingElement) return;
+	clearShowTimer();
+	if (loadingElement === null) {
+		return;
+	}
 
 	loadingElement.classList.remove('loading-visible');
-
-	// Remove from DOM after animation
-	setTimeout(() => {
-		if (loadingElement && !isLoading) {
+	clearRemoveTimer();
+	removeTimer = setTimeout(() => {
+		removeTimer = null;
+		if (loadingElement !== null && pending === 0) {
 			loadingElement.remove();
 			loadingElement = null;
 		}
-	}, 300);
+	}, HIDE_ANIMATION_MS);
 }
 
 /**
- * Check if loading is currently visible
+ * Run an async operation while the overlay is shown; the overlay is always released,
+ * whether the operation resolves or rejects.
+ * @param fn - Operation to run
+ * @param delay - Delay in ms before showing the overlay (default: 200ms)
+ */
+export async function withLoading<T>(
+	fn: () => Promise<T>,
+	delay: number = DEFAULT_LOADING_DELAY_MS
+): Promise<T> {
+	showLoading(delay);
+	try {
+		return await fn();
+	} finally {
+		hideLoading();
+	}
+}
+
+/**
+ * Number of loading operations currently registered
+ */
+export function pendingLoadingCount(): number {
+	return pending;
+}
+
+/**
+ * Whether at least one loading operation is registered (the overlay is shown or about to be)
  */
 export function isLoadingVisible(): boolean {
-	return isLoading;
+	return pending > 0;
+}
+
+/**
+ * Drop every registered loading operation and remove the overlay immediately.
+ * Intended for teardown (e.g. between tests); production code should balance
+ * `showLoading`/`hideLoading` or use `withLoading` instead.
+ */
+export function resetLoading(): void {
+	pending = 0;
+	clearShowTimer();
+	clearRemoveTimer();
+	if (loadingElement !== null) {
+		loadingElement.remove();
+		loadingElement = null;
+	}
 }

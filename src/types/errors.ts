@@ -9,7 +9,15 @@
 export type FetchError =
 	| { readonly type: 'network'; readonly message: string }
 	| { readonly type: 'parse'; readonly message: string }
-	| { readonly type: 'timeout'; readonly message: string };
+	| { readonly type: 'timeout'; readonly message: string }
+	| { readonly type: 'aborted'; readonly message: string }
+	/** Server is rate-limiting or overloaded (HTTP 429/503/504); not a client connectivity problem */
+	| {
+			readonly type: 'busy';
+			readonly status: number;
+			readonly retryAfterMs: number | null;
+			readonly message: string;
+	  };
 
 /**
  * Geolocation errors
@@ -72,7 +80,7 @@ export const toLocationFailureCategory = (error: LocationError): LocationFailure
 	const mapping: Record<LocationError['type'], LocationFailureCategory> = {
 		'permission-denied': 'permission_denied',
 		'position-unavailable': 'position_unavailable',
-		'timeout': 'timeout',
+		timeout: 'timeout',
 		'not-supported': 'not_supported',
 	};
 	return mapping[error.type];
@@ -84,14 +92,12 @@ export const toLocationFailureCategory = (error: LocationError): LocationFailure
  * @param error - GeolocationError from browser geolocation API
  * @returns LocationFailureCategory for analytics tracking
  */
-export const geolocationToFailureCategory = (
-	error: GeolocationError
-): LocationFailureCategory => {
+export const geolocationToFailureCategory = (error: GeolocationError): LocationFailureCategory => {
 	const mapping: Record<GeolocationError['type'], LocationFailureCategory> = {
-		'permission_denied': 'permission_denied',
-		'unavailable': 'position_unavailable',
-		'timeout': 'timeout',
-		'insecure_context': 'insecure_context',
+		permission_denied: 'permission_denied',
+		unavailable: 'position_unavailable',
+		timeout: 'timeout',
+		insecure_context: 'insecure_context',
 	};
 	return mapping[error.type];
 };

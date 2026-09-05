@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Gribudzert</title>
+  <!-- Full-bleed background so the icon survives maskable cropping (safe zone = inner 80%) -->
+  <rect width="512" height="512" fill="#0078ff"/>
+  <path d="M256 112c-44 62-88 106-88 158a88 88 0 0 0 176 0c0-52-44-96-88-158z" fill="#ffffff"/>
+  <path d="M220 278a36 36 0 0 0 36 36" fill="none" stroke="#0078ff" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+</svg>

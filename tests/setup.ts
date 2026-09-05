@@ -1,121 +1,76 @@
 /**
- * Global test setup for Vitest
- * Runs before all test files
+ * Global test setup: a DOM with layout for Leaflet, and quiet console output.
+ * No application module is mocked here; the real Leaflet runs against the DOM.
  */
 
-import { afterEach, beforeAll, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 
-// Mock Leaflet to avoid requiring DOM elements
-vi.mock('leaflet', () => {
-	const createMockMarker = () => {
-		const marker = {
-			addTo: vi.fn((layer) => {
-				if (layer && typeof layer.addLayer === 'function') {
-					layer.addLayer(marker);
-				}
-				return marker;
-			}),
-			bindPopup: vi.fn().mockReturnThis(),
-			on: vi.fn().mockReturnThis(),
-			getLatLng: vi.fn(() => ({ lat: 56.9496, lng: 24.1052 })),
-			options: {},
-		};
-		return marker;
-	};
+/**
+ * Size the map container gets in tests (the DOM has no layout engine)
+ */
+export const MAP_WIDTH = 600;
+export const MAP_HEIGHT = 400;
 
-	const createMockFeatureGroup = () => {
-		const layers: unknown[] = [];
-		return {
-			addTo: vi.fn().mockReturnThis(),
-			getLayers: vi.fn(() => layers),
-			clearLayers: vi.fn(() => {
-				layers.length = 0;
-			}),
-			addLayer: vi.fn((layer) => {
-				layers.push(layer);
-			}),
-		};
-	};
+const isMapContainer = (element: Element): boolean => element.id === 'map';
 
-	const mockMap = {
-		setView: vi.fn().mockReturnThis(),
-		addLayer: vi.fn().mockReturnThis(),
-		removeLayer: vi.fn().mockReturnThis(),
-		getBounds: vi.fn(() => ({
-			getSouth: () => 56.9,
-			getWest: () => 24.0,
-			getNorth: () => 57.0,
-			getEast: () => 24.2,
-		})),
-		on: vi.fn().mockReturnThis(),
-		getCenter: vi.fn(() => ({ lat: 56.9496, lng: 24.1052 })),
-	};
+/**
+ * Give the map container a real size so Leaflet can compute bounds and pixel positions
+ */
+const installLayoutStubs = (): void => {
+	const proto = HTMLElement.prototype;
+	const originalRect = proto.getBoundingClientRect;
 
-	return {
-		default: {
-			map: vi.fn(() => mockMap),
-			tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
-			circleMarker: vi.fn(() => createMockMarker()),
-			marker: vi.fn(() => createMockMarker()),
-			featureGroup: vi.fn(() => createMockFeatureGroup()),
-			divIcon: vi.fn((options) => options),
-			control: {
-				locate: vi.fn(),
-				layers: vi.fn(),
-				scale: vi.fn(() => ({ addTo: vi.fn() })),
-			},
-			Control: {
-				extend: vi.fn((options) => () => options),
-			},
-			DomUtil: {
-				create: vi.fn((tag, className) => {
-					const el = document.createElement(tag);
-					if (className) el.className = className;
-					return el;
-				}),
-			},
-			DomEvent: {
-				on: vi.fn(),
-			},
+	Object.defineProperty(proto, 'clientWidth', {
+		configurable: true,
+		get(this: HTMLElement) {
+			return isMapContainer(this) ? MAP_WIDTH : 0;
 		},
-		map: vi.fn(() => mockMap),
-		tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
-		circleMarker: vi.fn(() => createMockMarker()),
-		marker: vi.fn(() => createMockMarker()),
-		featureGroup: vi.fn(() => createMockFeatureGroup()),
-		divIcon: vi.fn((options) => options),
+	});
+	Object.defineProperty(proto, 'clientHeight', {
+		configurable: true,
+		get(this: HTMLElement) {
+			return isMapContainer(this) ? MAP_HEIGHT : 0;
+		},
+	});
+	proto.getBoundingClientRect = function getBoundingClientRect(this: HTMLElement): DOMRect {
+		if (!isMapContainer(this)) {
+			return originalRect.call(this);
+		}
+		return {
+			x: 0,
+			y: 0,
+			top: 0,
+			left: 0,
+			right: MAP_WIDTH,
+			bottom: MAP_HEIGHT,
+			width: MAP_WIDTH,
+			height: MAP_HEIGHT,
+			toJSON: () => ({}),
+		} as DOMRect;
 	};
-});
+};
 
-// Setup global test utilities
-beforeAll(() => {
-	// Suppress console.log during tests unless explicitly needed
+installLayoutStubs();
+
+beforeEach(() => {
+	// The app narrates what it does through the logger; keep test output to the results.
+	// Run with DEBUG=1 to see it. Spies are restored after every test, hence beforeEach.
 	if (!process.env.DEBUG) {
-		vi.spyOn(console, 'log').mockImplementation(() => {
-			/* intentionally empty - suppressing console.log */
-		});
+		vi.spyOn(console, 'info').mockImplementation(() => undefined);
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
 	}
 });
 
-// Clean up after each test
 afterEach(() => {
-	vi.clearAllMocks();
+	vi.useRealTimers();
+	vi.restoreAllMocks();
+	// Leave the map the way a visitor would, so it lets go of its document-level key handlers
+	if (document.activeElement instanceof HTMLElement) {
+		document.activeElement.blur();
+	}
+	document.body.innerHTML = '';
+	// Browser fakes a scenario may have installed
+	delete (navigator as { doNotTrack?: string }).doNotTrack;
+	delete (window as { umami?: unknown }).umami;
 });
-
-// Mock browser APIs that may not be available in happy-dom
-global.fetch = global.fetch || vi.fn();
-
-// Mock IntersectionObserver if needed
-global.IntersectionObserver =
-	global.IntersectionObserver ||
-	class IntersectionObserver {
-		observe() {
-			/* intentionally empty - mock implementation */
-		}
-		disconnect() {
-			/* intentionally empty - mock implementation */
-		}
-		unobserve() {
-			/* intentionally empty - mock implementation */
-		}
-	};

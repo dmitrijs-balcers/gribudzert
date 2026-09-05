@@ -4,136 +4,135 @@
 
 import type * as L from 'leaflet';
 import { trackMarkerClicked, trackNavigationStarted } from '../../analytics';
-import type { FacilityType } from '../../analytics/types';
-import type { Element } from '../../types/overpass';
+import type {
+	Facility,
+	Located,
+	ToiletFacility,
+	WaterFacility,
+	WaterSourceType,
+} from '../../domain';
+import { formatDistance, osmUrl } from '../../domain';
 import { escapeHtml } from '../../utils/html';
 import * as logger from '../../utils/logger';
 import { openNavigation } from '../navigation/navigation';
 
 /**
- * Get user-friendly label and icon for water source type
+ * Presentation of a water source type
  */
-function getWaterSourceLabel(element: Element): { label: string; icon: string; color: string } {
-	if (element.tags.natural === 'spring') {
-		return { label: 'Natural Spring', icon: '💧', color: '#00BCD4' };
-	}
-	if (element.tags.man_made === 'water_well') {
-		return { label: 'Water Well', icon: '🪣', color: '#795548' };
-	}
-	if (element.tags.man_made === 'water_tap') {
-		return { label: 'Water Tap', icon: '🚰', color: '#2196F3' };
-	}
-	if (element.tags.waterway === 'water_point') {
-		return { label: 'Water Point', icon: '🌊', color: '#009688' };
-	}
-	if (element.tags.amenity === 'drinking_water') {
-		return { label: 'Drinking Water', icon: '🚰', color: '#4CAF50' };
-	}
-	return { label: 'Water Source', icon: '💧', color: '#0078ff' };
-}
+type SourcePresentation = {
+	readonly label: string;
+	readonly icon: string;
+	readonly color: string;
+};
+
+const WATER_SOURCE_PRESENTATION: Readonly<Record<WaterSourceType, SourcePresentation>> = {
+	spring: { label: 'Natural Spring', icon: '💧', color: '#00BCD4' },
+	water_well: { label: 'Water Well', icon: '🪣', color: '#795548' },
+	water_tap: { label: 'Water Tap', icon: '🚰', color: '#2196F3' },
+	water_point: { label: 'Water Point', icon: '🌊', color: '#009688' },
+	drinking_water: { label: 'Drinking Water', icon: '🚰', color: '#4CAF50' },
+};
 
 /**
- * Check if element is a toilet
+ * Human readable label used in navigation labels and aria attributes
  */
-function isToilet(element: Element): boolean {
-	return element.tags.amenity === 'toilets';
-}
+const navigationLabel = (facility: Facility): string =>
+	facility.kind === 'toilet' ? 'toilet' : 'water_tap';
 
 /**
- * Check if water is drinkable
+ * Title block shared by all popups
  */
-function isDrinkable(element: Element): boolean {
-	const drinkingWater = (element.tags.drinking_water || '').toLowerCase();
-	return drinkingWater !== 'no';
-}
+const titleHtml = (facility: Facility, color: string, heading: string): string =>
+	`<strong style="color: ${color};">${heading}</strong>` +
+	`<div style="font-size: 0.85em; color: #666;">ID: ${facility.osm.id}</div>` +
+	(facility.name !== undefined ? `<div><strong>${escapeHtml(facility.name)}</strong></div>` : '');
+
+/**
+ * Optional free-text details shared by all popups
+ */
+const detailsHtml = (facility: Facility): readonly string[] => {
+	const parts: string[] = [];
+	if (facility.operator !== undefined) {
+		parts.push(`<div>Operator: ${escapeHtml(facility.operator)}</div>`);
+	}
+	if (facility.note !== undefined) {
+		parts.push(`<div>Note: ${escapeHtml(facility.note)}</div>`);
+	}
+	return parts;
+};
+
+/**
+ * Navigate button and OSM link
+ */
+const actionsHtml = (facility: Facility, ariaTarget: string): string =>
+	`<div class="popup-actions">` +
+	`<button type="button" class="navigate-btn" data-lat="${facility.coordinates.lat}" data-lon="${facility.coordinates.lon}" aria-label="Navigate to ${ariaTarget} ${facility.osm.id}">` +
+	`<span class="icon" aria-hidden="true">🧭</span>` +
+	`<span class="label">Navigate</span>` +
+	`</button>` +
+	`<a class="popup-secondary" target="_blank" rel="noreferrer" href="${osmUrl(facility.osm)}">` +
+	`Open on OpenStreetMap` +
+	`</a>` +
+	`</div>`;
 
 /**
  * Create HTML content for toilet popup
  */
-function createToiletPopupContent(element: Element): string {
+function createToiletPopupContent(item: Located<ToiletFacility>): string {
+	const { facility, distance } = item;
 	const parts: string[] = [];
 
-	// Title with icon
-	parts.push(
-		`<strong style="color: #795548;">` +
-			`🚻 Public Toilet` +
-			`</strong>` +
-			`<div style="font-size: 0.85em; color: #666;">ID: ${element.id}</div>`
-	);
-
-	// Distance (if available)
-	if (element.distanceFromUser !== undefined) {
-		const distanceKm = element.distanceFromUser / 1000;
-		const distanceStr =
-			distanceKm < 1 ? `${Math.round(element.distanceFromUser)}m` : `${distanceKm.toFixed(2)}km`;
-		parts.push(`<div><strong>Distance: ${distanceStr}</strong></div>`);
-	}
+	parts.push(titleHtml(facility, '#795548', '🚻 Public Toilet'));
+	parts.push(`<div><strong>Distance: ${formatDistance(distance)}</strong></div>`);
 
 	// Accessibility information
-	const wheelchair = (element.tags.wheelchair || '').toLowerCase();
-	if (wheelchair === 'yes') {
-		parts.push(
-			`<div style="background: #E8F5E9; border-left: 3px solid #4CAF50; padding: 8px; margin: 8px 0; border-radius: 4px;">` +
-				`<strong style="color: #2E7D32;">♿ Wheelchair Accessible</strong>` +
-				`</div>`
-		);
-	} else if (wheelchair === 'no') {
-		parts.push(`<div>♿ Not wheelchair accessible</div>`);
-	} else if (wheelchair === 'limited') {
-		parts.push(`<div>♿ Limited wheelchair access</div>`);
-	} else {
-		parts.push(`<div style="color: #666;">♿ Accessibility information unavailable</div>`);
+	switch (facility.accessibility.wheelchair) {
+		case 'yes':
+			parts.push(
+				`<div style="background: #E8F5E9; border-left: 3px solid #4CAF50; padding: 8px; margin: 8px 0; border-radius: 4px;">` +
+					`<strong style="color: #2E7D32;">♿ Wheelchair Accessible</strong>` +
+					`</div>`
+			);
+			break;
+		case 'no':
+			parts.push(`<div>♿ Not wheelchair accessible</div>`);
+			break;
+		case 'limited':
+			parts.push(`<div>♿ Limited wheelchair access</div>`);
+			break;
+		case 'unknown':
+			parts.push(`<div style="color: #666;">♿ Accessibility information unavailable</div>`);
+			break;
 	}
 
 	// Changing table
-	const changingTable = (element.tags.changing_table || '').toLowerCase();
-	if (changingTable === 'yes') {
+	if (facility.accessibility.changingTable === 'yes') {
 		parts.push(`<div>🍼 Baby changing table available</div>`);
-	} else if (changingTable === 'no') {
+	} else if (facility.accessibility.changingTable === 'no') {
 		parts.push(`<div>🍼 No changing table</div>`);
 	}
 
 	// Fee status
-	const fee = (element.tags.fee || '').toLowerCase();
-	if (fee === 'yes') {
+	if (facility.fee === 'yes') {
 		parts.push(`<div>💵 Fee required</div>`);
-	} else if (fee === 'no') {
+	} else if (facility.fee === 'no') {
 		parts.push(`<div>✅ Free</div>`);
 	}
 
 	// Opening hours
-	if (element.tags.opening_hours) {
-		parts.push(`<div>🕒 Hours: ${escapeHtml(element.tags.opening_hours)}</div>`);
+	if (facility.openingHours !== undefined) {
+		parts.push(`<div>🕒 Hours: ${escapeHtml(facility.openingHours)}</div>`);
 	} else {
 		parts.push(`<div style="color: #666;">🕒 Hours: 24/7 (assumed)</div>`);
 	}
 
 	// Unisex/gendered
-	const unisex = (element.tags.unisex || '').toLowerCase();
-	if (unisex === 'yes') {
+	if (facility.unisex === true) {
 		parts.push(`<div>Gender-neutral facility</div>`);
 	}
 
-	// Additional information
-	if (element.tags.operator) {
-		parts.push(`<div>Operator: ${escapeHtml(element.tags.operator)}</div>`);
-	}
-	if (element.tags.note) {
-		parts.push(`<div>Note: ${escapeHtml(element.tags.note)}</div>`);
-	}
-
-	// Actions
-	parts.push(
-		`<div class="popup-actions">` +
-			`<button type="button" class="navigate-btn" data-lat="${element.lat}" data-lon="${element.lon}" aria-label="Navigate to toilet ${element.id}">` +
-			`<span class="icon" aria-hidden="true">🧭</span>` +
-			`<span class="label">Navigate</span>` +
-			`</button>` +
-			`<a class="popup-secondary" target="_blank" rel="noreferrer" href="https://www.openstreetmap.org/node/${element.id}">` +
-			`Open on OpenStreetMap` +
-			`</a>` +
-			`</div>`
-	);
+	parts.push(...detailsHtml(facility));
+	parts.push(actionsHtml(facility, 'toilet'));
 
 	return parts.join('');
 }
@@ -141,21 +140,21 @@ function createToiletPopupContent(element: Element): string {
 /**
  * Create HTML content for water popup
  */
-function createWaterPopupContent(element: Element): string {
+function createWaterPopupContent(item: Located<WaterFacility>): string {
+	const { facility, distance, isNearest } = item;
 	const parts: string[] = [];
-	const sourceInfo = getWaterSourceLabel(element);
-	const drinkable = isDrinkable(element);
+	const source = WATER_SOURCE_PRESENTATION[facility.sourceType];
 
-	// Title with type and icon
 	parts.push(
-		`<strong style="color: ${drinkable ? sourceInfo.color : '#FF5722'};">` +
-			`${sourceInfo.icon} ${sourceInfo.label}` +
-			`</strong>` +
-			`<div style="font-size: 0.85em; color: #666;">ID: ${element.id}</div>`
+		titleHtml(
+			facility,
+			facility.drinkable ? source.color : '#FF5722',
+			`${source.icon} ${source.label}`
+		)
 	);
 
 	// Non-drinkable warning
-	if (!drinkable) {
+	if (!facility.drinkable) {
 		parts.push(
 			`<div style="background: #FFF3E0; border-left: 3px solid #FF9800; padding: 8px; margin: 8px 0; border-radius: 4px;">` +
 				`<strong style="color: #F57C00;">⚠️ Not Drinkable</strong><br>` +
@@ -164,81 +163,56 @@ function createWaterPopupContent(element: Element): string {
 		);
 	}
 
-	// Distance (if available)
-	if (element.distanceFromUser !== undefined) {
-		const distanceKm = element.distanceFromUser / 1000;
-		const distanceStr =
-			distanceKm < 1 ? `${Math.round(element.distanceFromUser)}m` : `${distanceKm.toFixed(2)}km`;
-		parts.push(`<div><strong>Distance: ${distanceStr}</strong></div>`);
-	}
+	parts.push(`<div><strong>Distance: ${formatDistance(distance)}</strong></div>`);
 
 	// Nearest marker indicator
-	if (element.isNearest) {
+	if (isNearest) {
 		parts.push(`<div style="color: #FFD700;">⭐ Nearest water point</div>`);
 	}
 
-	// Tags
-	if (element.tags.operator) {
-		parts.push(`<div>Operator: ${escapeHtml(element.tags.operator)}</div>`);
+	parts.push(...detailsHtml(facility));
+	if (facility.seasonal) {
+		parts.push(`<div>Seasonal: yes</div>`);
 	}
-	if (element.tags.note) {
-		parts.push(`<div>Note: ${escapeHtml(element.tags.note)}</div>`);
+	if (facility.bottleRefill) {
+		parts.push(`<div>Bottle refill: yes</div>`);
 	}
-	if (element.tags.seasonal) {
-		parts.push(`<div>Seasonal: ${escapeHtml(element.tags.seasonal)}</div>`);
+	if (facility.wheelchair !== 'unknown') {
+		parts.push(`<div>Wheelchair: ${facility.wheelchair}</div>`);
 	}
-	if (element.tags.bottle) {
-		parts.push(`<div>Bottle refill: ${escapeHtml(element.tags.bottle)}</div>`);
-	}
-	if (element.tags.wheelchair) {
-		parts.push(`<div>Wheelchair: ${escapeHtml(element.tags.wheelchair)}</div>`);
+	if (facility.openingHours !== undefined) {
+		parts.push(`<div>🕒 Hours: ${escapeHtml(facility.openingHours)}</div>`);
 	}
 
-	// Actions
-	parts.push(
-		`<div class="popup-actions">` +
-			`<button type="button" class="navigate-btn" data-lat="${element.lat}" data-lon="${element.lon}" aria-label="Navigate to ${sourceInfo.label.toLowerCase()} ${element.id}">` +
-			`<span class="icon" aria-hidden="true">🧭</span>` +
-			`<span class="label">Navigate</span>` +
-			`</button>` +
-			`<a class="popup-secondary" target="_blank" rel="noreferrer" href="https://www.openstreetmap.org/node/${element.id}">` +
-			`Open on OpenStreetMap` +
-			`</a>` +
-			`</div>`
-	);
+	parts.push(actionsHtml(facility, source.label.toLowerCase()));
 
 	return parts.join('');
 }
 
 /**
- * Create HTML content for popup
+ * Create HTML content for a facility popup
  */
-export function createPopupContent(element: Element): string {
-	// Route to appropriate popup content based on facility type
-	if (isToilet(element)) {
-		return createToiletPopupContent(element);
+export function createPopupContent(item: Located<Facility>): string {
+	const { facility } = item;
+	switch (facility.kind) {
+		case 'toilet':
+			return createToiletPopupContent({ ...item, facility });
+		case 'water':
+			return createWaterPopupContent({ ...item, facility });
 	}
-	return createWaterPopupContent(element);
 }
 
 /**
- * Attach event handlers to popup
+ * Attach event handlers to a marker's popup
  */
-export function attachPopupHandlers(marker: L.CircleMarker, element: Element): void {
-	// Determine facility type for analytics (water or toilet)
-	const analyticsFacilityType: FacilityType = isToilet(element) ? 'toilet' : 'water';
-
+export function attachPopupHandlers(marker: L.CircleMarker | L.Marker, facility: Facility): void {
 	// Track marker click when popup opens
-	marker.on('popupopen', (e) => {
-		// Track marker clicked event
-		trackMarkerClicked(analyticsFacilityType);
+	marker.on('popupopen', (e: L.PopupEvent) => {
+		trackMarkerClicked(facility.kind);
 
 		try {
 			const popupEl = e.popup.getElement();
 			if (!popupEl) return;
-
-			// Determine facility type for navigation label
-			const facilityType = isToilet(element) ? 'toilet' : 'water_tap';
 
 			// Handle navigation button
 			const navBtn = popupEl.querySelector('.navigate-btn');
@@ -247,13 +221,12 @@ export function attachPopupHandlers(marker: L.CircleMarker, element: Element): v
 
 				navBtn.addEventListener('click', (ev) => {
 					ev.preventDefault();
-					// Track navigation started event
-					trackNavigationStarted(analyticsFacilityType);
+					trackNavigationStarted(facility.kind);
 
 					const lat = navBtn.getAttribute('data-lat');
 					const lon = navBtn.getAttribute('data-lon');
 					if (lat && lon) {
-						openNavigation(lat, lon, `${facilityType} ${element.id}`);
+						openNavigation(lat, lon, `${navigationLabel(facility)} ${facility.osm.id}`);
 					}
 				});
 

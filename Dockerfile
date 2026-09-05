@@ -14,8 +14,8 @@ RUN if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
 # Copy source code
 COPY . .
 
-# Build the application
-RUN yarn build
+# Type-check, then build the application
+RUN yarn typecheck && yarn build
 
 # Production stage
 FROM nginx:alpine

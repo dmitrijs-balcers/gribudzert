@@ -21,6 +21,12 @@ yarn install && yarn dev
 yarn build
 ```
 
+### Environment variables
+
+| Variable | Default (committed in `.env`) | Purpose |
+| --- | --- | --- |
+| `VITE_UMAMI_WEBSITE_ID` | `9aad9379-...` | Umami website id. The analytics `<script>` is only emitted in production builds (`vite build`); dev and non-production builds strip it, so local traffic never reaches analytics. Override in `.env.local` (git-ignored). |
+
 ## 🐳 Docker
 
 ```bash
@@ -31,14 +37,8 @@ docker-compose up --build
 
 ## ☁️ Coolify Deployment
 
-1. **Push to Git**:
-   ```bash
-   git add . && git commit -m "Add Coolify config" && git push
-   ```
-
-2. **In Coolify**:
-   - New Resource → Public Repository
-   - Paste your repo URL → Continue → Deploy
+1. Push the repository to Git.
+2. **In Coolify**: New Resource → Public Repository → paste your repo URL → Continue → Deploy.
 
 That's it! Coolify auto-detects the Dockerfile, port (80), and health check.
 
@@ -49,12 +49,16 @@ That's it! Coolify auto-detects the Dockerfile, port (80), and health check.
 
 ```bash
 yarn dev          # Development server
-yarn build        # Production build
+yarn build        # Production build (type-check first: yarn typecheck && yarn build)
 yarn preview      # Preview build
-yarn test         # Run tests
+yarn typecheck    # TypeScript type-check (tsc --noEmit)
+yarn test         # Run tests (yarn test --run for a single pass)
+yarn lint         # Lint (biome)
 yarn lint:fix     # Fix linting
 yarn format       # Format code
 ```
+
+CI (`.github/workflows/ci.yml`) runs typecheck, lint, test and build on every push and pull request.
 
 ## 📋 Requirements
 

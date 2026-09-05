@@ -3,121 +3,39 @@
  */
 
 import type * as L from 'leaflet';
-import type { Element } from '../../types/overpass';
+import type { Facility, Located } from '../../domain';
 import { attachPopupHandlers, createPopupContent } from './popup';
-import {
-	createGenericMarker,
-	getToiletMarkerStyle,
-	getWaterMarkerStyle,
-	isSeasonalMarker,
-} from './styling';
+import { createGenericMarker, getMarkerStyle } from './styling';
 
 /**
- * Create a circle marker for a water tap element
+ * CSS class applied to the marker flagged as nearest
  */
-function createMarker(element: Element, isNearest = false): L.CircleMarker | L.Marker | null {
-	// Validate coordinates
-	if (!Number.isFinite(element.lat) || !Number.isFinite(element.lon)) {
-		return null;
-	}
+export const NEAREST_MARKER_CLASS = 'nearest-marker';
 
-	// Get marker style using generic styling function
-	const seasonal = isSeasonalMarker(element);
-	const style = getWaterMarkerStyle(element, { isNearest, isSeasonal: seasonal });
+/**
+ * Layer type that can hold both circle markers and icon markers
+ */
+export type FacilityLayer = L.FeatureGroup<L.CircleMarker | L.Marker>;
 
-	// Create marker using generic factory
-	const marker = createGenericMarker(element.lat, element.lon, style);
-
-	// Add nearest class if applicable
-	if (isNearest && 'options' in marker) {
-		marker.options.className = 'nearest-marker';
-	}
-
-	return marker;
+/**
+ * Create a styled marker for a located facility
+ */
+export function createFacilityMarker(item: Located<Facility>): L.CircleMarker | L.Marker {
+	const style = getMarkerStyle(item.facility, { isNearest: item.isNearest });
+	const options = item.isNearest ? { className: NEAREST_MARKER_CLASS } : {};
+	return createGenericMarker(item.facility.coordinates, style, options);
 }
 
 /**
- * Add water tap markers to a layer
- * @param elements - Array of water tap elements
+ * Add markers for located facilities to a layer, binding popups and handlers
+ * @param items - Facilities enriched with distance information
  * @param layer - Leaflet layer to add markers to
- * @param map - Leaflet map instance (for popup handlers)
- * @param nearestPoint - Optional nearest water point to highlight
  */
-export function addMarkers(
-	elements: Element[],
-	layer: L.FeatureGroup<L.CircleMarker | L.Marker>,
-	_map: L.Map,
-	nearestPoint: Element | null = null
-): void {
-	elements.forEach((element) => {
-		const isNearest = nearestPoint !== null && element.id === nearestPoint.id;
-		const marker = createMarker(element, isNearest);
-		if (!marker) return;
-
-		// Add marker to layer
+export function addMarkers(items: readonly Located<Facility>[], layer: FacilityLayer): void {
+	for (const item of items) {
+		const marker = createFacilityMarker(item);
 		marker.addTo(layer);
-
-		// Create and bind popup
-		const popupContent = createPopupContent(element);
-		marker.bindPopup(popupContent);
-
-		// Attach popup event handlers
-		attachPopupHandlers(marker, element);
-	});
-}
-
-// Keep backward compatibility alias
-export const addMarkersToLayer = addMarkers;
-
-/**
- * Create a circle marker for a toilet element
- */
-function createToiletMarker(element: Element, isNearest = false): L.CircleMarker | L.Marker | null {
-	// Validate coordinates
-	if (!Number.isFinite(element.lat) || !Number.isFinite(element.lon)) {
-		return null;
+		marker.bindPopup(createPopupContent(item));
+		attachPopupHandlers(marker, item.facility);
 	}
-
-	// Get marker style using toilet styling function
-	const style = getToiletMarkerStyle(element, { isNearest });
-
-	// Create marker using generic factory
-	const marker = createGenericMarker(element.lat, element.lon, style);
-
-	// Add nearest class if applicable
-	if (isNearest && 'options' in marker) {
-		marker.options.className = 'nearest-marker';
-	}
-
-	return marker;
-}
-
-/**
- * Add toilet markers to a layer
- * @param elements - Array of toilet elements
- * @param layer - Leaflet layer to add markers to
- * @param map - Leaflet map instance (for popup handlers)
- * @param nearestPoint - Optional nearest toilet to highlight
- */
-export function addToiletMarkers(
-	elements: Element[],
-	layer: L.FeatureGroup<L.CircleMarker | L.Marker>,
-	_map: L.Map,
-	nearestPoint: Element | null = null
-): void {
-	elements.forEach((element) => {
-		const isNearest = nearestPoint !== null && element.id === nearestPoint.id;
-		const marker = createToiletMarker(element, isNearest);
-		if (!marker) return;
-
-		// Add marker to layer
-		marker.addTo(layer);
-
-		// Create and bind popup
-		const popupContent = createPopupContent(element);
-		marker.bindPopup(popupContent);
-
-		// Attach popup event handlers
-		attachPopupHandlers(marker, element);
-	});
 }

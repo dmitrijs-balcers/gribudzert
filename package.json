@@ -12,7 +12,7 @@
     "@testing-library/dom": "^10.4.0",
     "@types/leaflet": "^1.9.20",
     "@vitest/ui": "^2.1.8",
-    "happy-dom": "^15.11.7",
+    "happy-dom": "^20.14.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.9",
     "vitest": "^2.1.8"
@@ -21,6 +21,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc --noEmit -p tests/tsconfig.json",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
@@ -28,8 +30,8 @@
     "lint:fix": "biome lint --write .",
     "format": "biome format --write ."
   },
-	"engines": {
-		"node": ">=24",
-		"yarn": ">=1.22"
-	}
+  "engines": {
+    "node": ">=24",
+    "yarn": ">=1.22"
+  }
 }
