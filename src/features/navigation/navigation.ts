@@ -46,6 +46,15 @@ const MOVEMENT_THRESHOLD_PERCENTAGE = 0.25; // 25% of viewport
 const DEBOUNCE_DELAY_MS = 300;
 
 /**
+ * Approximate viewport size (diagonal) in meters
+ */
+const diagonalMeters = (bounds: L.LatLngBounds): number => {
+	const ne = bounds.getNorthEast();
+	const sw = bounds.getSouthWest();
+	return haversineDistance(ne.lat, ne.lng, sw.lat, sw.lng);
+};
+
+/**
  * Check if the map has moved significantly enough to warrant a refetch
  *
  * @param oldBounds - Previous bounds
@@ -69,9 +78,7 @@ export function hasMovedSignificantly(
 	);
 
 	// Calculate approximate viewport size (diagonal) in meters
-	const oldNE = oldBounds.getNorthEast();
-	const oldSW = oldBounds.getSouthWest();
-	const viewportDiagonal = haversineDistance(oldNE.lat, oldNE.lng, oldSW.lat, oldSW.lng);
+	const viewportDiagonal = diagonalMeters(oldBounds);
 
 	// Check if movement is >= 25% of viewport diagonal
 	const threshold = viewportDiagonal * MOVEMENT_THRESHOLD_PERCENTAGE;
@@ -84,18 +91,61 @@ export function hasMovedSignificantly(
 export type BoundsChangeCallback = (bounds: L.LatLngBounds) => void;
 
 /**
+ * Options for the navigation handlers
+ */
+export type NavigationHandlerOptions = {
+	/**
+	 * Bounds already loaded when the handlers are attached. When given, the first `moveend`
+	 * is compared against them instead of unconditionally triggering the callback.
+	 */
+	readonly initialBounds?: L.LatLngBounds;
+};
+
+/**
+ * Whether the viewport size changed by at least the movement threshold (i.e. the map was zoomed).
+ * A pure zoom keeps the centre in place, so centre movement alone would never detect it.
+ *
+ * @param oldBounds - Previous bounds
+ * @param newBounds - Current bounds
+ * @returns true when the viewport diagonal changed by >= 25%
+ */
+export function hasZoomedSignificantly(
+	oldBounds: L.LatLngBounds,
+	newBounds: L.LatLngBounds
+): boolean {
+	const oldDiagonal = diagonalMeters(oldBounds);
+	const newDiagonal = diagonalMeters(newBounds);
+	if (oldDiagonal === 0) {
+		return newDiagonal !== 0;
+	}
+	return Math.abs(newDiagonal - oldDiagonal) / oldDiagonal >= MOVEMENT_THRESHOLD_PERCENTAGE;
+}
+
+/**
+ * Whether a refetch is warranted: the map was panned or zoomed significantly
+ */
+export function shouldRefetch(oldBounds: L.LatLngBounds, newBounds: L.LatLngBounds): boolean {
+	return (
+		hasMovedSignificantly(oldBounds, newBounds) || hasZoomedSignificantly(oldBounds, newBounds)
+	);
+}
+
+/**
  * Setup map navigation handlers for panning and zooming
- * Debounces events and only fires callback when movement exceeds threshold
+ * Debounces `moveend` (which Leaflet also fires after a zoom) and only fires the callback
+ * when the viewport moved or resized beyond the threshold.
  *
  * @param map - Leaflet map instance
  * @param onBoundsChange - Callback to execute when bounds change significantly
+ * @param options - Optional initial bounds to compare the first event against
  * @returns Cleanup function to remove event listeners
  */
 export function setupMapNavigationHandlers(
 	map: L.Map,
-	onBoundsChange: BoundsChangeCallback
+	onBoundsChange: BoundsChangeCallback,
+	options: NavigationHandlerOptions = {}
 ): () => void {
-	let lastFetchBounds: L.LatLngBounds | null = null;
+	let lastFetchBounds: L.LatLngBounds | null = options.initialBounds ?? null;
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const handleMoveEnd = () => {
@@ -106,17 +156,11 @@ export function setupMapNavigationHandlers(
 
 		// Set up debounced check
 		debounceTimer = setTimeout(() => {
+			debounceTimer = null;
 			const currentBounds = map.getBounds();
 
 			// First fetch - always trigger
-			if (lastFetchBounds === null) {
-				lastFetchBounds = currentBounds;
-				onBoundsChange(currentBounds);
-				return;
-			}
-
-			// Check if movement is significant
-			if (hasMovedSignificantly(lastFetchBounds, currentBounds)) {
+			if (lastFetchBounds === null || shouldRefetch(lastFetchBounds, currentBounds)) {
 				lastFetchBounds = currentBounds;
 				onBoundsChange(currentBounds);
 			}

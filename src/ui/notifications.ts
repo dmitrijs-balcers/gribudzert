@@ -1,5 +1,9 @@
 /**
  * Toast notification system with accessibility support
+ *
+ * Toasts are announced through aria-live regions (assertive for errors, polite otherwise)
+ * and never take keyboard focus, so the map keeps its focus while messages appear.
+ * They remain focusable (tabindex) so keyboard users can reach and dismiss them.
  */
 
 export type NotificationType = 'info' | 'success' | 'error' | 'warning';
@@ -86,11 +90,6 @@ export function showNotification(
 	container.appendChild(notification);
 	notifications.set(id, { id, message, type, element: notification });
 
-	// Focus on notification for accessibility
-	setTimeout(() => {
-		notification.focus();
-	}, 100);
-
 	// Auto-dismiss
 	if (duration > 0) {
 		setTimeout(() => {
@@ -121,7 +120,7 @@ export function dismissNotification(id: string): void {
  * Clear all notifications
  */
 export function clearAllNotifications(): void {
-	for (const [, id] of notifications) {
+	for (const id of notifications.keys()) {
 		dismissNotification(id);
 	}
 }

@@ -8,38 +8,43 @@ import type * as L from 'leaflet';
  * Default map center coordinates (Riga, Latvia)
  */
 export const RIGA_CENTER: L.LatLngTuple = [56.9496, 24.1052];
-export const rigaLatLng: L.LatLngTuple = RIGA_CENTER; // Alias for backward compatibility
 
 /**
  * Default map zoom level
  */
 export const DEFAULT_ZOOM = 13;
-export const defaultZoom = DEFAULT_ZOOM; // Alias
 
 /**
  * Maximum zoom level for tile layer
  */
 export const MAX_ZOOM = 19;
-export const maxZoom = MAX_ZOOM; // Alias
 
 /**
  * OpenStreetMap tile layer URL template
  */
-export const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-export const tileLayerUrl = OSM_TILE_URL; // Alias
+export const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+/**
+ * Minimum zoom level at which facilities are fetched.
+ * Below this the visible area is too large for a useful Overpass query, so requests are skipped.
+ */
+export const MIN_FETCH_ZOOM = 12;
+
+/**
+ * Minimum interval between two "nothing found here" notifications for the same layer kind
+ */
+export const EMPTY_AREA_NOTIFICATION_COOLDOWN_MS = 30_000;
 
 /**
  * OpenStreetMap attribution text
  */
 export const OSM_ATTRIBUTION =
 	'&copy; <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
-export const osmAttribution = OSM_ATTRIBUTION; // Alias
 
 /**
  * Overpass API endpoint URL
  */
 export const OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
-export const overpassApiUrl = OVERPASS_API_URL; // Alias
 
 /**
  * Colour mapping for water tap markers based on 'colour' tag
@@ -51,7 +56,6 @@ export const COLOUR_MAP: Record<string, string> = {
 	beige: '#D7C7A1',
 	default: '#0078ff',
 } as const;
-export const colourMap = COLOUR_MAP; // Alias
 
 /**
  * Marker radius configurations
@@ -61,7 +65,6 @@ export const MARKER_RADIUS = {
 	bottle: 8,
 	wheelchair: 8,
 } as const;
-export const defaultMarkerRadius = MARKER_RADIUS.default; // Alias
 
 /**
  * Marker style configurations
@@ -84,8 +87,6 @@ export const USER_LOCATION_STYLE = {
 	fillOpacity: 0.25,
 	minRadius: 10,
 } as const;
-export const userLocationColor = USER_LOCATION_STYLE.color; // Alias
-export const userLocationFillColor = USER_LOCATION_STYLE.fillColor; // Alias
 
 /**
  * Geolocation options
@@ -95,7 +96,6 @@ export const GEOLOCATION_OPTIONS: PositionOptions = {
 	maximumAge: 0,
 	timeout: 10000,
 };
-export const geolocationOptions = GEOLOCATION_OPTIONS; // Alias
 
 /**
  * Location detection configuration
