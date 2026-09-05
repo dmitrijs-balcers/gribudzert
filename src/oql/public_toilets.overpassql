@@ -1,12 +1,7 @@
 [out:json][timeout:25];
-// gather results for public toilets
+// gather nodes, ways and relations for public toilets
 (
-  // query part for: "amenity=toilets"
-  node["amenity"="toilets"]([bbox]);
-  relation["amenity"="toilets"]([bbox]);
+  nwr["amenity"="toilets"]([bbox]);
 );
-// print results
-out body;
->;
-out skel qt;
-
+// print tags plus a centre point for ways/relations; no member recursion
+out center;

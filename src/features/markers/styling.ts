@@ -1,11 +1,18 @@
 /**
  * Marker styling logic
- * Generic marker style configuration and factory functions
+ * Maps domain facilities to visual marker styles and creates Leaflet markers.
  */
 
 import * as L from 'leaflet';
 import { MARKER_STYLE } from '../../core/config';
-import type { Element } from '../../types/overpass';
+import type {
+	Facility,
+	LatLon,
+	ToiletFacility,
+	WaterFacility,
+	WaterSourceType,
+} from '../../domain';
+import { isWheelchairAccessible } from '../../domain';
 
 /**
  * Marker icon type variants
@@ -29,8 +36,14 @@ export type MarkerStyle = {
  */
 export type StyleOptions = {
 	readonly isNearest?: boolean; // Highlight as nearest point
-	readonly isSeasonal?: boolean; // Reduced opacity for seasonal
 	readonly isHighlighted?: boolean; // User-selected highlight
+};
+
+/**
+ * Options for marker creation
+ */
+export type MarkerFactoryOptions = {
+	readonly className?: string; // Extra CSS class applied to the marker element
 };
 
 /**
@@ -75,80 +88,45 @@ export const MarkerRadius = {
 } as const;
 
 /**
- * Check if water source is drinkable
+ * Fill color per water source type
  */
-function isDrinkable(element: Element): boolean {
-	const drinkingWater = (element.tags.drinking_water || '').toLowerCase();
-	// Explicit "no" means not drinkable
-	if (drinkingWater === 'no') {
-		return false;
-	}
-	// amenity=drinking_water is assumed drinkable unless tagged otherwise
-	if (element.tags.amenity === 'drinking_water') {
-		return true;
-	}
-	// For other water sources, assume drinkable if not explicitly marked
-	return drinkingWater !== 'no';
-}
+const WATER_SOURCE_COLORS: Readonly<Record<WaterSourceType, string>> = {
+	drinking_water: FacilityColors.water.drinkingWater,
+	spring: FacilityColors.water.spring,
+	water_well: FacilityColors.water.waterWell,
+	water_tap: FacilityColors.water.waterTap,
+	water_point: FacilityColors.water.waterPoint,
+};
 
 /**
- * Get marker color based on water source type
+ * Get marker color based on water source type (non-drinkable water gets a warning color)
  */
-export function getWaterSourceColor(element: Element): string {
-	// Non-drinkable water gets a warning color
-	if (!isDrinkable(element)) {
+export function getWaterSourceColor(facility: WaterFacility): string {
+	if (!facility.drinkable) {
 		return FacilityColors.water.nonDrinkable;
 	}
-
-	// Check for specific water source types and assign colors
-	if (element.tags.natural === 'spring') {
-		return FacilityColors.water.spring;
-	}
-	if (element.tags.man_made === 'water_well') {
-		return FacilityColors.water.waterWell;
-	}
-	if (element.tags.man_made === 'water_tap') {
-		return FacilityColors.water.waterTap;
-	}
-	if (element.tags.waterway === 'water_point') {
-		return FacilityColors.water.waterPoint;
-	}
-	if (element.tags.amenity === 'drinking_water') {
-		return FacilityColors.water.drinkingWater;
-	}
-
-	// Fallback to default
-	return FacilityColors.water.default;
+	return WATER_SOURCE_COLORS[facility.sourceType];
 }
 
 /**
- * Get marker radius based on element tags
+ * Get marker radius for a water facility
  */
-export function getMarkerRadius(element: Element): number {
-	if ((element.tags.bottle || '') === 'yes') {
+export function getMarkerRadius(facility: WaterFacility): number {
+	if (facility.bottleRefill) {
 		return MarkerRadius.bottle;
 	}
-	if ((element.tags.wheelchair || '') === 'yes') {
+	if (facility.wheelchair === 'yes') {
 		return MarkerRadius.wheelchair;
 	}
 	return MarkerRadius.default;
 }
 
 /**
- * Check if marker should be seasonal (reduced opacity)
- */
-export function isSeasonalMarker(element: Element): boolean {
-	return (element.tags.seasonal || '').toLowerCase() === 'yes';
-}
-
-/**
  * Get marker style for water facility
  */
-export function getWaterMarkerStyle(element: Element, options?: StyleOptions): MarkerStyle {
-	const color = getWaterSourceColor(element);
-	const radius = getMarkerRadius(element);
-	const seasonal = isSeasonalMarker(element);
-	const drinkable = isDrinkable(element);
+export function getWaterMarkerStyle(facility: WaterFacility, options?: StyleOptions): MarkerStyle {
+	const fillOpacity = facility.seasonal ? 0.3 : 0.6;
+	const iconType: MarkerIconType = facility.drinkable ? 'circle' : 'crossed';
 
 	// Handle nearest/highlighted markers
 	if (options?.isNearest || options?.isHighlighted) {
@@ -157,72 +135,48 @@ export function getWaterMarkerStyle(element: Element, options?: StyleOptions): M
 			fillColor: FacilityColors.ui.nearest,
 			radius: MarkerRadius.highlighted,
 			weight: 3,
-			fillOpacity: seasonal || options.isSeasonal ? 0.3 : 0.6,
-			iconType: drinkable ? 'circle' : 'crossed',
+			fillOpacity,
+			iconType,
 		};
 	}
 
 	return {
 		color: MARKER_STYLE.color,
-		fillColor: color,
-		radius,
+		fillColor: getWaterSourceColor(facility),
+		radius: getMarkerRadius(facility),
 		weight: MARKER_STYLE.weight,
-		fillOpacity: seasonal || options?.isSeasonal ? 0.3 : 0.6,
-		iconType: drinkable ? 'circle' : 'crossed',
+		fillOpacity,
+		iconType,
 	};
-}
-
-/**
- * Check if toilet is wheelchair accessible
- */
-function isWheelchairAccessible(element: Element): boolean {
-	const wheelchair = (element.tags.wheelchair || '').toLowerCase();
-	return wheelchair === 'yes';
-}
-
-/**
- * Check if toilet has fee
- */
-function hasFee(element: Element): boolean {
-	const fee = (element.tags.fee || '').toLowerCase();
-	return fee === 'yes';
 }
 
 /**
  * Get marker color based on toilet type and accessibility
  */
-export function getToiletColor(element: Element): string {
-	// Wheelchair accessible toilets get accessible color
-	if (isWheelchairAccessible(element)) {
+export function getToiletColor(facility: ToiletFacility): string {
+	if (isWheelchairAccessible(facility)) {
 		return FacilityColors.toilet.accessible;
 	}
-
-	// Premium/paid toilets get premium color
-	if (hasFee(element)) {
+	if (facility.fee === 'yes') {
 		return FacilityColors.toilet.premium;
 	}
-
-	// Standard toilets get standard color
 	return FacilityColors.toilet.standard;
 }
 
 /**
  * Get marker radius for toilet based on accessibility features
  */
-export function getToiletRadius(element: Element): number {
-	if (isWheelchairAccessible(element)) {
-		return MarkerRadius.wheelchair;
-	}
-	return MarkerRadius.default;
+export function getToiletRadius(facility: ToiletFacility): number {
+	return isWheelchairAccessible(facility) ? MarkerRadius.wheelchair : MarkerRadius.default;
 }
 
 /**
  * Get marker style for toilet facility
  */
-export function getToiletMarkerStyle(element: Element, options?: StyleOptions): MarkerStyle {
-	const color = getToiletColor(element);
-	const radius = getToiletRadius(element);
-
+export function getToiletMarkerStyle(
+	facility: ToiletFacility,
+	options?: StyleOptions
+): MarkerStyle {
 	// Handle nearest/highlighted markers
 	if (options?.isNearest || options?.isHighlighted) {
 		return {
@@ -237,8 +191,8 @@ export function getToiletMarkerStyle(element: Element, options?: StyleOptions): 
 
 	return {
 		color: MARKER_STYLE.color,
-		fillColor: color,
-		radius,
+		fillColor: getToiletColor(facility),
+		radius: getToiletRadius(facility),
 		weight: MARKER_STYLE.weight,
 		fillOpacity: 0.7,
 		iconType: 'circle',
@@ -246,9 +200,31 @@ export function getToiletMarkerStyle(element: Element, options?: StyleOptions): 
 }
 
 /**
+ * Get marker style for any facility
+ */
+export function getMarkerStyle(facility: Facility, options?: StyleOptions): MarkerStyle {
+	switch (facility.kind) {
+		case 'water':
+			return getWaterMarkerStyle(facility, options);
+		case 'toilet':
+			return getToiletMarkerStyle(facility, options);
+	}
+}
+
+/**
+ * Join CSS class names, dropping empty ones
+ */
+const classNames = (...names: readonly (string | undefined)[]): string =>
+	names.filter((name): name is string => name !== undefined && name !== '').join(' ');
+
+/**
  * Create a crossed-out circle marker for non-drinkable water
  */
-function createCrossedOutMarker(lat: number, lon: number, style: MarkerStyle): L.Marker {
+function createCrossedOutMarker(
+	position: LatLon,
+	style: MarkerStyle,
+	options?: MarkerFactoryOptions
+): L.Marker {
 	const size = style.radius * 2 + 4;
 	const center = size / 2;
 
@@ -273,34 +249,35 @@ function createCrossedOutMarker(lat: number, lon: number, style: MarkerStyle): L
 					stroke-linecap="round"/>
 			</svg>
 		`,
-		className: 'non-drinkable-marker',
+		className: classNames('non-drinkable-marker', options?.className),
 		iconSize: [size, size],
 		iconAnchor: [center, center],
 	});
 
-	return L.marker([lat, lon], { icon: svgIcon });
+	return L.marker([position.lat, position.lon], { icon: svgIcon });
 }
 
 /**
- * Create a generic marker with the provided style
+ * Create a marker with the provided style.
+ * Extra CSS classes are passed through the factory options rather than mutated afterwards.
  */
 export function createGenericMarker(
-	lat: number,
-	lon: number,
-	style: MarkerStyle
+	position: LatLon,
+	style: MarkerStyle,
+	options?: MarkerFactoryOptions
 ): L.CircleMarker | L.Marker {
 	// Use crossed-out marker for non-drinkable water
 	if (style.iconType === 'crossed') {
-		return createCrossedOutMarker(lat, lon, style);
+		return createCrossedOutMarker(position, style, options);
 	}
 
 	// Standard circle marker
-	return L.circleMarker([lat, lon], {
+	return L.circleMarker([position.lat, position.lon], {
 		radius: style.radius,
 		color: style.color,
 		weight: style.weight,
 		fillColor: style.fillColor,
 		fillOpacity: style.fillOpacity,
-		className: style.iconType === 'custom' ? 'custom-marker' : '',
+		className: classNames(style.iconType === 'custom' ? 'custom-marker' : '', options?.className),
 	});
 }
