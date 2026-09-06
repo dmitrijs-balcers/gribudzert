@@ -1,15 +1,9 @@
-/**
- * Viewport exploration
- * Refreshing the active facility layers for the visible area, with the zoom guard,
- * notifications and analytics that go with it.
- */
-
 import type * as L from 'leaflet';
 import { trackAreaExplored, trackEmptyArea } from '../analytics';
 import { FETCH_PADDING_FACTOR, MIN_FETCH_ZOOM } from '../core/config';
-import type { LatLon } from '../domain';
-import { boundsOfTiles, formatDistance, nearestOf, tilesCovering } from '../domain';
-import type { FacilityCache } from '../features/cache';
+import type { Facility, LatLon, TileId, Timestamp } from '../domain';
+import { boundsOfTiles, formatDistance, nearestOf, tilesCovering, timestampNow } from '../domain';
+import type { FacilityCache, Lookup } from '../features/cache';
 import { padBounds, toLatLngBounds, toTileBounds } from '../features/navigation/bounds';
 import { withLoading } from '../ui/loading';
 import type { NotificationType } from '../ui/notifications';
@@ -18,13 +12,15 @@ import * as logger from '../utils/logger';
 import type {
 	FacilityLayer,
 	FacilityLayers,
+	FailureNotification,
 	LayerKind,
+	LayerRefresh,
 	RefreshDeps,
 	RefreshOutcome,
 	RefreshResult,
 } from './layers';
 import {
-	abortInflight,
+	abortSharedViewportRequest,
 	activeLayers,
 	clearLayerMarkers,
 	defaultRefreshDeps,
@@ -45,101 +41,75 @@ import {
 	withEmptyAreaNotified,
 	withZoomedOutNotice,
 } from './session';
+import type { Origin } from './session';
 
-/**
- * What exploration needs from the application
- */
 export type App = {
 	readonly layers: FacilityLayers;
 	readonly session: Session;
-	/** Offline facility cache: what a viewport already needs no network fetch for */
 	readonly cache: FacilityCache;
 };
 
-/**
- * Snapshot of the visible map area
- */
 export type Viewport = {
 	readonly bounds: L.LatLngBounds;
 	readonly zoom: number;
 	readonly center: LatLon;
 };
 
-/**
- * Snapshot the map's current view
- * @param map - Leaflet map
- * @param bounds - Bounds to use instead of `map.getBounds()` (e.g. from a moveend handler)
- */
-export const viewportOf = (map: L.Map, bounds?: L.LatLngBounds): Viewport => {
+export const viewportOf = (map: L.Map, boundsOverride?: L.LatLngBounds): Viewport => {
 	const center = map.getCenter();
 	return {
-		bounds: bounds ?? map.getBounds(),
+		bounds: boundsOverride ?? map.getBounds(),
 		zoom: map.getZoom(),
 		center: { lat: center.lat, lon: center.lng },
 	};
 };
 
-/**
- * Whether the map is zoomed in far enough for facility queries
- */
 export const canFetchAtZoom = (zoom: number): boolean => zoom >= MIN_FETCH_ZOOM;
 
-/**
- * Collaborators of `exploreViewport`, injectable for tests
- */
 export type ExploreDeps = {
 	readonly refresh: RefreshDeps;
 	readonly notify: (message: string, type: NotificationType, duration: number) => void;
-	readonly now: () => number;
+	readonly now: () => Timestamp;
 	readonly trackAreaExplored: () => void;
 	readonly trackEmptyArea: (kind: LayerKind) => void;
 };
 
-/**
- * Production collaborators
- */
 export const defaultExploreDeps: ExploreDeps = {
 	refresh: defaultRefreshDeps,
 	notify: showNotification,
-	now: () => Date.now(),
+	now: timestampNow,
 	trackAreaExplored,
 	trackEmptyArea,
 };
 
-/**
- * Apply the zoom guard: below MIN_FETCH_ZOOM every layer is emptied, the shared in-flight
- * request (if any) is cancelled, and the viewer is told to zoom in, once per zoomed-out
- * stretch.
- * @returns true when fetching may proceed
- */
+const showZoomedOutNoticeOnce = (app: App, deps: ExploreDeps): void => {
+	if (app.session.get().zoomedOutNoticeShown) {
+		return;
+	}
+	deps.notify(ZOOMED_OUT_MESSAGE, 'info', 5000);
+	app.session.update((state) => withZoomedOutNotice(state, true));
+};
+
 const passZoomGuard = (app: App, viewport: Viewport, deps: ExploreDeps): boolean => {
 	if (canFetchAtZoom(viewport.zoom)) {
 		app.session.update((state) => withZoomedOutNotice(state, false));
 		return true;
 	}
 
-	abortInflight(app.layers);
+	abortSharedViewportRequest(app.layers);
 	for (const kind of LAYER_KINDS) {
 		clearLayerMarkers(app.layers[kind]);
 	}
-	if (!app.session.get().zoomedOutNoticeShown) {
-		deps.notify(ZOOMED_OUT_MESSAGE, 'info', 5000);
-		app.session.update((state) => withZoomedOutNotice(state, true));
-	}
+	showZoomedOutNoticeOnce(app, deps);
 	return false;
 };
 
-/**
- * React to the outcome of one layer refresh
- * @param notifyFailure - Whether a failure should reach the viewer. Every layer in a refresh
- * shares one Overpass request, so one failure is announced once, not once per layer.
- */
 const handleOutcome = (
 	app: App,
 	layer: FacilityLayer,
 	outcome: RefreshOutcome,
 	deps: ExploreDeps,
-	notifyFailure: boolean
+	shouldNotifyFailure: boolean
 ): void => {
 	switch (outcome.kind) {
 		case 'loaded': {
@@ -166,7 +136,7 @@ const handleOutcome = (
 		case 'superseded':
 			return;
 		case 'failed': {
-			if (notifyFailure) {
+			if (shouldNotifyFailure) {
 				deps.notify(fetchErrorMessage(layer.kind, outcome.error), 'error', 5000);
 			}
 			logger.error(`Failed to fetch ${layer.kind} facilities:`, outcome.error);
@@ -179,27 +149,83 @@ const handleOutcome = (
 	}
 };
 
-/**
- * Refresh facility layers for the visible area, the offline cache first. Every tile the
- * padded viewport covers is looked up in `app.cache` for the target kinds (the kinds of
- * whichever layers this call targets, `targets.map(l => l.kind)`): anything already known
- * there (fresh or stale, for at least one target kind) is rendered immediately from memory,
- * before any network round trip, and only the tiles where a target kind is stale or missing
- * are actually fetched - over a single Overpass request (see `refreshLayers`) that always asks
- * for every target kind in the fetched tiles, so a kind that happened to be fresh there simply
- * gets refreshed too. Coverage is tracked per facility kind, so this one flow handles every
- * call the same way, whether it refreshes every active layer for a viewport change or just the
- * layer that was just switched on in the layer control (see `wireLayerControl` in
- * bootstrap.ts) - a narrower `kinds` never needs to bypass the cache. A cache render alone
- * produces no notifications or analytics: it is a fast preview, superseded by the real outcome
- * once the fetch (if any) completes. When nothing needs fetching, the cache render *is* the
- * final outcome, so it is routed through `handleOutcome` like a network result would be -
- * otherwise an already-fully-fetched, truly empty area would never tell the viewer so.
- * @param app - Layers, session and offline cache
- * @param viewport - Visible area to explore
- * @param deps - Collaborators (default: production)
- * @param kinds - Layers to refresh; inactive ones are skipped (default: every active layer)
- */
+const shouldNotifyFailureFor = (notification: FailureNotification, kind: LayerKind): boolean => {
+	switch (notification.kind) {
+		case 'none':
+			return false;
+		case 'all':
+			return true;
+		case 'only':
+			return notification.layer === kind;
+		default: {
+			const exhaustive: never = notification;
+			throw new Error(`Unhandled failure notification: ${JSON.stringify(exhaustive)}`);
+		}
+	}
+};
+
+const reportOutcomes = (
+	app: App,
+	refreshes: readonly LayerRefresh[],
+	deps: ExploreDeps,
+	notification: FailureNotification
+): void => {
+	for (const refresh of refreshes) {
+		handleOutcome(
+			app,
+			app.layers[refresh.kind],
+			refresh.outcome,
+			deps,
+			shouldNotifyFailureFor(notification, refresh.kind)
+		);
+	}
+};
+
+const tilesCoveringPaddedViewport = (bounds: L.LatLngBounds): readonly TileId[] => {
+	const loadBounds = padBounds(bounds, FETCH_PADDING_FACTOR);
+	return tilesCovering(toTileBounds(loadBounds));
+};
+
+export type CachePreview =
+	| { readonly kind: 'nothing-known' }
+	| { readonly kind: 'rendered'; readonly outcomes: readonly LayerRefresh[] };
+
+const previewFromCache = (
+	app: App,
+	targets: readonly FacilityLayer[],
+	tiles: readonly TileId[],
+	targetKinds: readonly LayerKind[],
+	origin: Origin,
+	deps: ExploreDeps,
+	now: Timestamp
+): { readonly lookup: Lookup; readonly preview: CachePreview } => {
+	const lookup = app.cache.lookup(tiles, targetKinds, now);
+	const preview: CachePreview =
+		lookup.known.length > 0
+			? {
+					kind: 'rendered',
+					outcomes: renderCached(targets, lookup.facilities, origin, deps.refresh),
+				}
+			: { kind: 'nothing-known' };
+	return { lookup, preview };
+};
+
+const absorbFetchedAndRenderCacheUnion = (
+	app: App,
+	targets: readonly FacilityLayer[],
+	tiles: readonly TileId[],
+	targetKinds: readonly LayerKind[],
+	origin: Origin,
+	deps: ExploreDeps,
+	now: Timestamp,
+	fetchedTiles: readonly TileId[],
+	fetchedFacilities: readonly Facility[]
+): readonly LayerRefresh[] => {
+	app.cache.absorb(fetchedTiles, targetKinds, fetchedFacilities, now);
+	const updated = app.cache.lookup(tiles, targetKinds, now);
+	return renderCached(targets, updated.facilities, origin, deps.refresh);
+};
+
 export async function exploreViewport(
 	app: App,
 	viewport: Viewport,
@@ -211,87 +237,84 @@ export async function exploreViewport(
 	}
 
 	const origin = resolveOrigin(app.session.get(), viewport.center);
-	const active = activeLayers(app.layers);
-	const targets = active.filter((layer) => kinds.includes(layer.kind));
+	const targets = activeLayers(app.layers).filter((layer) => kinds.includes(layer.kind));
 	if (targets.length === 0) {
 		return;
 	}
 	const targetKinds = targets.map((layer) => layer.kind);
-
-	// Fetch a larger area than what's visible so panning and zooming within it can reuse
-	// this data instead of hitting Overpass's rate limit again.
-	const loadBounds = padBounds(viewport.bounds, FETCH_PADDING_FACTOR);
-	const tiles = tilesCovering(toTileBounds(loadBounds));
-
+	const tiles = tilesCoveringPaddedViewport(viewport.bounds);
 	const now = deps.now();
-	const found = app.cache.lookup(tiles, targetKinds, now);
-	const renderedFromCache = found.known.length > 0;
-	const cacheOutcomes = renderedFromCache
-		? renderCached(targets, found.facilities, origin, deps.refresh)
-		: null;
 
-	if (found.toFetch.length === 0) {
-		if (cacheOutcomes !== null) {
-			for (const { kind, outcome } of cacheOutcomes) {
-				handleOutcome(app, app.layers[kind], outcome, deps, true);
+	const { lookup, preview } = previewFromCache(app, targets, tiles, targetKinds, origin, deps, now);
+	const renderedFromCache = preview.kind === 'rendered';
+
+	if (lookup.toFetch.length === 0) {
+		switch (preview.kind) {
+			case 'rendered':
+				reportOutcomes(app, preview.outcomes, deps, { kind: 'all' });
+				return;
+			case 'nothing-known':
+				return;
+			default: {
+				const exhaustive: never = preview;
+				throw new Error(`Unhandled cache preview: ${JSON.stringify(exhaustive)}`);
 			}
 		}
-		return;
 	}
 
-	const fetchTileBounds = boundsOfTiles(found.toFetch);
+	const fetchTileBounds = boundsOfTiles(lookup.toFetch);
 	if (fetchTileBounds === null) {
-		// found.toFetch is non-empty here, so boundsOfTiles never actually returns null; this
-		// only satisfies its nullable return type.
 		return;
 	}
 	const fetchBounds = toLatLngBounds(fetchTileBounds);
 
-	const doFetch = (): Promise<RefreshResult> =>
-		refreshLayers(app.layers, targets, fetchBounds, origin, deps.refresh, { skipRender: true });
-	// The loading overlay is a full-screen blocking dim; skip it when the viewer is already
-	// looking at saved points from the cache while the fetch fills in the rest.
-	const result = renderedFromCache ? await doFetch() : await withLoading(doFetch);
+	const fetchOutstandingTiles = (): Promise<RefreshResult> =>
+		refreshLayers(app.layers, targets, fetchBounds, origin, deps.refresh, { rendering: 'defer' });
+	const result = renderedFromCache
+		? await fetchOutstandingTiles()
+		: await withLoading(fetchOutstandingTiles);
 
-	if (result.fetched !== null) {
-		// `found.toFetch` is exactly the set of tiles this fetch covered.
-		app.cache.absorb(found.toFetch, targetKinds, result.fetched, now);
-		// refreshLayers only rendered the fetched strip's own outcomes; render the union of
-		// cache and network for the full padded area instead of relying on that strip render.
-		const updated = app.cache.lookup(tiles, targetKinds, now);
-		const shown = renderCached(targets, updated.facilities, origin, deps.refresh);
-		// Notify and track on what the viewer actually sees (the union), not on the strip
-		// alone: a strip with nothing in it is not an empty area when saved points surround it.
-		for (const { kind, outcome } of shown) {
-			handleOutcome(app, app.layers[kind], outcome, deps, false);
+	switch (result.kind) {
+		case 'nothing-to-refresh':
+		case 'superseded':
+			return;
+		case 'fetched': {
+			const shown = absorbFetchedAndRenderCacheUnion(
+				app,
+				targets,
+				tiles,
+				targetKinds,
+				origin,
+				deps,
+				now,
+				lookup.toFetch,
+				result.facilities
+			);
+			reportOutcomes(app, shown, deps, { kind: 'none' });
+			return;
 		}
-		return;
-	}
-
-	const failed = result.layers.some(({ outcome }) => outcome.kind === 'failed');
-	if (!failed) {
-		// Every outcome was superseded by a newer refresh - stay silent.
-		return;
-	}
-
-	if (renderedFromCache) {
-		// Offline (or Overpass is down): the viewer is already seeing saved points, so say
-		// that instead of the usual error, but still log it.
-		deps.notify(OFFLINE_SHOWING_SAVED_MESSAGE, 'info', 5000);
-		for (const { kind, outcome } of result.layers) {
-			handleOutcome(app, app.layers[kind], outcome, deps, false);
+		case 'failed': {
+			const failedRefreshes: readonly LayerRefresh[] = result.kinds.map((kind) => ({
+				kind,
+				outcome: { kind: 'failed', error: result.error },
+			}));
+			if (renderedFromCache) {
+				deps.notify(OFFLINE_SHOWING_SAVED_MESSAGE, 'info', 5000);
+				reportOutcomes(app, failedRefreshes, deps, { kind: 'none' });
+				return;
+			}
+			const [firstFailedKind] = result.kinds;
+			reportOutcomes(
+				app,
+				failedRefreshes,
+				deps,
+				firstFailedKind === undefined ? { kind: 'none' } : { kind: 'only', layer: firstFailedKind }
+			);
+			return;
 		}
-		return;
-	}
-
-	const firstFailed = result.layers.find(({ outcome }) => outcome.kind === 'failed');
-	for (const layerResult of result.layers) {
-		handleOutcome(
-			app,
-			app.layers[layerResult.kind],
-			layerResult.outcome,
-			deps,
-			layerResult === firstFailed
-		);
+		default: {
+			const exhaustive: never = result;
+			throw new Error(`Unhandled refresh result: ${JSON.stringify(exhaustive)}`);
+		}
 	}
 }

@@ -1,22 +1,17 @@
-/**
- * Facility cache IndexedDB boundary
- * Persists a single `Snapshot` record. The app must never break because storage is
- * unavailable or misbehaving (private browsing throwing on open, a blocked upgrade, a quota
- * error, ...): every failure is caught and logged here, `load` resolves `null` and `save`
- * simply resolves, so a caller never needs to handle a storage failure explicitly.
- */
-
 import { FACILITY_CACHE_DB_NAME, FACILITY_CACHE_SCHEMA_VERSION } from '../../core/config';
 import * as logger from '../../utils/logger';
-import type { Snapshot } from './snapshot';
+import { isErr } from '../../types/result';
+import type { Snapshot, SnapshotParseError } from './snapshot';
 import { parseSnapshot } from './snapshot';
 
-/**
- * Storage boundary for a `Snapshot`. Both operations are total: they never reject or throw.
- */
+export type LoadedSnapshot =
+	| { readonly kind: 'absent' }
+	| { readonly kind: 'present'; readonly snapshot: Snapshot }
+	| { readonly kind: 'corrupt'; readonly error: SnapshotParseError }
+	| { readonly kind: 'unavailable'; readonly error: unknown };
+
 export type SnapshotStore = {
-	/** The persisted snapshot, or null when absent, unreadable, or invalid */
-	readonly load: () => Promise<Snapshot | null>;
+	readonly load: () => Promise<LoadedSnapshot>;
 	readonly save: (snapshot: Snapshot) => Promise<void>;
 };
 
@@ -24,9 +19,6 @@ const OBJECT_STORE_NAME = 'cache';
 const RECORD_KEY = 'snapshot';
 const DB_VERSION = 1;
 
-/**
- * Open (creating the object store on first use) the facility cache database
- */
 const openDatabase = (dbName: string): Promise<IDBDatabase> =>
 	new Promise((resolve, reject) => {
 		const request = indexedDB.open(dbName, DB_VERSION);
@@ -42,9 +34,6 @@ const openDatabase = (dbName: string): Promise<IDBDatabase> =>
 		request.onblocked = () => reject(new Error('Facility cache database open was blocked'));
 	});
 
-/**
- * Read the raw record at `RECORD_KEY`, `undefined` when there is none
- */
 const readRecord = (db: IDBDatabase): Promise<unknown> =>
 	new Promise((resolve, reject) => {
 		const request = db
@@ -55,9 +44,6 @@ const readRecord = (db: IDBDatabase): Promise<unknown> =>
 		request.onerror = () => reject(request.error ?? new Error('Failed to read facility cache'));
 	});
 
-/**
- * Write `snapshot` at `RECORD_KEY`, resolving once the transaction has committed
- */
 const writeRecord = (db: IDBDatabase, snapshot: Snapshot): Promise<void> =>
 	new Promise((resolve, reject) => {
 		const transaction = db.transaction(OBJECT_STORE_NAME, 'readwrite');
@@ -69,23 +55,49 @@ const writeRecord = (db: IDBDatabase, snapshot: Snapshot): Promise<void> =>
 			reject(transaction.error ?? new Error('Facility cache write was aborted'));
 	});
 
-/**
- * Real IndexedDB-backed store: database `dbName`, a single object store `cache`, the
- * snapshot kept under the fixed key `'snapshot'`.
- */
+const describeSnapshotParseError = (error: SnapshotParseError): string => {
+	switch (error.reason) {
+		case 'not-a-record':
+			return 'not a record';
+		case 'version-mismatch':
+			return `version mismatch (found ${JSON.stringify(error.found)})`;
+		case 'invalid-tile-id':
+			return `invalid tile id "${error.tileId}"`;
+		case 'invalid-coverage':
+			return `invalid coverage for tile "${error.tileId}"`;
+		case 'invalid-facility':
+			return `invalid facility "${error.facilityId}"`;
+		default: {
+			const exhaustive: never = error;
+			throw new Error(`Unhandled snapshot parse error: ${JSON.stringify(exhaustive)}`);
+		}
+	}
+};
+
 export const indexedDbSnapshotStore = (dbName: string = FACILITY_CACHE_DB_NAME): SnapshotStore => ({
 	load: async () => {
 		try {
 			const db = await openDatabase(dbName);
 			try {
 				const raw = await readRecord(db);
-				return raw === undefined ? null : parseSnapshot(raw, FACILITY_CACHE_SCHEMA_VERSION);
+				if (raw === undefined) {
+					return { kind: 'absent' };
+				}
+				const parsed = parseSnapshot(raw, FACILITY_CACHE_SCHEMA_VERSION);
+				if (isErr(parsed)) {
+					logger.error(
+						`Facility cache load failed: ${describeSnapshotParseError(parsed.error)}`,
+						parsed.error
+					);
+					return { kind: 'corrupt', error: parsed.error };
+				}
+				return { kind: 'present', snapshot: parsed.value };
 			} finally {
 				db.close();
 			}
 		} catch (error) {
 			logger.error('Facility cache load failed', error);
-			return null;
+			return { kind: 'unavailable', error };
 		}
 	},
 	save: async (snapshot) => {
@@ -102,22 +114,16 @@ export const indexedDbSnapshotStore = (dbName: string = FACILITY_CACHE_DB_NAME):
 	},
 });
 
-/**
- * In-memory store for environments without IndexedDB. Data lives only for the lifetime of
- * the store value - nothing survives a reload.
- */
 export const memorySnapshotStore = (): SnapshotStore => {
 	let stored: Snapshot | null = null;
 	return {
-		load: async () => stored,
+		load: async () =>
+			stored === null ? { kind: 'absent' } : { kind: 'present', snapshot: stored },
 		save: async (snapshot) => {
 			stored = snapshot;
 		},
 	};
 };
 
-/**
- * IndexedDB-backed store when `indexedDB` exists, otherwise an in-memory fallback
- */
 export const defaultSnapshotStore = (): SnapshotStore =>
 	typeof indexedDB === 'undefined' ? memorySnapshotStore() : indexedDbSnapshotStore();

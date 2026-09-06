@@ -1,8 +1,3 @@
-/**
- * A visitor opens the app: the map centres on them (or on Riga when their position is
- * unknown), water points appear around them, and each marker explains itself in a popup.
- */
-
 import { waitFor, within } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
 import { CACHE_TILE_ZOOM, DEFAULT_ZOOM } from '../../src/core/config';
@@ -17,12 +12,7 @@ import {
 } from '../fixtures';
 import { bboxCenter, GEO_PERMISSION_DENIED, renderApp, unpaddedViewportBbox } from '../harness';
 
-/**
- * How far a fetch's bbox centre can drift from the point it is meant to centre on, now that
- * the bbox is rounded outward to whole cache tiles: up to one tile's width/height, on the
- * side where the rounding happened to add the least padding.
- */
-const tileTolerance = (point: {
+const maxCenterDriftFromTileRounding = (point: {
 	readonly lat: number;
 	readonly lon: number;
 }): { lat: number; lon: number } => {
@@ -38,7 +28,7 @@ describe('Arriving at the map', () => {
 		const app = await renderApp({ geolocation: { position: USER } });
 
 		const center = bboxCenter(app.overpass.lastRequest().bbox);
-		const tolerance = tileTolerance(USER);
+		const tolerance = maxCenterDriftFromTileRounding(USER);
 		expect(Math.abs(center.lat - USER.lat)).toBeLessThan(tolerance.lat);
 		expect(Math.abs(center.lon - USER.lon)).toBeLessThan(tolerance.lon);
 
@@ -92,21 +82,20 @@ describe('Arriving at the map', () => {
 		);
 	});
 
-	it('falls back to Riga with a notice when the visitor denies location access', async () => {
+	it('falls back to Riga with a notice when the visitor denies location access, ranking nearest by distance from the map centre', async () => {
 		const app = await renderApp({ geolocation: { error: GEO_PERMISSION_DENIED } });
 
 		await waitFor(() =>
 			expect(app.toasts()).toContain('Could not detect your location. Showing Riga area.')
 		);
 		const center = bboxCenter(app.overpass.lastRequest().bbox);
-		const tolerance = tileTolerance(RIGA);
+		const tolerance = maxCenterDriftFromTileRounding(RIGA);
 		expect(Math.abs(center.lat - RIGA.lat)).toBeLessThan(tolerance.lat);
 		expect(Math.abs(center.lon - RIGA.lon)).toBeLessThan(tolerance.lon);
 
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		expect(app.userLocation()).toEqual({ markers: 0, circles: 0 });
 
-		// distances are now measured from the map centre, so the tap by the centre is nearest
 		app.openPopupOf(nearestIndex(app.markers()));
 		await waitFor(() => expect(app.popupText()).toContain(`ID: ${SEASONAL_TAP.id}`));
 		expect(app.popupText()).toContain('Water Tap');

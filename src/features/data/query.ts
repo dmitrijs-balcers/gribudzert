@@ -31,10 +31,12 @@ export const overpassSelector = (raw: string): OverpassSelector => {
 	return trimmed as OverpassSelector;
 };
 
+export type OverpassQuery = string & { readonly __brand: 'OverpassQuery' };
+
 /**
  * Compose one Overpass QL program from the selector fragments of every layer being
  * refreshed, wrapping their union in the single shared header/footer.
  * @param selectors - Selector fragments to union into one query
  */
-export const composeQuery = (selectors: readonly OverpassSelector[]): string =>
-	`[out:json][timeout:25];\n(\n${selectors.join('\n')}\n);\nout center;`;
+export const composeQuery = (selectors: readonly OverpassSelector[]): OverpassQuery =>
+	`[out:json][timeout:25];\n(\n${selectors.join('\n')}\n);\nout center;` as OverpassQuery;

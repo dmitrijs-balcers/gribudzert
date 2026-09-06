@@ -1,8 +1,3 @@
-/**
- * The Overpass API is down or slow: the visitor sees an error and the loading overlay
- * never gets stuck on screen.
- */
-
 import { waitFor } from '@testing-library/dom';
 import { describe, expect, it, vi } from 'vitest';
 import { WATER_ELEMENTS, WATER_MARKER_COUNT } from '../fixtures';
@@ -45,7 +40,7 @@ describe('When Overpass fails', () => {
 		const app = await renderApp({
 			overpass: () => {
 				attempts += 1;
-				return attempts === 1 ? { status: 429, retryAfter: 2 } : WATER_ELEMENTS;
+				return attempts === 1 ? { status: 429, retryAfterSeconds: 2 } : WATER_ELEMENTS;
 			},
 			settle: false,
 		});
@@ -61,7 +56,7 @@ describe('When Overpass fails', () => {
 	it('reports the busy message, not an internet-connection message, when the retry is also busy', async () => {
 		vi.useFakeTimers({ shouldAdvanceTime: true });
 		const app = await renderApp({
-			overpass: () => ({ status: 429, retryAfter: 1 }),
+			overpass: () => ({ status: 429, retryAfterSeconds: 1 }),
 			settle: false,
 		});
 
@@ -80,7 +75,7 @@ describe('When Overpass fails', () => {
 		await waitFor(() => expect(app.loadingVisible()).toBe(false));
 	});
 
-	it('announces a failed request once even when it served both layers', async () => {
+	it('replaces the per-layer error with a single "showing saved points" message when the failed area is partly covered by the offline cache', async () => {
 		const app = await renderApp();
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		app.toggleLayer('Public Toilets');
@@ -88,17 +83,13 @@ describe('When Overpass fails', () => {
 		await app.settled();
 		app.overpass.respondWith(() => ({ status: 500 }));
 
-		// Two pans push the viewport past the padded area and trigger one shared request.
+		const PAN_ANIMATION_SETTLE_MS = 400;
 		app.pan('right');
-		await new Promise((resolve) => setTimeout(resolve, 400));
+		await new Promise((resolve) => setTimeout(resolve, PAN_ANIMATION_SETTLE_MS));
 		app.pan('right');
 
 		await waitFor(() => expect(app.overpass.requests).toHaveLength(3));
 		expect(app.overpass.lastRequest().query).toContain('amenity"="toilets');
-		// The panned-to area is partly covered by the offline cache (from the very first
-		// load), so the viewer is already looking at saved points when this request fails -
-		// the "showing saved points" message replaces the usual per-layer error, and only
-		// once, even though the shared request served both layers.
 		await waitFor(() => expect(app.toasts()).toContain(OFFLINE_SHOWING_SAVED));
 		await waitFor(() => expect(app.loadingVisible()).toBe(false));
 		expect(app.toasts().filter((toast) => toast === OFFLINE_SHOWING_SAVED)).toHaveLength(1);

@@ -1,57 +1,34 @@
-/**
- * Facility cache aggregate
- * Holds the in-memory `Snapshot` the rest of the app reads from, loads it from a
- * `SnapshotStore` once at startup, and persists every update. Reads are always synchronous
- * against whatever is currently in memory (empty until `ready` resolves); writes never
- * overlap on the store.
- */
-
 import { FACILITY_CACHE_MAX_TILES, FACILITY_CACHE_TTL_MS } from '../../core/config';
-import type { Facility, FacilityKind, TileId } from '../../domain';
+import type { DurationMs, Facility, FacilityKind, TileId, Timestamp } from '../../domain';
 import * as logger from '../../utils/logger';
 import type { Lookup, Snapshot } from './snapshot';
 import { emptySnapshot, evict, lookup, mergeSnapshots, reconcile } from './snapshot';
 import type { SnapshotStore } from './storage';
 
-/**
- * Tuning knobs for a `FacilityCache`, defaulting to the values in `core/config`
- */
 export type FacilityCacheOptions = {
-	readonly ttlMs?: number;
+	readonly ttlMs?: DurationMs;
 	readonly maxTiles?: number;
 };
 
-/**
- * The offline facility cache as the rest of the app sees it: a synchronous read against the
- * in-memory snapshot, and a fire-and-forget write that reconciles, evicts, and persists.
- */
 export type FacilityCache = {
-	/** Resolves once the persisted snapshot has been loaded (or given up on) */
 	readonly ready: Promise<void>;
 	readonly lookup: (
 		tiles: readonly TileId[],
 		kinds: readonly FacilityKind[],
-		now: number
+		now: Timestamp
 	) => Lookup;
-	/** Reconcile + evict in memory, then persist (fire-and-forget, serialised against other saves) */
 	readonly absorb: (
 		tiles: readonly TileId[],
 		kinds: readonly FacilityKind[],
 		facilities: readonly Facility[],
-		now: number
+		now: Timestamp
 	) => void;
 };
 
-/**
- * Create a `FacilityCache` backed by `store`. Starts from an empty snapshot and swaps in the
- * persisted one as soon as it loads, so a slow or failed load never blocks `lookup`/`absorb`
- * - it just means those calls start out seeing nothing cached, same as a first visit.
- *
- * Bootstrap only waits a bounded amount of time for `ready`, so an `absorb` can legitimately
- * happen before the load finishes. When that happens, the loaded snapshot is merged under
- * the in-memory one (whose tiles win) instead of replacing it outright, so the absorbed data
- * is never lost; the merge result is persisted so the next load sees it too.
- */
+type CacheState =
+	| { readonly phase: 'warming'; readonly absorbed: Snapshot | null }
+	| { readonly phase: 'ready'; readonly snapshot: Snapshot };
+
 export const createFacilityCache = (
 	store: SnapshotStore,
 	options: FacilityCacheOptions = {}
@@ -59,12 +36,10 @@ export const createFacilityCache = (
 	const ttlMs = options.ttlMs ?? FACILITY_CACHE_TTL_MS;
 	const maxTiles = options.maxTiles ?? FACILITY_CACHE_MAX_TILES;
 
-	let snapshot: Snapshot = emptySnapshot();
-	let absorbedBeforeReady = false;
+	let state: CacheState = { phase: 'warming', absorbed: null };
 	let saveChain: Promise<void> = Promise.resolve();
 
-	const persist = (): void => {
-		const toSave = snapshot;
+	const persist = (toSave: Snapshot): void => {
 		saveChain = saveChain
 			.then(() => store.save(toSave))
 			.catch((error: unknown) => {
@@ -72,25 +47,62 @@ export const createFacilityCache = (
 			});
 	};
 
-	const ready = store.load().then((loaded) => {
-		if (loaded === null) {
-			return;
+	const currentSnapshot = (): Snapshot => {
+		switch (state.phase) {
+			case 'warming':
+				return state.absorbed ?? emptySnapshot();
+			case 'ready':
+				return state.snapshot;
+			default: {
+				const exhaustive: never = state;
+				throw new Error(`Unhandled cache state: ${JSON.stringify(exhaustive)}`);
+			}
 		}
-		if (absorbedBeforeReady) {
-			snapshot = mergeSnapshots(loaded, snapshot);
-			persist();
-		} else {
-			snapshot = loaded;
+	};
+
+	const ready = store.load().then((loaded) => {
+		switch (loaded.kind) {
+			case 'present': {
+				if (state.phase === 'warming' && state.absorbed !== null) {
+					const merged = mergeSnapshots(loaded.snapshot, state.absorbed);
+					state = { phase: 'ready', snapshot: merged };
+					persist(merged);
+				} else {
+					state = { phase: 'ready', snapshot: loaded.snapshot };
+				}
+				return;
+			}
+			case 'absent':
+			case 'corrupt':
+			case 'unavailable': {
+				state = { phase: 'ready', snapshot: currentSnapshot() };
+				return;
+			}
+			default: {
+				const exhaustive: never = loaded;
+				throw new Error(`Unhandled snapshot load outcome: ${JSON.stringify(exhaustive)}`);
+			}
 		}
 	});
 
 	return {
 		ready,
-		lookup: (tiles, kinds, now) => lookup(snapshot, tiles, kinds, now, ttlMs),
+		lookup: (tiles, kinds, now) => lookup(currentSnapshot(), tiles, kinds, now, ttlMs),
 		absorb: (tiles, kinds, facilities, now) => {
-			absorbedBeforeReady = true;
-			snapshot = evict(reconcile(snapshot, tiles, kinds, facilities, now), maxTiles);
-			persist();
+			const updated = evict(reconcile(currentSnapshot(), tiles, kinds, facilities, now), maxTiles);
+			switch (state.phase) {
+				case 'warming':
+					state = { phase: 'warming', absorbed: updated };
+					break;
+				case 'ready':
+					state = { phase: 'ready', snapshot: updated };
+					break;
+				default: {
+					const exhaustive: never = state;
+					throw new Error(`Unhandled cache state: ${JSON.stringify(exhaustive)}`);
+				}
+			}
+			persist(updated);
 		},
 	};
 };

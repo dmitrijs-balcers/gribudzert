@@ -1,34 +1,14 @@
-/**
- * User-facing copy for the application layer
- */
+import type { LayerKind, UserFacingFetchError } from './layers';
 
-import type { LayerKind, RefreshError } from './layers';
-
-/**
- * Shown once per zoomed-out stretch when the map is too far out to query facilities
- */
 export const ZOOMED_OUT_MESSAGE = 'Zoom in to see water points and toilets';
 
-/**
- * Shown when the viewer's position could not be detected at startup
- */
 export const LOCATION_FALLBACK_MESSAGE = 'Could not detect your location. Showing Riga area.';
 
-/**
- * Shown instead of the usual fetch-error message when a network refresh fails but the
- * viewer is already looking at saved points from the offline cache
- */
 export const OFFLINE_SHOWING_SAVED_MESSAGE = "Couldn't refresh map data. Showing saved points.";
 
-/**
- * Shown when bootstrapping the map threw
- */
 export const INITIALIZATION_FAILED_MESSAGE =
 	'An unexpected error occurred while initializing the map. Please refresh the page.';
 
-/**
- * What a layer's facilities are called in messages
- */
 export const subjectOf = (kind: LayerKind): string => {
 	switch (kind) {
 		case 'water':
@@ -42,10 +22,7 @@ export const subjectOf = (kind: LayerKind): string => {
 	}
 };
 
-/**
- * Message for a failed refresh of a layer
- */
-export const fetchErrorMessage = (kind: LayerKind, error: RefreshError): string => {
+export const fetchErrorMessage = (kind: LayerKind, error: UserFacingFetchError): string => {
 	const subject = subjectOf(kind);
 	switch (error.type) {
 		case 'network':
@@ -63,9 +40,6 @@ export const fetchErrorMessage = (kind: LayerKind, error: RefreshError): string 
 	}
 };
 
-/**
- * Message for a viewport without any facility of the given kind
- */
 export const emptyAreaMessage = (kind: LayerKind): string => {
 	switch (kind) {
 		case 'water':

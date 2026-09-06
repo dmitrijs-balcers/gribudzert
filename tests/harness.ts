@@ -1,9 +1,3 @@
-/**
- * Integration harness: boots the real application entry against a DOM and fakes only the
- * browser boundaries (Overpass over `fetch`, `navigator.geolocation`). Everything the tests
- * observe or drive goes through the DOM the viewer sees.
- */
-
 import { fireEvent, waitFor } from '@testing-library/dom';
 import * as L from 'leaflet';
 import { expect, vi } from 'vitest';
@@ -12,13 +6,6 @@ import type { OverpassElement } from './fixtures';
 import { USER, WATER_ELEMENTS } from './fixtures';
 import { MAP_HEIGHT, MAP_WIDTH } from './setup';
 
-// ---------------------------------------------------------------------------
-// Overpass fake
-// ---------------------------------------------------------------------------
-
-/**
- * Bounding box as written into the Overpass query
- */
 export type Bbox = {
 	readonly south: number;
 	readonly west: number;
@@ -31,21 +18,11 @@ export const bboxCenter = (bbox: Bbox): { lat: number; lon: number } => ({
 	lon: (bbox.west + bbox.east) / 2,
 });
 
-/**
- * Bounds Leaflet would compute for a plain, unpadded viewport centred on `center` at
- * `zoom`, using the same container size the tests give the map (see `MAP_WIDTH`/`MAP_HEIGHT`
- * in tests/setup.ts). Spins up a detached, throwaway map to get the real projection math
- * rather than reimplementing it — used to verify that a fetch's bbox was padded beyond the
- * visible area.
- */
-export function unpaddedViewportBbox(
-	center: { readonly lat: number; readonly lon: number },
-	zoom: number
-): Bbox {
-	const probe = document.createElement('div');
-	Object.defineProperty(probe, 'clientWidth', { configurable: true, value: MAP_WIDTH });
-	Object.defineProperty(probe, 'clientHeight', { configurable: true, value: MAP_HEIGHT });
-	probe.getBoundingClientRect = () =>
+const createDetachedProbeContainer = (): HTMLDivElement => {
+	const container = document.createElement('div');
+	Object.defineProperty(container, 'clientWidth', { configurable: true, value: MAP_WIDTH });
+	Object.defineProperty(container, 'clientHeight', { configurable: true, value: MAP_HEIGHT });
+	container.getBoundingClientRect = () =>
 		({
 			x: 0,
 			y: 0,
@@ -57,40 +34,37 @@ export function unpaddedViewportBbox(
 			height: MAP_HEIGHT,
 			toJSON: () => ({}),
 		}) as DOMRect;
+	return container;
+};
 
-	const map = L.map(probe, {
+export function unpaddedViewportBbox(
+	center: { readonly lat: number; readonly lon: number },
+	zoom: number
+): Bbox {
+	const throwawayMap = L.map(createDetachedProbeContainer(), {
 		center: [center.lat, center.lon],
 		zoom,
 		zoomControl: false,
 		attributionControl: false,
 	});
-	const bounds = map.getBounds();
-	map.remove();
+	const bounds = throwawayMap.getBounds();
+	throwawayMap.remove();
 
-	const sw = bounds.getSouthWest();
-	const ne = bounds.getNorthEast();
-	return { south: sw.lat, west: sw.lng, north: ne.lat, east: ne.lng };
+	const southWest = bounds.getSouthWest();
+	const northEast = bounds.getNorthEast();
+	return { south: southWest.lat, west: southWest.lng, north: northEast.lat, east: northEast.lng };
 }
 
-/**
- * An HTTP response the fake Overpass answers with instead of a 200
- */
 export type OverpassStatusReply = {
 	readonly status: number;
-	/** Seconds to report in the `Retry-After` header, when given */
-	readonly retryAfter?: number;
+	readonly retryAfterSeconds?: number;
 };
 
-/**
- * What the fake Overpass answers: elements, a non-2xx status, a thrown failure, or nothing
- * until the app gives up
- */
 export type OverpassReply = readonly OverpassElement[] | OverpassStatusReply | Error | 'timeout';
 
 export type OverpassRequest = {
 	readonly bbox: Bbox;
 	readonly query: string;
-	/** Whether the app cancelled this request through its AbortSignal */
 	readonly aborted: boolean;
 };
 
@@ -98,8 +72,7 @@ export type OverpassHandler = (request: OverpassRequest) => OverpassReply | Prom
 
 export type OverpassFake = {
 	readonly requests: readonly OverpassRequest[];
-	/** Requests that neither replied nor were aborted yet */
-	readonly pending: number;
+	readonly pendingRequestCount: number;
 	readonly lastRequest: () => OverpassRequest;
 	readonly requestAt: (index: number) => OverpassRequest;
 	readonly respondWith: (handler: OverpassHandler) => void;
@@ -146,20 +119,17 @@ const statusResponse = (reply: OverpassStatusReply): Response =>
 		statusText: '',
 		headers: {
 			get: (name: string) =>
-				reply.retryAfter !== undefined && name.toLowerCase() === 'retry-after'
-					? String(reply.retryAfter)
+				reply.retryAfterSeconds !== undefined && name.toLowerCase() === 'retry-after'
+					? String(reply.retryAfterSeconds)
 					: null,
 		},
 		json: async () => ({ elements: [] }),
 	}) as unknown as Response;
 
-/**
- * Install a fake Overpass API on `globalThis.fetch`
- */
 export function fakeOverpass(initial: OverpassHandler): OverpassFake {
 	let handler = initial;
 	const requests: OverpassRequest[] = [];
-	let pending = 0;
+	let pendingRequestCount = 0;
 
 	const fetchFake = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
 		const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
@@ -176,14 +146,14 @@ export function fakeOverpass(initial: OverpassHandler): OverpassFake {
 			},
 		};
 		requests.push(request);
-		pending += 1;
+		pendingRequestCount += 1;
 
 		return new Promise<Response>((resolve, reject) => {
 			let settled = false;
 			const finish = (): void => {
 				if (!settled) {
 					settled = true;
-					pending -= 1;
+					pendingRequestCount -= 1;
 				}
 			};
 			const onAbort = (): void => {
@@ -234,8 +204,8 @@ export function fakeOverpass(initial: OverpassHandler): OverpassFake {
 
 	return {
 		requests,
-		get pending() {
-			return pending;
+		get pendingRequestCount() {
+			return pendingRequestCount;
 		},
 		lastRequest: () => requestAt(-1),
 		requestAt,
@@ -245,9 +215,6 @@ export function fakeOverpass(initial: OverpassHandler): OverpassFake {
 	};
 }
 
-/**
- * A promise settled by the test, for replies that must arrive at a chosen moment
- */
 export type Deferred<T> = {
 	readonly promise: Promise<T>;
 	readonly resolve: (value: T) => void;
@@ -264,10 +231,6 @@ export function deferred<T>(): Deferred<T> {
 	return { promise, resolve, reject };
 }
 
-// ---------------------------------------------------------------------------
-// Geolocation fake
-// ---------------------------------------------------------------------------
-
 export const GEO_PERMISSION_DENIED = 1;
 export const GEO_POSITION_UNAVAILABLE = 2;
 export const GEO_TIMEOUT = 3;
@@ -279,10 +242,11 @@ export type GeoOutcome =
 	| { readonly error: number };
 
 export type GeolocationFake = {
-	/** Change what the next position requests answer */
 	readonly respondWith: (outcome: GeoOutcome) => void;
 	readonly requests: number;
 };
+
+const DEFAULT_POSITION_ACCURACY = 10;
 
 const toPosition = (outcome: {
 	readonly lat: number;
@@ -293,7 +257,7 @@ const toPosition = (outcome: {
 		coords: {
 			latitude: outcome.lat,
 			longitude: outcome.lon,
-			accuracy: outcome.accuracy ?? 10,
+			accuracy: outcome.accuracy ?? DEFAULT_POSITION_ACCURACY,
 			altitude: null,
 			altitudeAccuracy: null,
 			heading: null,
@@ -311,9 +275,6 @@ const toPositionError = (code: number): GeolocationPositionError =>
 		TIMEOUT: GEO_TIMEOUT,
 	}) as GeolocationPositionError;
 
-/**
- * Install a fake Geolocation API on `navigator.geolocation`
- */
 export function fakeGeolocation(initial: GeoOutcome): GeolocationFake {
 	let outcome = initial;
 	let requests = 0;
@@ -345,19 +306,10 @@ export function fakeGeolocation(initial: GeoOutcome): GeolocationFake {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Facility cache storage (raw IndexedDB, bypassing the app's own storage boundary)
-// ---------------------------------------------------------------------------
-
 const CACHE_OBJECT_STORE = 'cache';
 const CACHE_RECORD_KEY = 'snapshot';
 
-/**
- * Open the facility cache database, creating its object store on first use - mirrors what
- * `src/features/cache/storage.ts` does, so a seed written here and a load done by the app
- * agree on where the record lives.
- */
-const openCacheDatabase = (): Promise<IDBDatabase> =>
+const openCacheDatabaseMirroringAppSchema = (): Promise<IDBDatabase> =>
 	new Promise((resolve, reject) => {
 		const request = indexedDB.open(FACILITY_CACHE_DB_NAME, 1);
 		request.onupgradeneeded = () => {
@@ -371,12 +323,8 @@ const openCacheDatabase = (): Promise<IDBDatabase> =>
 			reject(request.error ?? new Error('Failed to open facility cache database'));
 	});
 
-/**
- * Read the facility cache's raw persisted record, whatever it is - `undefined` when there is
- * none. Used both by `AppHandle.snapshot()` and to verify a seeded record before reloading.
- */
 const readCacheRecord = async (): Promise<unknown> => {
-	const db = await openCacheDatabase();
+	const db = await openCacheDatabaseMirroringAppSchema();
 	try {
 		return await new Promise<unknown>((resolve, reject) => {
 			const request = db
@@ -392,13 +340,8 @@ const readCacheRecord = async (): Promise<unknown> => {
 	}
 };
 
-/**
- * Write an arbitrary value as the facility cache's raw persisted record, bypassing the
- * app's own storage boundary entirely - for scenarios where the app must discover, on its
- * own, that a saved snapshot cannot be trusted.
- */
 export async function seedSnapshot(value: unknown): Promise<void> {
-	const db = await openCacheDatabase();
+	const db = await openCacheDatabaseMirroringAppSchema();
 	try {
 		await new Promise<void>((resolve, reject) => {
 			const transaction = db.transaction(CACHE_OBJECT_STORE, 'readwrite');
@@ -414,14 +357,7 @@ export async function seedSnapshot(value: unknown): Promise<void> {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Rendering the app
-// ---------------------------------------------------------------------------
-
-/**
- * Stroke colour of the accuracy circle drawn around the viewer's position
- */
-const USER_CIRCLE_STROKE = '#136AEC';
+const USER_ACCURACY_CIRCLE_STROKE_COLOR = '#136AEC';
 
 export type PanDirection = 'left' | 'up' | 'right' | 'down';
 
@@ -436,41 +372,28 @@ export type AppHandle = {
 	readonly container: HTMLElement;
 	readonly overpass: OverpassFake;
 	readonly geolocation: GeolocationFake;
-	/** Facility markers on the map (the viewer's own position marker is not one) */
 	readonly markers: () => readonly Element[];
-	/** The viewer's position marker and accuracy circle, as currently drawn */
 	readonly userLocation: () => { markers: number; circles: number };
-	/** Messages of the toasts currently on screen */
 	readonly toasts: () => readonly string[];
-	/** Every toast message shown since the app started, in order */
 	readonly toastHistory: () => readonly string[];
 	readonly loadingVisible: () => boolean;
-	/** Wait until every Overpass request the app started has been answered */
 	readonly settled: () => Promise<void>;
 	readonly layerCheckbox: (label: string) => HTMLInputElement;
 	readonly toggleLayer: (label: string) => void;
 	readonly clickLocate: () => void;
 	readonly zoomIn: () => void;
 	readonly zoomOut: () => void;
-	/** Pan with the keyboard; `far` (shift + arrow) moves a third of the viewport */
 	readonly pan: (direction: PanDirection, options?: { readonly far?: boolean }) => void;
 	readonly openPopupOf: (index: number) => void;
 	readonly popup: () => HTMLElement | null;
 	readonly popupText: () => string;
-	/** The facility cache's raw persisted record, whatever it currently is */
 	readonly snapshot: () => Promise<unknown>;
 };
 
 export type RenderOptions = {
 	readonly geolocation?: GeoOutcome;
 	readonly overpass?: OverpassHandler;
-	/** Wait for the first Overpass reply before returning (default: true) */
 	readonly settle?: boolean;
-	/**
-	 * Render as if the page had just been reloaded: storage is left exactly as it is (nothing
-	 * is reset) and the harness does not wait for a first Overpass request - a warm cache may
-	 * not need to make one at all.
-	 */
 	readonly reload?: boolean;
 };
 
@@ -487,29 +410,49 @@ const flushMicrotasks = async (): Promise<void> => {
 	}
 };
 
-/**
- * Boot the application into a fresh `#map` container with faked browser boundaries
- */
-export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
+const blurFocusedElement = (): void => {
 	if (document.activeElement instanceof HTMLElement) {
 		document.activeElement.blur();
 	}
-	document.body.innerHTML = '';
-	const container = document.createElement('div');
-	container.id = 'map';
-	document.body.appendChild(container);
+};
 
-	const toastHistory: string[] = [];
+const NOTIFICATION_CLASS = 'notification';
+const NOTIFICATION_MESSAGE_SELECTOR = '.notification-message';
+
+const observeToastHistory = (): readonly string[] => {
+	const history: string[] = [];
 	const observer = new MutationObserver((mutations) => {
 		for (const mutation of mutations) {
 			for (const node of Array.from(mutation.addedNodes)) {
-				if (node instanceof HTMLElement && node.classList.contains('notification')) {
-					toastHistory.push(node.querySelector('.notification-message')?.textContent?.trim() ?? '');
+				if (node instanceof HTMLElement && node.classList.contains(NOTIFICATION_CLASS)) {
+					history.push(
+						node.querySelector(NOTIFICATION_MESSAGE_SELECTOR)?.textContent?.trim() ?? ''
+					);
 				}
 			}
 		}
 	});
 	observer.observe(document.body, { childList: true, subtree: true });
+	return history;
+};
+
+const facilityMarkerElements = (container: HTMLElement): readonly Element[] => [
+	...Array.from(
+		container.querySelectorAll(
+			`.leaflet-overlay-pane path.leaflet-interactive:not([stroke="${USER_ACCURACY_CIRCLE_STROKE_COLOR}"])`
+		)
+	),
+	...Array.from(container.querySelectorAll('.leaflet-marker-pane div.leaflet-marker-icon')),
+];
+
+export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
+	blurFocusedElement();
+	document.body.innerHTML = '';
+	const container = document.createElement('div');
+	container.id = 'map';
+	document.body.appendChild(container);
+
+	const toastHistory = observeToastHistory();
 
 	const overpass = fakeOverpass(options.overpass ?? (() => WATER_ELEMENTS));
 	const geolocation = fakeGeolocation(options.geolocation ?? { position: USER });
@@ -518,25 +461,17 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 	await import('../src/index');
 
 	await waitFor(() => expect(container.classList.contains('leaflet-container')).toBe(true));
-	if (options.reload !== true) {
+	const isReload = options.reload === true;
+	if (!isReload) {
 		await waitFor(() => expect(overpass.requests.length).toBeGreaterThan(0));
 	}
 	const settled = async (): Promise<void> => {
-		await waitFor(() => expect(overpass.pending).toBe(0));
+		await waitFor(() => expect(overpass.pendingRequestCount).toBe(0));
 		await flushMicrotasks();
 	};
 	if (options.settle !== false) {
 		await settled();
 	}
-
-	const markers = (): readonly Element[] => [
-		...Array.from(
-			container.querySelectorAll(
-				`.leaflet-overlay-pane path.leaflet-interactive:not([stroke="${USER_CIRCLE_STROKE}"])`
-			)
-		),
-		...Array.from(container.querySelectorAll('.leaflet-marker-pane div.leaflet-marker-icon')),
-	];
 
 	const popup = (): HTMLElement | null =>
 		container.querySelector<HTMLElement>('.leaflet-popup-pane .leaflet-popup-content');
@@ -555,11 +490,11 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		container,
 		overpass,
 		geolocation,
-		markers,
+		markers: () => facilityMarkerElements(container),
 		userLocation: () => ({
 			markers: container.querySelectorAll('.leaflet-marker-pane img.leaflet-marker-icon').length,
 			circles: container.querySelectorAll(
-				`.leaflet-overlay-pane path[stroke="${USER_CIRCLE_STROKE}"]`
+				`.leaflet-overlay-pane path[stroke="${USER_ACCURACY_CIRCLE_STROKE_COLOR}"]`
 			).length,
 		}),
 		toasts: () =>
@@ -575,16 +510,14 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 			clickOn(container.querySelector('a[aria-label="Show my location"]'), 'Locate button'),
 		zoomIn: () => clickOn(container.querySelector('.leaflet-control-zoom-in'), 'Zoom in button'),
 		zoomOut: () => clickOn(container.querySelector('.leaflet-control-zoom-out'), 'Zoom out button'),
-		pan: (direction, panOptions = {}) => {
+		pan: (direction, { far = true } = {}) => {
 			container.focus();
-			const event = new KeyboardEvent('keydown', {
-				bubbles: true,
-				shiftKey: panOptions.far ?? true,
-			});
+			const event = new KeyboardEvent('keydown', { bubbles: true, shiftKey: far });
 			Object.defineProperty(event, 'keyCode', { value: PAN_KEY_CODES[direction] });
 			document.dispatchEvent(event);
 		},
-		openPopupOf: (index) => clickOn(markers()[index] ?? null, `Marker #${index}`),
+		openPopupOf: (index) =>
+			clickOn(facilityMarkerElements(container)[index] ?? null, `Marker #${index}`),
 		popup,
 		popupText: () => popup()?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
 		snapshot: () => readCacheRecord(),
