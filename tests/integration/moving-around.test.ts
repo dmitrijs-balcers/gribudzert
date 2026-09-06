@@ -30,7 +30,10 @@ describe('Moving around the map', () => {
 		expect(app.overpass.requestAt(1).bbox.west).toBeGreaterThan(
 			app.overpass.requestAt(0).bbox.west
 		);
-		await waitFor(() => expect(app.markers()).toHaveLength(2));
+		// The offline cache fetches only the strip that was not saved yet, and shows it
+		// alongside what is already cached rather than replacing it - so both the original 3
+		// water points and the 2 newly loaded ones stay on the map.
+		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT + 2));
 	});
 
 	it('cancels the previous request when panning again and shows only the latest area', async () => {

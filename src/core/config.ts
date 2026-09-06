@@ -128,3 +128,30 @@ export const LAYER_NAMES = {
  * Ensures type safety between UI and analytics
  */
 export type LayerName = (typeof LAYER_NAMES)[keyof typeof LAYER_NAMES];
+
+/**
+ * Fixed zoom level of the offline facility cache's tile grid. Every cached tile, regardless
+ * of the zoom the viewer is actually looking at, is identified at this zoom.
+ */
+export const CACHE_TILE_ZOOM = 13;
+
+/**
+ * How long a cached tile is considered fresh (shown without revalidating against Overpass)
+ */
+export const FACILITY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Maximum number of tiles kept in the cache; the oldest-fetched tiles beyond this are evicted
+ */
+export const FACILITY_CACHE_MAX_TILES = 400;
+
+/**
+ * IndexedDB database name the facility cache is persisted under
+ */
+export const FACILITY_CACHE_DB_NAME = 'gribudzert';
+
+/**
+ * Schema version of the persisted Snapshot. Bump whenever the persisted Facility shape
+ * changes so old, incompatible records are discarded rather than partially trusted.
+ */
+export const FACILITY_CACHE_SCHEMA_VERSION = 1;

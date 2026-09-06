@@ -15,6 +15,12 @@ export const ZOOMED_OUT_MESSAGE = 'Zoom in to see water points and toilets';
 export const LOCATION_FALLBACK_MESSAGE = 'Could not detect your location. Showing Riga area.';
 
 /**
+ * Shown instead of the usual fetch-error message when a network refresh fails but the
+ * viewer is already looking at saved points from the offline cache
+ */
+export const OFFLINE_SHOWING_SAVED_MESSAGE = "Couldn't refresh map data. Showing saved points.";
+
+/**
  * Shown when bootstrapping the map threw
  */
 export const INITIALIZATION_FAILED_MESSAGE =

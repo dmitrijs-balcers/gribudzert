@@ -13,6 +13,7 @@ const NETWORK_ERROR =
 	'Failed to load water points. Please check your internet connection and try again.';
 const TIMEOUT_ERROR = 'Request timed out while loading water points. Please try again.';
 const BUSY_ERROR = 'The map data service is busy right now. Please wait a moment and try again.';
+const OFFLINE_SHOWING_SAVED = "Couldn't refresh map data. Showing saved points.";
 
 const failAfter = (ms: number): Promise<OverpassReply> =>
 	new Promise((resolve) => setTimeout(() => resolve(new Error('connection reset')), ms));
@@ -94,8 +95,13 @@ describe('When Overpass fails', () => {
 
 		await waitFor(() => expect(app.overpass.requests).toHaveLength(3));
 		expect(app.overpass.lastRequest().query).toContain('amenity"="toilets');
-		await waitFor(() => expect(app.toasts()).toContain(NETWORK_ERROR));
+		// The panned-to area is partly covered by the offline cache (from the very first
+		// load), so the viewer is already looking at saved points when this request fails -
+		// the "showing saved points" message replaces the usual per-layer error, and only
+		// once, even though the shared request served both layers.
+		await waitFor(() => expect(app.toasts()).toContain(OFFLINE_SHOWING_SAVED));
 		await waitFor(() => expect(app.loadingVisible()).toBe(false));
-		expect(app.toasts().filter((toast) => toast.startsWith('Failed to load'))).toHaveLength(1);
+		expect(app.toasts().filter((toast) => toast === OFFLINE_SHOWING_SAVED)).toHaveLength(1);
+		expect(app.toasts()).not.toContain(NETWORK_ERROR);
 	});
 });

@@ -8,6 +8,7 @@ import * as L from 'leaflet';
 import { trackLayerDisabled, trackLayerEnabled, trackMapLoaded } from '../analytics';
 import { DEFAULT_ZOOM, MAX_ZOOM, OSM_ATTRIBUTION, OSM_TILE_URL, RIGA_CENTER } from '../core/config';
 import type { LatLon } from '../domain';
+import { createFacilityCache, defaultSnapshotStore } from '../features/cache';
 import type { UserPosition } from '../features/location/geolocation';
 import {
 	createUserLocationLayer,
@@ -42,6 +43,29 @@ import { createSession, initialState, withUserLocation } from './session';
  * DOM id of the map container
  */
 export const MAP_CONTAINER_ID = 'map';
+
+/**
+ * Longest bootstrap ever waits for the offline facility cache to load before exploring the
+ * starting viewport. A hung IndexedDB must never delay the map.
+ */
+const CACHE_READY_TIMEOUT_MS = 2000;
+
+/**
+ * Wait for the facility cache to finish loading, but no longer than `CACHE_READY_TIMEOUT_MS`
+ * - whichever settles first. Logs a warning when the timeout wins, so bootstrap proceeds with
+ * whatever the cache has in memory at that point (empty, unless something absorbed already).
+ */
+const awaitCacheReady = async (ready: Promise<void>): Promise<void> => {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timedOut = new Promise<'timeout'>((resolve) => {
+		timer = setTimeout(() => resolve('timeout'), CACHE_READY_TIMEOUT_MS);
+	});
+	const outcome = await Promise.race([ready.then((): 'ready' => 'ready'), timedOut]);
+	clearTimeout(timer);
+	if (outcome === 'timeout') {
+		logger.warn('Facility cache load timed out after 2s; continuing without it');
+	}
+};
 
 /**
  * Detect the viewer's position before the map exists, so the map can open on it
@@ -149,7 +173,9 @@ const start = async (): Promise<void> => {
 			toilet: overpassSelector(publicToilets),
 		}),
 		session: createSession(initialState(userLocation)),
+		cache: createFacilityCache(defaultSnapshotStore()),
 	};
+	await awaitCacheReady(app.cache.ready);
 
 	enableLayer(app.layers.water, map);
 	addLayerControl(map, app.layers);

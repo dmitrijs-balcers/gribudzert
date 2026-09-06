@@ -4,14 +4,30 @@
 
 import { waitFor, within } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
+import type { OverpassElement } from '../fixtures';
 import {
 	ACCESSIBLE_TOILET,
 	isToiletQuery,
 	TOILET_ELEMENTS,
 	WATER_ELEMENTS,
 	WATER_MARKER_COUNT,
+	waterNodesAt,
 } from '../fixtures';
-import { renderApp } from '../harness';
+import { bboxCenter, renderApp } from '../harness';
+
+/**
+ * A toilet building at the centre of a bounding box, for areas the viewer pans to (mirrors
+ * `waterNodesAt` in tests/fixtures.ts)
+ */
+const toiletAt = (
+	center: { readonly lat: number; readonly lon: number },
+	id: number
+): OverpassElement => ({
+	type: 'way',
+	id,
+	center,
+	tags: { amenity: 'toilets' },
+});
 
 describe('Finding public toilets', () => {
 	it('starts with only the water layer enabled', async () => {
@@ -79,5 +95,52 @@ describe('Finding public toilets', () => {
 
 		// Both kinds of markers were rendered from that single combined response.
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT + 1));
+	});
+
+	it('shows saved toilets right after a reload without asking Overpass', async () => {
+		const first = await renderApp({
+			overpass: (request) => (isToiletQuery(request.query) ? TOILET_ELEMENTS : WATER_ELEMENTS),
+		});
+		await waitFor(() => expect(first.markers()).toHaveLength(WATER_MARKER_COUNT));
+
+		first.toggleLayer('Public Toilets');
+		await waitFor(() => expect(first.markers()).toHaveLength(WATER_MARKER_COUNT + 1));
+
+		// A fresh reload: the toilet layer starts off again, same as any other visit. A warm,
+		// fully-fresh cache never needs to ask Overpass, so - unlike a cold render - nothing
+		// here guarantees the layer control already exists; wait for it before toggling.
+		const app = await renderApp({ reload: true });
+		await waitFor(() => app.layerCheckbox('Public Toilets'));
+		app.toggleLayer('Public Toilets');
+		await new Promise((resolve) => setTimeout(resolve, 600));
+
+		expect(app.markers()).toHaveLength(WATER_MARKER_COUNT + 1);
+		expect(app.overpass.requests.some((request) => isToiletQuery(request.query))).toBe(false);
+	});
+
+	it('keeps toilets on the map after panning into a new area', async () => {
+		const app = await renderApp({
+			overpass: (request) => (isToiletQuery(request.query) ? TOILET_ELEMENTS : WATER_ELEMENTS),
+		});
+		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
+
+		app.toggleLayer('Public Toilets');
+		await waitFor(() => expect(app.overpass.requests).toHaveLength(2));
+		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT + 1));
+
+		app.overpass.respondWith((request) => [
+			...waterNodesAt(bboxCenter(request.bbox), [601]),
+			toiletAt(bboxCenter(request.bbox), 602),
+		]);
+
+		// Two pans push the viewport past the padded area, as in moving-around.test.ts.
+		app.pan('right');
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		app.pan('right');
+
+		await waitFor(() => expect(app.overpass.requests).toHaveLength(3));
+		// The original toilet marker is still shown alongside the new water and toilet points
+		// from the strip that was just fetched - the cache and the fresh strip are merged.
+		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT + 1 + 2));
 	});
 });

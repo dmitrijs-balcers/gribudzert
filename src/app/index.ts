@@ -17,7 +17,10 @@ export type {
 	LayerRefresh,
 	RefreshDeps,
 	RefreshError,
+	RefreshOptions,
 	RefreshOutcome,
+	RefreshResult,
+	RefreshSource,
 } from './layers';
 export {
 	abortInflight,
@@ -35,12 +38,14 @@ export {
 	layerKindOf,
 	locateFacilities,
 	refreshLayers,
+	renderCached,
 } from './layers';
 export {
 	emptyAreaMessage,
 	fetchErrorMessage,
 	INITIALIZATION_FAILED_MESSAGE,
 	LOCATION_FALLBACK_MESSAGE,
+	OFFLINE_SHOWING_SAVED_MESSAGE,
 	subjectOf,
 	ZOOMED_OUT_MESSAGE,
 } from './messages';

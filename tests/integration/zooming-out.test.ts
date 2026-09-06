@@ -39,9 +39,11 @@ describe('Zooming out', () => {
 		expect(app.overpass.requests).toHaveLength(2);
 		expect(app.markers()).toHaveLength(0);
 
-		app.zoomIn(); // close enough again
-		await waitFor(() => expect(app.overpass.requests).toHaveLength(3));
+		app.zoomIn(); // close enough again, same area as after the first zoom-out
+		// The offline cache still has that area fresh from the earlier request, so the
+		// points reappear straight from the cache without a third network round trip.
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
+		expect(app.overpass.requests).toHaveLength(2);
 		expect(app.toastHistory().filter((toast) => toast === ZOOM_IN_NOTICE)).toHaveLength(1);
 	});
 });

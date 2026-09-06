@@ -210,11 +210,21 @@ export const locateFacilities = (
 export type RefreshError = Exclude<FetchError, { readonly type: 'aborted' }>;
 
 /**
+ * Where a refresh outcome's facilities came from: the offline cache (shown immediately,
+ * before or instead of a network round trip) or a live Overpass response
+ */
+export type RefreshSource = 'cache' | 'network';
+
+/**
  * What happened when a layer was refreshed
  */
 export type RefreshOutcome =
-	| { readonly kind: 'loaded'; readonly items: readonly Located<Facility>[] }
-	| { readonly kind: 'empty' }
+	| {
+			readonly kind: 'loaded';
+			readonly items: readonly Located<Facility>[];
+			readonly source: RefreshSource;
+	  }
+	| { readonly kind: 'empty'; readonly source: RefreshSource }
 	/** A newer refresh (or a disable) cancelled this one; the markers were left alone */
 	| { readonly kind: 'superseded' }
 	| { readonly kind: 'failed'; readonly error: RefreshError };
@@ -257,7 +267,9 @@ export const defaultRefreshDeps: RefreshDeps = { fetchFacilities, addMarkers };
 /**
  * Split facilities by kind, in `LAYER_KINDS` order
  */
-const byKind = (facilities: readonly Facility[]): Readonly<Record<LayerKind, readonly Facility[]>> => {
+const byKind = (
+	facilities: readonly Facility[]
+): Readonly<Record<LayerKind, readonly Facility[]>> => {
 	const grouped: Record<LayerKind, Facility[]> = { water: [], toilet: [] };
 	for (const facility of facilities) {
 		grouped[facility.kind].push(facility);
@@ -266,26 +278,80 @@ const byKind = (facilities: readonly Facility[]): Readonly<Record<LayerKind, rea
 };
 
 /**
- * Apply one layer's share of a completed fetch: cleared and skipped when the layer was
- * disabled while the request was in flight, otherwise rendered or reported empty.
+ * Apply one layer's share of a completed fetch or cache read: cleared and skipped when the
+ * layer was disabled while the request was in flight, otherwise rendered (unless `render` is
+ * false) or reported empty. The outcome is computed either way, so a caller that skips
+ * rendering still gets `loaded`/`empty` for notifications and analytics.
  */
 const applyToLayer = (
 	layer: FacilityLayer,
 	facilities: readonly Facility[],
 	origin: Origin,
-	deps: RefreshDeps
+	deps: RefreshDeps,
+	source: RefreshSource,
+	render: boolean
 ): RefreshOutcome => {
 	if (!layer.active) {
 		return { kind: 'superseded' };
 	}
 	if (facilities.length === 0) {
-		layer.group.clearLayers();
-		return { kind: 'empty' };
+		if (render) {
+			layer.group.clearLayers();
+		}
+		return { kind: 'empty', source };
 	}
 	const items = locateFacilities(layer.kind, facilities, origin);
-	layer.group.clearLayers();
-	deps.addMarkers(items, layer.group);
-	return { kind: 'loaded', items };
+	if (render) {
+		layer.group.clearLayers();
+		deps.addMarkers(items, layer.group);
+	}
+	return { kind: 'loaded', items, source };
+};
+
+/**
+ * Render facilities already known from the offline cache. Runs the same apply step as a
+ * network result (partition by kind, locate, render) but never touches the shared `inflight`
+ * controller - a cache render neither starts nor cancels a request. Outcomes carry
+ * `source: 'cache'`.
+ * @param targets - Layers to render into (already filtered to active + requested kinds)
+ * @param facilities - Cached facilities to show, both kinds
+ * @param origin - Reference point for distances and nearest-marking
+ * @param deps - Collaborators (default: real marker rendering)
+ */
+export const renderCached = (
+	targets: readonly FacilityLayer[],
+	facilities: readonly Facility[],
+	origin: Origin,
+	deps: RefreshDeps = defaultRefreshDeps
+): readonly LayerRefresh[] => {
+	const grouped = byKind(facilities);
+	return targets.map((layer) => ({
+		kind: layer.kind,
+		outcome: applyToLayer(layer, grouped[layer.kind], origin, deps, 'cache', true),
+	}));
+};
+
+/**
+ * Options for `refreshLayers`
+ */
+export type RefreshOptions = {
+	/**
+	 * Compute outcomes without rendering them to the layer groups. Used when the caller wants
+	 * to merge the fetched facilities into a larger set (e.g. the offline cache) before doing
+	 * a single render of the union, instead of a strip render that would briefly hide
+	 * everything outside the fetched area.
+	 */
+	readonly skipRender?: boolean;
+};
+
+/**
+ * Result of a `refreshLayers` call
+ */
+export type RefreshResult = {
+	readonly layers: readonly LayerRefresh[];
+	/** The full facility list fetched (both kinds), or null when nothing was fetched - no
+	 * targets, the request failed, or it was superseded */
+	readonly fetched: readonly Facility[] | null;
 };
 
 /**
@@ -302,16 +368,18 @@ const applyToLayer = (
  * @param bounds - Visible map area to query
  * @param origin - Reference point for distances and nearest-marking
  * @param deps - Collaborators (default: real fetch and marker rendering)
+ * @param options - `skipRender` to compute outcomes without touching the layer groups
  */
 export async function refreshLayers(
 	layers: FacilityLayers,
 	targets: readonly FacilityLayer[],
 	bounds: L.LatLngBounds,
 	origin: Origin,
-	deps: RefreshDeps = defaultRefreshDeps
-): Promise<readonly LayerRefresh[]> {
+	deps: RefreshDeps = defaultRefreshDeps,
+	options: RefreshOptions = {}
+): Promise<RefreshResult> {
 	if (targets.length === 0) {
-		return [];
+		return { layers: [], fetched: null };
 	}
 
 	abortInflight(layers);
@@ -329,18 +397,31 @@ export async function refreshLayers(
 	if (isErr(result)) {
 		const error = result.error;
 		if (superseded || error.type === 'aborted') {
-			return targets.map((layer) => ({ kind: layer.kind, outcome: { kind: 'superseded' } }));
+			return {
+				layers: targets.map((layer) => ({ kind: layer.kind, outcome: { kind: 'superseded' } })),
+				fetched: null,
+			};
 		}
-		return targets.map((layer) => ({ kind: layer.kind, outcome: { kind: 'failed', error } }));
+		return {
+			layers: targets.map((layer) => ({ kind: layer.kind, outcome: { kind: 'failed', error } })),
+			fetched: null,
+		};
 	}
 
 	if (superseded) {
-		return targets.map((layer) => ({ kind: layer.kind, outcome: { kind: 'superseded' } }));
+		return {
+			layers: targets.map((layer) => ({ kind: layer.kind, outcome: { kind: 'superseded' } })),
+			fetched: null,
+		};
 	}
 
 	const grouped = byKind(result.value);
-	return targets.map((layer) => ({
-		kind: layer.kind,
-		outcome: applyToLayer(layer, grouped[layer.kind], origin, deps),
-	}));
+	const render = options.skipRender !== true;
+	return {
+		layers: targets.map((layer) => ({
+			kind: layer.kind,
+			outcome: applyToLayer(layer, grouped[layer.kind], origin, deps, 'network', render),
+		})),
+		fetched: result.value,
+	};
 }

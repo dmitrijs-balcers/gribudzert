@@ -5,7 +5,8 @@
 
 import { waitFor, within } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ZOOM } from '../../src/core/config';
+import { CACHE_TILE_ZOOM, DEFAULT_ZOOM } from '../../src/core/config';
+import { tileBounds, tileOf } from '../../src/domain';
 import {
 	NEAREST_TO_USER,
 	NON_DRINKABLE,
@@ -16,7 +17,18 @@ import {
 } from '../fixtures';
 import { bboxCenter, GEO_PERMISSION_DENIED, renderApp, unpaddedViewportBbox } from '../harness';
 
-const NEARBY = 0.003;
+/**
+ * How far a fetch's bbox centre can drift from the point it is meant to centre on, now that
+ * the bbox is rounded outward to whole cache tiles: up to one tile's width/height, on the
+ * side where the rounding happened to add the least padding.
+ */
+const tileTolerance = (point: {
+	readonly lat: number;
+	readonly lon: number;
+}): { lat: number; lon: number } => {
+	const bounds = tileBounds(tileOf(point, CACHE_TILE_ZOOM));
+	return { lat: bounds.north - bounds.south, lon: bounds.east - bounds.west };
+};
 
 const nearestIndex = (markers: readonly Element[]): number =>
 	markers.findIndex((marker) => marker.classList.contains('nearest-marker'));
@@ -26,8 +38,9 @@ describe('Arriving at the map', () => {
 		const app = await renderApp({ geolocation: { position: USER } });
 
 		const center = bboxCenter(app.overpass.lastRequest().bbox);
-		expect(center.lat).toBeCloseTo(USER.lat, 2);
-		expect(Math.abs(center.lon - USER.lon)).toBeLessThan(NEARBY);
+		const tolerance = tileTolerance(USER);
+		expect(Math.abs(center.lat - USER.lat)).toBeLessThan(tolerance.lat);
+		expect(Math.abs(center.lon - USER.lon)).toBeLessThan(tolerance.lon);
 
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		expect(app.userLocation()).toEqual({ markers: 1, circles: 1 });
@@ -86,8 +99,9 @@ describe('Arriving at the map', () => {
 			expect(app.toasts()).toContain('Could not detect your location. Showing Riga area.')
 		);
 		const center = bboxCenter(app.overpass.lastRequest().bbox);
-		expect(Math.abs(center.lat - RIGA.lat)).toBeLessThan(NEARBY);
-		expect(Math.abs(center.lon - RIGA.lon)).toBeLessThan(NEARBY);
+		const tolerance = tileTolerance(RIGA);
+		expect(Math.abs(center.lat - RIGA.lat)).toBeLessThan(tolerance.lat);
+		expect(Math.abs(center.lon - RIGA.lon)).toBeLessThan(tolerance.lon);
 
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		expect(app.userLocation()).toEqual({ markers: 0, circles: 0 });

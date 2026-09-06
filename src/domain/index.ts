@@ -30,3 +30,5 @@ export type { Located } from './located';
 export { findNearest, markNearest, nearestOf, withDistances } from './located';
 export type { OsmTags } from './osm';
 export { facilityFromTags, isToiletTags, waterSourceTypeOf } from './osm';
+export type { TileBounds, TileId } from './tile';
+export { boundsOfTiles, parseTileId, tileBounds, tileOf, tilesCovering } from './tile';

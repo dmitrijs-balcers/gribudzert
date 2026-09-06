@@ -7,6 +7,7 @@
 import { fireEvent, waitFor } from '@testing-library/dom';
 import * as L from 'leaflet';
 import { expect, vi } from 'vitest';
+import { FACILITY_CACHE_DB_NAME } from '../src/core/config';
 import type { OverpassElement } from './fixtures';
 import { USER, WATER_ELEMENTS } from './fixtures';
 import { MAP_HEIGHT, MAP_WIDTH } from './setup';
@@ -37,7 +38,10 @@ export const bboxCenter = (bbox: Bbox): { lat: number; lon: number } => ({
  * rather than reimplementing it — used to verify that a fetch's bbox was padded beyond the
  * visible area.
  */
-export function unpaddedViewportBbox(center: { readonly lat: number; readonly lon: number }, zoom: number): Bbox {
+export function unpaddedViewportBbox(
+	center: { readonly lat: number; readonly lon: number },
+	zoom: number
+): Bbox {
 	const probe = document.createElement('div');
 	Object.defineProperty(probe, 'clientWidth', { configurable: true, value: MAP_WIDTH });
 	Object.defineProperty(probe, 'clientHeight', { configurable: true, value: MAP_HEIGHT });
@@ -342,6 +346,75 @@ export function fakeGeolocation(initial: GeoOutcome): GeolocationFake {
 }
 
 // ---------------------------------------------------------------------------
+// Facility cache storage (raw IndexedDB, bypassing the app's own storage boundary)
+// ---------------------------------------------------------------------------
+
+const CACHE_OBJECT_STORE = 'cache';
+const CACHE_RECORD_KEY = 'snapshot';
+
+/**
+ * Open the facility cache database, creating its object store on first use - mirrors what
+ * `src/features/cache/storage.ts` does, so a seed written here and a load done by the app
+ * agree on where the record lives.
+ */
+const openCacheDatabase = (): Promise<IDBDatabase> =>
+	new Promise((resolve, reject) => {
+		const request = indexedDB.open(FACILITY_CACHE_DB_NAME, 1);
+		request.onupgradeneeded = () => {
+			const db = request.result;
+			if (!db.objectStoreNames.contains(CACHE_OBJECT_STORE)) {
+				db.createObjectStore(CACHE_OBJECT_STORE);
+			}
+		};
+		request.onsuccess = () => resolve(request.result);
+		request.onerror = () =>
+			reject(request.error ?? new Error('Failed to open facility cache database'));
+	});
+
+/**
+ * Read the facility cache's raw persisted record, whatever it is - `undefined` when there is
+ * none. Used both by `AppHandle.snapshot()` and to verify a seeded record before reloading.
+ */
+const readCacheRecord = async (): Promise<unknown> => {
+	const db = await openCacheDatabase();
+	try {
+		return await new Promise<unknown>((resolve, reject) => {
+			const request = db
+				.transaction(CACHE_OBJECT_STORE, 'readonly')
+				.objectStore(CACHE_OBJECT_STORE)
+				.get(CACHE_RECORD_KEY);
+			request.onsuccess = () => resolve(request.result);
+			request.onerror = () =>
+				reject(request.error ?? new Error('Failed to read facility cache record'));
+		});
+	} finally {
+		db.close();
+	}
+};
+
+/**
+ * Write an arbitrary value as the facility cache's raw persisted record, bypassing the
+ * app's own storage boundary entirely - for scenarios where the app must discover, on its
+ * own, that a saved snapshot cannot be trusted.
+ */
+export async function seedSnapshot(value: unknown): Promise<void> {
+	const db = await openCacheDatabase();
+	try {
+		await new Promise<void>((resolve, reject) => {
+			const transaction = db.transaction(CACHE_OBJECT_STORE, 'readwrite');
+			transaction.objectStore(CACHE_OBJECT_STORE).put(value, CACHE_RECORD_KEY);
+			transaction.oncomplete = () => resolve();
+			transaction.onerror = () =>
+				reject(transaction.error ?? new Error('Failed to seed facility cache record'));
+			transaction.onabort = () =>
+				reject(transaction.error ?? new Error('Facility cache seed was aborted'));
+		});
+	} finally {
+		db.close();
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Rendering the app
 // ---------------------------------------------------------------------------
 
@@ -384,6 +457,8 @@ export type AppHandle = {
 	readonly openPopupOf: (index: number) => void;
 	readonly popup: () => HTMLElement | null;
 	readonly popupText: () => string;
+	/** The facility cache's raw persisted record, whatever it currently is */
+	readonly snapshot: () => Promise<unknown>;
 };
 
 export type RenderOptions = {
@@ -391,6 +466,12 @@ export type RenderOptions = {
 	readonly overpass?: OverpassHandler;
 	/** Wait for the first Overpass reply before returning (default: true) */
 	readonly settle?: boolean;
+	/**
+	 * Render as if the page had just been reloaded: storage is left exactly as it is (nothing
+	 * is reset) and the harness does not wait for a first Overpass request - a warm cache may
+	 * not need to make one at all.
+	 */
+	readonly reload?: boolean;
 };
 
 const clickOn = (element: Element | null, what: string): void => {
@@ -437,7 +518,9 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 	await import('../src/index');
 
 	await waitFor(() => expect(container.classList.contains('leaflet-container')).toBe(true));
-	await waitFor(() => expect(overpass.requests.length).toBeGreaterThan(0));
+	if (options.reload !== true) {
+		await waitFor(() => expect(overpass.requests.length).toBeGreaterThan(0));
+	}
 	const settled = async (): Promise<void> => {
 		await waitFor(() => expect(overpass.pending).toBe(0));
 		await flushMicrotasks();
@@ -504,5 +587,6 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		openPopupOf: (index) => clickOn(markers()[index] ?? null, `Marker #${index}`),
 		popup,
 		popupText: () => popup()?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+		snapshot: () => readCacheRecord(),
 	};
 }

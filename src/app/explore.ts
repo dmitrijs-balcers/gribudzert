@@ -8,8 +8,9 @@ import type * as L from 'leaflet';
 import { trackAreaExplored, trackEmptyArea } from '../analytics';
 import { FETCH_PADDING_FACTOR, MIN_FETCH_ZOOM } from '../core/config';
 import type { LatLon } from '../domain';
-import { formatDistance, nearestOf } from '../domain';
-import { padBounds } from '../features/navigation/bounds';
+import { boundsOfTiles, formatDistance, nearestOf, tilesCovering } from '../domain';
+import type { FacilityCache } from '../features/cache';
+import { padBounds, toLatLngBounds, toTileBounds } from '../features/navigation/bounds';
 import { withLoading } from '../ui/loading';
 import type { NotificationType } from '../ui/notifications';
 import { showNotification } from '../ui/notifications';
@@ -20,6 +21,7 @@ import type {
 	LayerKind,
 	RefreshDeps,
 	RefreshOutcome,
+	RefreshResult,
 } from './layers';
 import {
 	abortInflight,
@@ -28,8 +30,14 @@ import {
 	defaultRefreshDeps,
 	LAYER_KINDS,
 	refreshLayers,
+	renderCached,
 } from './layers';
-import { emptyAreaMessage, fetchErrorMessage, ZOOMED_OUT_MESSAGE } from './messages';
+import {
+	emptyAreaMessage,
+	fetchErrorMessage,
+	OFFLINE_SHOWING_SAVED_MESSAGE,
+	ZOOMED_OUT_MESSAGE,
+} from './messages';
 import type { Session } from './session';
 import {
 	canNotifyEmptyArea,
@@ -44,6 +52,8 @@ import {
 export type App = {
 	readonly layers: FacilityLayers;
 	readonly session: Session;
+	/** Offline facility cache: what a viewport already needs no network fetch for */
+	readonly cache: FacilityCache;
 };
 
 /**
@@ -170,10 +180,22 @@ const handleOutcome = (
 };
 
 /**
- * Refresh facility layers for the visible area. Every targeted layer is served by a single
- * Overpass request (see `refreshLayers`), so panning with both layers on never uses more
- * than one of Overpass's 2 concurrent request slots.
- * @param app - Layers and session
+ * Refresh facility layers for the visible area, the offline cache first. Every tile the
+ * padded viewport covers is looked up in `app.cache` for the target kinds (the kinds of
+ * whichever layers this call targets, `targets.map(l => l.kind)`): anything already known
+ * there (fresh or stale, for at least one target kind) is rendered immediately from memory,
+ * before any network round trip, and only the tiles where a target kind is stale or missing
+ * are actually fetched - over a single Overpass request (see `refreshLayers`) that always asks
+ * for every target kind in the fetched tiles, so a kind that happened to be fresh there simply
+ * gets refreshed too. Coverage is tracked per facility kind, so this one flow handles every
+ * call the same way, whether it refreshes every active layer for a viewport change or just the
+ * layer that was just switched on in the layer control (see `wireLayerControl` in
+ * bootstrap.ts) - a narrower `kinds` never needs to bypass the cache. A cache render alone
+ * produces no notifications or analytics: it is a fast preview, superseded by the real outcome
+ * once the fetch (if any) completes. When nothing needs fetching, the cache render *is* the
+ * final outcome, so it is routed through `handleOutcome` like a network result would be -
+ * otherwise an already-fully-fetched, truly empty area would never tell the viewer so.
+ * @param app - Layers, session and offline cache
  * @param viewport - Visible area to explore
  * @param deps - Collaborators (default: production)
  * @param kinds - Layers to refresh; inactive ones are skipped (default: every active layer)
@@ -189,17 +211,87 @@ export async function exploreViewport(
 	}
 
 	const origin = resolveOrigin(app.session.get(), viewport.center);
-	const targets = activeLayers(app.layers).filter((layer) => kinds.includes(layer.kind));
+	const active = activeLayers(app.layers);
+	const targets = active.filter((layer) => kinds.includes(layer.kind));
+	if (targets.length === 0) {
+		return;
+	}
+	const targetKinds = targets.map((layer) => layer.kind);
+
 	// Fetch a larger area than what's visible so panning and zooming within it can reuse
 	// this data instead of hitting Overpass's rate limit again.
 	const loadBounds = padBounds(viewport.bounds, FETCH_PADDING_FACTOR);
+	const tiles = tilesCovering(toTileBounds(loadBounds));
 
-	const results = await withLoading(() =>
-		refreshLayers(app.layers, targets, loadBounds, origin, deps.refresh)
-	);
+	const now = deps.now();
+	const found = app.cache.lookup(tiles, targetKinds, now);
+	const renderedFromCache = found.known.length > 0;
+	const cacheOutcomes = renderedFromCache
+		? renderCached(targets, found.facilities, origin, deps.refresh)
+		: null;
 
-	const firstFailed = results.find(({ outcome }) => outcome.kind === 'failed');
-	for (const result of results) {
-		handleOutcome(app, app.layers[result.kind], result.outcome, deps, result === firstFailed);
+	if (found.toFetch.length === 0) {
+		if (cacheOutcomes !== null) {
+			for (const { kind, outcome } of cacheOutcomes) {
+				handleOutcome(app, app.layers[kind], outcome, deps, true);
+			}
+		}
+		return;
+	}
+
+	const fetchTileBounds = boundsOfTiles(found.toFetch);
+	if (fetchTileBounds === null) {
+		// found.toFetch is non-empty here, so boundsOfTiles never actually returns null; this
+		// only satisfies its nullable return type.
+		return;
+	}
+	const fetchBounds = toLatLngBounds(fetchTileBounds);
+
+	const doFetch = (): Promise<RefreshResult> =>
+		refreshLayers(app.layers, targets, fetchBounds, origin, deps.refresh, { skipRender: true });
+	// The loading overlay is a full-screen blocking dim; skip it when the viewer is already
+	// looking at saved points from the cache while the fetch fills in the rest.
+	const result = renderedFromCache ? await doFetch() : await withLoading(doFetch);
+
+	if (result.fetched !== null) {
+		// `found.toFetch` is exactly the set of tiles this fetch covered.
+		app.cache.absorb(found.toFetch, targetKinds, result.fetched, now);
+		// refreshLayers only rendered the fetched strip's own outcomes; render the union of
+		// cache and network for the full padded area instead of relying on that strip render.
+		const updated = app.cache.lookup(tiles, targetKinds, now);
+		const shown = renderCached(targets, updated.facilities, origin, deps.refresh);
+		// Notify and track on what the viewer actually sees (the union), not on the strip
+		// alone: a strip with nothing in it is not an empty area when saved points surround it.
+		for (const { kind, outcome } of shown) {
+			handleOutcome(app, app.layers[kind], outcome, deps, false);
+		}
+		return;
+	}
+
+	const failed = result.layers.some(({ outcome }) => outcome.kind === 'failed');
+	if (!failed) {
+		// Every outcome was superseded by a newer refresh - stay silent.
+		return;
+	}
+
+	if (renderedFromCache) {
+		// Offline (or Overpass is down): the viewer is already seeing saved points, so say
+		// that instead of the usual error, but still log it.
+		deps.notify(OFFLINE_SHOWING_SAVED_MESSAGE, 'info', 5000);
+		for (const { kind, outcome } of result.layers) {
+			handleOutcome(app, app.layers[kind], outcome, deps, false);
+		}
+		return;
+	}
+
+	const firstFailed = result.layers.find(({ outcome }) => outcome.kind === 'failed');
+	for (const layerResult of result.layers) {
+		handleOutcome(
+			app,
+			app.layers[layerResult.kind],
+			layerResult.outcome,
+			deps,
+			layerResult === firstFailed
+		);
 	}
 }
