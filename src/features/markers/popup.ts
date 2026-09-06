@@ -1,55 +1,24 @@
-/**
- * Popup content and interaction handling
- */
-
 import type * as L from 'leaflet';
 import { trackMarkerClicked, trackNavigationStarted } from '../../analytics';
-import type {
-	Facility,
-	Located,
-	ToiletFacility,
-	WaterFacility,
-	WaterSourceType,
-} from '../../domain';
+import type { Facility, Located, ToiletFacility, WaterFacility } from '../../domain';
 import { formatDistance, osmUrl } from '../../domain';
 import { escapeHtml } from '../../utils/html';
 import * as logger from '../../utils/logger';
 import { openNavigation } from '../navigation/navigation';
+import {
+	NON_DRINKABLE_BADGE_COLOR,
+	TOILET_PRESENTATION,
+	WATER_SOURCE_PRESENTATION,
+} from './presentation';
 
-/**
- * Presentation of a water source type
- */
-type SourcePresentation = {
-	readonly label: string;
-	readonly icon: string;
-	readonly color: string;
-};
-
-const WATER_SOURCE_PRESENTATION: Readonly<Record<WaterSourceType, SourcePresentation>> = {
-	spring: { label: 'Natural Spring', icon: '💧', color: '#00BCD4' },
-	water_well: { label: 'Water Well', icon: '🪣', color: '#795548' },
-	water_tap: { label: 'Water Tap', icon: '🚰', color: '#2196F3' },
-	water_point: { label: 'Water Point', icon: '🌊', color: '#009688' },
-	drinking_water: { label: 'Drinking Water', icon: '🚰', color: '#4CAF50' },
-};
-
-/**
- * Human readable label used in navigation labels and aria attributes
- */
 const navigationLabel = (facility: Facility): string =>
 	facility.kind === 'toilet' ? 'toilet' : 'water_tap';
 
-/**
- * Title block shared by all popups
- */
 const titleHtml = (facility: Facility, color: string, heading: string): string =>
 	`<strong style="color: ${color};">${heading}</strong>` +
 	`<div style="font-size: 0.85em; color: #666;">ID: ${facility.osm.id}</div>` +
 	(facility.name !== undefined ? `<div><strong>${escapeHtml(facility.name)}</strong></div>` : '');
 
-/**
- * Optional free-text details shared by all popups
- */
 const detailsHtml = (facility: Facility): readonly string[] => {
 	const parts: string[] = [];
 	if (facility.operator !== undefined) {
@@ -61,9 +30,6 @@ const detailsHtml = (facility: Facility): readonly string[] => {
 	return parts;
 };
 
-/**
- * Navigate button and OSM link
- */
 const actionsHtml = (facility: Facility, ariaTarget: string): string =>
 	`<div class="popup-actions">` +
 	`<button type="button" class="navigate-btn" data-lat="${facility.coordinates.lat}" data-lon="${facility.coordinates.lon}" aria-label="Navigate to ${ariaTarget} ${facility.osm.id}">` +
@@ -75,17 +41,19 @@ const actionsHtml = (facility: Facility, ariaTarget: string): string =>
 	`</a>` +
 	`</div>`;
 
-/**
- * Create HTML content for toilet popup
- */
 function createToiletPopupContent(item: Located<ToiletFacility>): string {
 	const { facility, distance } = item;
 	const parts: string[] = [];
 
-	parts.push(titleHtml(facility, '#795548', '🚻 Public Toilet'));
+	parts.push(
+		titleHtml(
+			facility,
+			TOILET_PRESENTATION.badgeColor,
+			`${TOILET_PRESENTATION.glyph} ${TOILET_PRESENTATION.label}`
+		)
+	);
 	parts.push(`<div><strong>Distance: ${formatDistance(distance)}</strong></div>`);
 
-	// Accessibility information
 	switch (facility.accessibility.wheelchair) {
 		case 'yes':
 			parts.push(
@@ -105,28 +73,24 @@ function createToiletPopupContent(item: Located<ToiletFacility>): string {
 			break;
 	}
 
-	// Changing table
 	if (facility.accessibility.changingTable === 'yes') {
 		parts.push(`<div>🍼 Baby changing table available</div>`);
 	} else if (facility.accessibility.changingTable === 'no') {
 		parts.push(`<div>🍼 No changing table</div>`);
 	}
 
-	// Fee status
 	if (facility.fee === 'yes') {
 		parts.push(`<div>💵 Fee required</div>`);
 	} else if (facility.fee === 'no') {
 		parts.push(`<div>✅ Free</div>`);
 	}
 
-	// Opening hours
 	if (facility.openingHours !== undefined) {
 		parts.push(`<div>🕒 Hours: ${escapeHtml(facility.openingHours)}</div>`);
 	} else {
 		parts.push(`<div style="color: #666;">🕒 Hours: 24/7 (assumed)</div>`);
 	}
 
-	// Unisex/gendered
 	if (facility.unisex === true) {
 		parts.push(`<div>Gender-neutral facility</div>`);
 	}
@@ -137,9 +101,6 @@ function createToiletPopupContent(item: Located<ToiletFacility>): string {
 	return parts.join('');
 }
 
-/**
- * Create HTML content for water popup
- */
 function createWaterPopupContent(item: Located<WaterFacility>): string {
 	const { facility, distance, isNearest } = item;
 	const parts: string[] = [];
@@ -148,12 +109,11 @@ function createWaterPopupContent(item: Located<WaterFacility>): string {
 	parts.push(
 		titleHtml(
 			facility,
-			facility.drinkable ? source.color : '#FF5722',
-			`${source.icon} ${source.label}`
+			facility.drinkable ? source.badgeColor : NON_DRINKABLE_BADGE_COLOR,
+			`${source.glyph} ${source.label}`
 		)
 	);
 
-	// Non-drinkable warning
 	if (!facility.drinkable) {
 		parts.push(
 			`<div style="background: #FFF3E0; border-left: 3px solid #FF9800; padding: 8px; margin: 8px 0; border-radius: 4px;">` +
@@ -165,7 +125,6 @@ function createWaterPopupContent(item: Located<WaterFacility>): string {
 
 	parts.push(`<div><strong>Distance: ${formatDistance(distance)}</strong></div>`);
 
-	// Nearest marker indicator
 	if (isNearest) {
 		parts.push(`<div style="color: #FFD700;">⭐ Nearest water point</div>`);
 	}
@@ -189,9 +148,6 @@ function createWaterPopupContent(item: Located<WaterFacility>): string {
 	return parts.join('');
 }
 
-/**
- * Create HTML content for a facility popup
- */
 export function createPopupContent(item: Located<Facility>): string {
 	const { facility } = item;
 	switch (facility.kind) {
@@ -202,11 +158,7 @@ export function createPopupContent(item: Located<Facility>): string {
 	}
 }
 
-/**
- * Attach event handlers to a marker's popup
- */
-export function attachPopupHandlers(marker: L.CircleMarker | L.Marker, facility: Facility): void {
-	// Track marker click when popup opens
+export function attachPopupHandlers(marker: L.Marker, facility: Facility): void {
 	marker.on('popupopen', (e: L.PopupEvent) => {
 		trackMarkerClicked(facility.kind);
 
@@ -214,7 +166,6 @@ export function attachPopupHandlers(marker: L.CircleMarker | L.Marker, facility:
 			const popupEl = e.popup.getElement();
 			if (!popupEl) return;
 
-			// Handle navigation button
 			const navBtn = popupEl.querySelector('.navigate-btn');
 			if (navBtn && !(navBtn as unknown as { __bound?: boolean }).__bound) {
 				(navBtn as unknown as { __bound: boolean }).__bound = true;
@@ -230,12 +181,10 @@ export function attachPopupHandlers(marker: L.CircleMarker | L.Marker, facility:
 					}
 				});
 
-				// Accessibility: keyboard navigation
 				navBtn.setAttribute('tabindex', '0');
 				navBtn.setAttribute('role', 'button');
 			}
 
-			// Ensure OSM link is keyboard-friendly
 			const osmLink = popupEl.querySelector('.popup-secondary');
 			if (osmLink) {
 				osmLink.setAttribute('role', 'link');

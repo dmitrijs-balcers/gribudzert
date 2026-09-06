@@ -337,6 +337,54 @@
                 }
             }
 
+            .facility-marker {
+                background: transparent;
+                border: none;
+            }
+
+            .facility-marker-badge {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+                border: 2px solid rgba(255, 255, 255, 0.9);
+            }
+
+            .facility-marker-glyph {
+                font-size: 17px;
+                line-height: 1;
+                user-select: none;
+                pointer-events: none;
+            }
+
+            .facility-marker-strike {
+                position: absolute;
+                top: 50%;
+                left: 10%;
+                width: 80%;
+                height: 3px;
+                background: #d32f2f;
+                transform: translateY(-50%) rotate(-45deg);
+                border-radius: 2px;
+                pointer-events: none;
+            }
+
+            .nearest-marker .facility-marker-badge {
+                box-shadow:
+                    0 0 0 3px #ffd700,
+                    0 2px 6px rgba(0, 0, 0, 0.45);
+            }
+
+            .seasonal-marker .facility-marker-badge {
+                opacity: 0.6;
+                outline: 2px dashed rgba(255, 255, 255, 0.9);
+                outline-offset: 2px;
+            }
+
             /* Reduced motion preferences */
             @media (prefers-reduced-motion: reduce) {
                 .notification {

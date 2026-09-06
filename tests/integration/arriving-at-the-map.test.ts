@@ -55,9 +55,27 @@ describe('Arriving at the map', () => {
 			.filter((marker) => marker.classList.contains('non-drinkable-marker'));
 		expect(crossed).toHaveLength(1);
 
+		const nonDrinkableMarker = crossed[0] as HTMLElement;
+		expect(nonDrinkableMarker.getAttribute('data-facility-kind')).toBe('water');
+		expect(nonDrinkableMarker.getAttribute('title')).toContain('not drinkable');
+
 		app.openPopupOf(app.markers().indexOf(crossed[0] as Element));
 		await waitFor(() => expect(app.popupText()).toContain('Not Drinkable'));
 		expect(app.popupText()).toContain(`ID: ${NON_DRINKABLE.id}`);
+	});
+
+	it('names every water marker with its facility kind and type, and flags the nearest one', async () => {
+		const app = await renderApp({ geolocation: { position: USER } });
+		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
+
+		for (const marker of app.markers()) {
+			expect(marker.getAttribute('data-facility-kind')).toBe('water');
+			expect(marker.getAttribute('data-facility-type')).not.toBeNull();
+			expect(marker.getAttribute('title')).not.toBeNull();
+		}
+
+		const nearestMarker = app.markers()[nearestIndex(app.markers())] as HTMLElement;
+		expect(nearestMarker.getAttribute('title')).toContain('nearest');
 	});
 
 	it('highlights the water point nearest to the visitor and describes it in its popup', async () => {
