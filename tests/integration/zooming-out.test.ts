@@ -2,7 +2,7 @@ import { waitFor } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
 import { WATER_MARKER_COUNT } from '../fixtures';
 import type { AppHandle } from '../harness';
-import { renderApp } from '../harness';
+import { GEO_PERMISSION_DENIED, renderApp } from '../harness';
 
 const ZOOM_IN_NOTICE = 'Zoom in to see water points and toilets';
 
@@ -18,7 +18,7 @@ const zoomInBackToTheFirstQueryableArea = (app: AppHandle): void => app.zoomIn()
 
 describe('Zooming out', () => {
 	it('stops loading, clears the map and asks once to zoom in; zooming back in reloads from the cache without a third request', async () => {
-		const app = await renderApp();
+		const app = await renderApp({ geolocation: { error: GEO_PERMISSION_DENIED } });
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 
 		zoomOutStillCloseEnoughToQuery(app);

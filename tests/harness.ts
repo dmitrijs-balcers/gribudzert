@@ -1,7 +1,7 @@
 import { fireEvent, waitFor } from '@testing-library/dom';
 import * as L from 'leaflet';
 import { expect, vi } from 'vitest';
-import { FACILITY_CACHE_DB_NAME } from '../src/core/config';
+import { FACILITY_CACHE_DB_NAME, LAST_POSITION_STORAGE_KEY } from '../src/core/config';
 import type { OverpassElement } from './fixtures';
 import { USER, WATER_ELEMENTS } from './fixtures';
 import { MAP_HEIGHT, MAP_WIDTH } from './setup';
@@ -235,24 +235,29 @@ export const GEO_PERMISSION_DENIED = 1;
 export const GEO_POSITION_UNAVAILABLE = 2;
 export const GEO_TIMEOUT = 3;
 
+export type GeoPosition = {
+	readonly lat: number;
+	readonly lon: number;
+	readonly accuracy?: number;
+	readonly heading?: number;
+	readonly speed?: number;
+};
+
 export type GeoOutcome =
-	| {
-			readonly position: { readonly lat: number; readonly lon: number; readonly accuracy?: number };
-	  }
-	| { readonly error: number };
+	| { readonly position: GeoPosition }
+	| { readonly error: number }
+	| { readonly pending: true };
 
 export type GeolocationFake = {
 	readonly respondWith: (outcome: GeoOutcome) => void;
+	readonly moveTo: (position: GeoPosition) => void;
 	readonly requests: number;
+	readonly watchers: number;
 };
 
 const DEFAULT_POSITION_ACCURACY = 10;
 
-const toPosition = (outcome: {
-	readonly lat: number;
-	readonly lon: number;
-	readonly accuracy?: number;
-}): GeolocationPosition =>
+const toPosition = (outcome: GeoPosition, timestampMs: number): GeolocationPosition =>
 	({
 		coords: {
 			latitude: outcome.lat,
@@ -260,10 +265,10 @@ const toPosition = (outcome: {
 			accuracy: outcome.accuracy ?? DEFAULT_POSITION_ACCURACY,
 			altitude: null,
 			altitudeAccuracy: null,
-			heading: null,
-			speed: null,
+			heading: outcome.heading ?? null,
+			speed: outcome.speed ?? null,
 		},
-		timestamp: Date.now(),
+		timestamp: timestampMs,
 	}) as GeolocationPosition;
 
 const toPositionError = (code: number): GeolocationPositionError =>
@@ -278,33 +283,98 @@ const toPositionError = (code: number): GeolocationPositionError =>
 export function fakeGeolocation(initial: GeoOutcome): GeolocationFake {
 	let outcome = initial;
 	let requests = 0;
+	let watchers = 0;
+	let lastTimestampMs = 0;
+	let nextWatchId = 1;
+	const watchCallbacks = new Map<
+		number,
+		{ readonly success: PositionCallback; readonly failure: PositionErrorCallback | null }
+	>();
+
+	const nextTimestampMs = (): number => {
+		const now = Date.now();
+		lastTimestampMs = now > lastTimestampMs ? now : lastTimestampMs + 1;
+		return lastTimestampMs;
+	};
+
+	const deliver = (
+		success: PositionCallback,
+		failure: PositionErrorCallback | null,
+		current: GeoOutcome
+	): void => {
+		if ('pending' in current) {
+			return;
+		}
+		const timestampMs = nextTimestampMs();
+		void Promise.resolve().then(() => {
+			if ('position' in current) {
+				success(toPosition(current.position, timestampMs));
+			} else {
+				failure?.(toPositionError(current.error));
+			}
+		});
+	};
 
 	const geolocation: Geolocation = {
 		getCurrentPosition: (success, failure) => {
 			requests += 1;
-			const current = outcome;
-			void Promise.resolve().then(() => {
-				if ('position' in current) {
-					success(toPosition(current.position));
-				} else {
-					failure?.(toPositionError(current.error));
-				}
-			});
+			deliver(success, failure ?? null, outcome);
 		},
-		watchPosition: () => 0,
-		clearWatch: () => undefined,
+		watchPosition: (success, failure) => {
+			const id = nextWatchId;
+			nextWatchId += 1;
+			watchers += 1;
+			watchCallbacks.set(id, { success, failure: failure ?? null });
+			deliver(success, failure ?? null, outcome);
+			return id;
+		},
+		clearWatch: (id) => {
+			if (watchCallbacks.delete(id)) {
+				watchers -= 1;
+			}
+		},
 	};
 	Object.defineProperty(navigator, 'geolocation', { configurable: true, value: geolocation });
 
+	const respondWith = (next: GeoOutcome): void => {
+		outcome = next;
+		for (const { success, failure } of watchCallbacks.values()) {
+			deliver(success, failure, next);
+		}
+	};
+
 	return {
-		respondWith: (next) => {
-			outcome = next;
-		},
+		respondWith,
+		moveTo: (position) => respondWith({ position }),
 		get requests() {
 			return requests;
 		},
+		get watchers() {
+			return watchers;
+		},
 	};
 }
+
+export type Permission = 'granted' | 'denied' | 'prompt';
+
+export const installPermissionsFake = (state: Permission): void => {
+	const permissions = { query: async () => ({ state }) as PermissionStatus } as Permissions;
+	Object.defineProperty(navigator, 'permissions', { configurable: true, value: permissions });
+};
+
+export const seedRememberedPosition = (
+	position: GeoPosition & { readonly ageMs?: number }
+): void => {
+	const record = {
+		lat: position.lat,
+		lon: position.lon,
+		accuracy: position.accuracy ?? DEFAULT_POSITION_ACCURACY,
+		heading: position.heading ?? null,
+		speed: position.speed ?? null,
+		at: Date.now() - (position.ageMs ?? 0),
+	};
+	localStorage.setItem(LAST_POSITION_STORAGE_KEY, JSON.stringify(record));
+};
 
 const CACHE_OBJECT_STORE = 'cache';
 const CACHE_RECORD_KEY = 'snapshot';
@@ -380,13 +450,19 @@ export type AppHandle = {
 	readonly settled: () => Promise<void>;
 	readonly layerCheckbox: (label: string) => HTMLInputElement;
 	readonly toggleLayer: (label: string) => void;
+	readonly locateButton: () => HTMLButtonElement;
 	readonly clickLocate: () => void;
 	readonly zoomIn: () => void;
 	readonly zoomOut: () => void;
 	readonly pan: (direction: PanDirection, options?: { readonly far?: boolean }) => void;
+	readonly pressArrowKey: (direction: PanDirection) => void;
 	readonly openPopupOf: (index: number) => void;
+	readonly closePopup: () => void;
 	readonly popup: () => HTMLElement | null;
 	readonly popupText: () => string;
+	readonly hud: () => string | null;
+	readonly clickHud: () => void;
+	readonly beelineVisible: () => boolean;
 	readonly snapshot: () => Promise<unknown>;
 };
 
@@ -395,6 +471,8 @@ export type RenderOptions = {
 	readonly overpass?: OverpassHandler;
 	readonly settle?: boolean;
 	readonly reload?: boolean;
+	readonly permission?: Permission;
+	readonly rememberedPosition?: GeoPosition & { readonly ageMs?: number };
 };
 
 const clickOn = (element: Element | null, what: string): void => {
@@ -437,7 +515,7 @@ const observeToastHistory = (): readonly string[] => {
 };
 
 const facilityMarkerElements = (container: HTMLElement): readonly Element[] =>
-	Array.from(container.querySelectorAll('.leaflet-marker-pane div.leaflet-marker-icon'));
+	Array.from(container.querySelectorAll('.leaflet-marker-pane .facility-marker'));
 
 export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
 	blurFocusedElement();
@@ -450,6 +528,10 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 
 	const overpass = fakeOverpass(options.overpass ?? (() => WATER_ELEMENTS));
 	const geolocation = fakeGeolocation(options.geolocation ?? { position: USER });
+	installPermissionsFake(options.permission ?? 'prompt');
+	if (options.rememberedPosition !== undefined) {
+		seedRememberedPosition(options.rememberedPosition);
+	}
 
 	vi.resetModules();
 	await import('../src/index');
@@ -480,15 +562,35 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		return input;
 	};
 
+	const locateButton = (): HTMLButtonElement => {
+		const button = container.querySelector('.locate-control button');
+		if (!(button instanceof HTMLButtonElement)) {
+			throw new Error('Locate button is not on the page');
+		}
+		return button;
+	};
+
+	const dispatchArrowKey = (direction: PanDirection, far: boolean): void => {
+		container.focus();
+		const event = new KeyboardEvent('keydown', { bubbles: true, shiftKey: far });
+		Object.defineProperty(event, 'keyCode', { value: PAN_KEY_CODES[direction] });
+		document.dispatchEvent(event);
+	};
+
+	const hudButton = (): HTMLButtonElement | null => {
+		const button = container.querySelector('.nearest-hud');
+		return button instanceof HTMLButtonElement ? button : null;
+	};
+
 	return {
 		container,
 		overpass,
 		geolocation,
 		markers: () => facilityMarkerElements(container),
 		userLocation: () => ({
-			markers: container.querySelectorAll('.leaflet-marker-pane img.leaflet-marker-icon').length,
+			markers: container.querySelectorAll('.leaflet-marker-pane .user-location-marker').length,
 			circles: container.querySelectorAll(
-				`.leaflet-overlay-pane path[stroke="${USER_ACCURACY_CIRCLE_STROKE_COLOR}"]`
+				`.leaflet-overlay-pane path[stroke="${USER_ACCURACY_CIRCLE_STROKE_COLOR}"]:not(.beeline)`
 			).length,
 		}),
 		toasts: () =>
@@ -500,20 +602,27 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		settled,
 		layerCheckbox,
 		toggleLayer: (label) => clickOn(layerCheckbox(label), `"${label}" checkbox`),
-		clickLocate: () =>
-			clickOn(container.querySelector('a[aria-label="Show my location"]'), 'Locate button'),
+		locateButton,
+		clickLocate: () => clickOn(locateButton(), 'Locate button'),
 		zoomIn: () => clickOn(container.querySelector('.leaflet-control-zoom-in'), 'Zoom in button'),
 		zoomOut: () => clickOn(container.querySelector('.leaflet-control-zoom-out'), 'Zoom out button'),
-		pan: (direction, { far = true } = {}) => {
-			container.focus();
-			const event = new KeyboardEvent('keydown', { bubbles: true, shiftKey: far });
-			Object.defineProperty(event, 'keyCode', { value: PAN_KEY_CODES[direction] });
-			document.dispatchEvent(event);
-		},
+		pan: (direction, { far = true } = {}) => dispatchArrowKey(direction, far),
+		pressArrowKey: (direction) => dispatchArrowKey(direction, true),
 		openPopupOf: (index) =>
 			clickOn(facilityMarkerElements(container)[index] ?? null, `Marker #${index}`),
+		closePopup: () =>
+			clickOn(container.querySelector('.leaflet-popup-close-button'), 'Popup close button'),
 		popup,
 		popupText: () => popup()?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+		hud: () => {
+			const button = hudButton();
+			if (button === null || button.hidden) {
+				return null;
+			}
+			return button.querySelector('.nearest-hud-text')?.textContent?.trim() ?? null;
+		},
+		clickHud: () => clickOn(hudButton(), 'Nearest HUD'),
+		beelineVisible: () => container.querySelector('.leaflet-overlay-pane path.beeline') !== null,
 		snapshot: () => readCacheRecord(),
 	};
 }

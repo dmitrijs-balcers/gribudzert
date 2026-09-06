@@ -1,7 +1,7 @@
 import type * as L from 'leaflet';
 import { trackAreaExplored, trackEmptyArea } from '../analytics';
 import { FETCH_PADDING_FACTOR, MIN_FETCH_ZOOM } from '../core/config';
-import type { Facility, LatLon, TileId, Timestamp } from '../domain';
+import type { Facility, LatLon, Located, TileId, Timestamp } from '../domain';
 import { boundsOfTiles, formatDistance, nearestOf, tilesCovering, timestampNow } from '../domain';
 import type { FacilityCache, Lookup } from '../features/cache';
 import { padBounds, toLatLngBounds, toTileBounds } from '../features/navigation/bounds';
@@ -72,7 +72,10 @@ export type ExploreDeps = {
 	readonly now: () => Timestamp;
 	readonly trackAreaExplored: () => void;
 	readonly trackEmptyArea: (kind: LayerKind) => void;
+	readonly reportNearest: (kind: LayerKind, nearest: Located<Facility> | null) => void;
 };
+
+const noopReportNearest = (): void => undefined;
 
 export const defaultExploreDeps: ExploreDeps = {
 	refresh: defaultRefreshDeps,
@@ -80,6 +83,7 @@ export const defaultExploreDeps: ExploreDeps = {
 	now: timestampNow,
 	trackAreaExplored,
 	trackEmptyArea,
+	reportNearest: noopReportNearest,
 };
 
 const showZoomedOutNoticeOnce = (app: App, deps: ExploreDeps): void => {
@@ -121,6 +125,7 @@ const handleOutcome = (
 				);
 			}
 			logger.info(`Loaded ${outcome.items.length} ${layer.kind} facilities`);
+			deps.reportNearest(layer.kind, nearest);
 			return;
 		}
 		case 'empty': {
@@ -131,6 +136,7 @@ const handleOutcome = (
 				deps.notify(emptyAreaMessage(layer.kind), 'info', 5000);
 				app.session.update((state) => withEmptyAreaNotified(state, layer.kind, now));
 			}
+			deps.reportNearest(layer.kind, null);
 			return;
 		}
 		case 'superseded':
@@ -210,6 +216,25 @@ const previewFromCache = (
 	return { lookup, preview };
 };
 
+export const rerankFromCache = (
+	app: App,
+	viewport: Viewport,
+	deps: ExploreDeps = defaultExploreDeps
+): void => {
+	const origin = resolveOrigin(app.session.get(), viewport.center);
+	const targets = activeLayers(app.layers);
+	if (targets.length === 0) {
+		return;
+	}
+	const targetKinds = targets.map((layer) => layer.kind);
+	const tiles = tilesCoveringPaddedViewport(viewport.bounds);
+	const now = deps.now();
+	const { preview } = previewFromCache(app, targets, tiles, targetKinds, origin, deps, now);
+	if (preview.kind === 'rendered') {
+		reportOutcomes(app, preview.outcomes, deps, { kind: 'none' });
+	}
+};
+
 const absorbFetchedAndRenderCacheUnion = (
 	app: App,
 	targets: readonly FacilityLayer[],
@@ -284,7 +309,7 @@ export async function exploreViewport(
 				targets,
 				tiles,
 				targetKinds,
-				origin,
+				resolveOrigin(app.session.get(), viewport.center),
 				deps,
 				now,
 				lookup.toFetch,

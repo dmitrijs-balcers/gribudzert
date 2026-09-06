@@ -28,14 +28,31 @@ export const USER_LOCATION_STYLE = {
 	minRadius: 10,
 } as const;
 
-export const GEOLOCATION_OPTIONS: PositionOptions = {
-	enableHighAccuracy: true,
-	maximumAge: 0,
-	timeout: 10000,
+export const LOCATE_ZOOM = 15;
+
+export const QUICK_FIX_OPTIONS: PositionOptions = {
+	enableHighAccuracy: false,
+	maximumAge: 60_000,
+	timeout: 5_000,
 };
 
-export const LOCATION_TIMEOUT = 10000;
-export const LOCATION_HIGH_ACCURACY = true;
+export const WATCH_OPTIONS: PositionOptions = {
+	enableHighAccuracy: true,
+	maximumAge: 0,
+	timeout: 20_000,
+};
+
+export const POSITION_STALE_AFTER_MS = 30_000;
+
+export const RERANK_MIN_MOVE_M = 25;
+
+export const ACCURACY_CIRCLE_MAX_M = 500;
+
+export const MOVING_SPEED_THRESHOLD_MPS = 0.5;
+
+export const LAST_POSITION_STORAGE_KEY = 'gribudzert.lastPosition';
+
+export const LAST_POSITION_MAX_AGE_MS: DurationMs = durationMsLiteral(604_800_000);
 
 export const LAYER_NAMES = {
 	WATER: 'Drinking Points',

@@ -1,6 +1,12 @@
 export { bootstrap, MAP_CONTAINER_ID } from './bootstrap';
 export type { App, CachePreview, ExploreDeps, Viewport } from './explore';
-export { canFetchAtZoom, defaultExploreDeps, exploreViewport, viewportOf } from './explore';
+export {
+	canFetchAtZoom,
+	defaultExploreDeps,
+	exploreViewport,
+	rerankFromCache,
+	viewportOf,
+} from './explore';
 export type {
 	AddMarkers,
 	FacilityLayer,
@@ -52,8 +58,13 @@ export {
 	canNotifyEmptyArea,
 	createSession,
 	initialState,
+	needsReranking,
 	resolveOrigin,
 	withEmptyAreaNotified,
-	withUserLocation,
+	withFollowMode,
+	withNearestWater,
+	withPopupOpen,
+	withPosition,
+	withRankedFrom,
 	withZoomedOutNotice,
 } from './session';

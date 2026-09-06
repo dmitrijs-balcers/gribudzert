@@ -21,7 +21,10 @@ const applyRootAttributes = (
 };
 
 export function createFacilityMarker(item: Located<Facility>): L.Marker {
-	const appearance = appearanceOf(item.facility, { isNearest: item.isNearest });
+	const appearance = appearanceOf(item.facility, {
+		isNearest: item.isNearest,
+		distance: item.distance,
+	});
 	const marker = L.marker([item.facility.coordinates.lat, item.facility.coordinates.lon], {
 		icon: createFacilityIcon(appearance),
 	});
