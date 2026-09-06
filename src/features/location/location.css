@@ -70,14 +70,18 @@
 
 .nearest-hud {
 	position: absolute;
-	left: 50%;
+	left: 16px;
+	right: 16px;
 	bottom: 16px;
-	transform: translateX(-50%);
+	width: max-content;
+	max-width: calc(100% - 32px);
+	margin-inline: auto;
 	z-index: 1000;
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 	padding: 8px 14px;
+	white-space: nowrap;
 	border: 0;
 	border-radius: 999px;
 	background: rgba(255, 255, 255, 0.95);
@@ -88,7 +92,13 @@
 	cursor: pointer;
 }
 
+.nearest-hud-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .nearest-hud-arrow {
+	flex-shrink: 0;
 	display: inline-block;
 	width: 0;
 	height: 0;
