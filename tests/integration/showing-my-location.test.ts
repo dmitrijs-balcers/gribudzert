@@ -1,8 +1,3 @@
-/**
- * The locate button's look always matches the tracking state, and only an explicit press
- * ever produces a toast — the silent startup attempt never does.
- */
-
 import { waitFor } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
 import { USER } from '../fixtures';
@@ -75,5 +70,23 @@ describe('Showing my location', () => {
 		app.clickLocate();
 
 		await waitFor(() => expect(app.toasts()).toContain('Location information is unavailable.'));
+	});
+
+	it('ignores a fix with an invalid accuracy and keeps showing the next good one', async () => {
+		const app = await renderApp({ geolocation: { position: USER } });
+		await waitFor(() => expect(app.hud()).toContain('Nearest water'));
+		const before = app.hud();
+
+		app.geolocation.moveTo({ lat: USER.lat + 0.01, lon: USER.lon, accuracy: Number.NaN });
+		await app.settled();
+		expect(app.hud()).toBe(before);
+
+		app.geolocation.moveTo({ lat: USER.lat + 0.01, lon: USER.lon, accuracy: -1 });
+		await app.settled();
+		expect(app.hud()).toBe(before);
+
+		app.geolocation.moveTo({ lat: USER.lat + 0.01, lon: USER.lon, accuracy: 15 });
+		await waitFor(() => expect(app.hud()).not.toBe(before));
+		expect(app.userLocation()).toEqual({ markers: 1, circles: 1 });
 	});
 });

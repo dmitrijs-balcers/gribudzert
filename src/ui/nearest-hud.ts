@@ -42,14 +42,21 @@ export function createNearestHud(map: L.Map, onActivate: () => void): NearestHud
 	map.getContainer().appendChild(button);
 
 	const render = (view: NearestHudView): void => {
-		if (view.kind === 'hidden') {
-			button.hidden = true;
-			return;
+		switch (view.kind) {
+			case 'hidden':
+				button.hidden = true;
+				return;
+			case 'shown':
+				button.hidden = false;
+				icon.textContent = view.glyph;
+				text.textContent = `Nearest water · ${formatDistance(view.distance)} · ${view.label}`;
+				arrow.style.setProperty('--bearing', `${view.bearing}deg`);
+				return;
+			default: {
+				const exhaustive: never = view;
+				throw new Error(`Unhandled nearest HUD view: ${JSON.stringify(exhaustive)}`);
+			}
 		}
-		button.hidden = false;
-		icon.textContent = view.glyph;
-		text.textContent = `Nearest water · ${formatDistance(view.distance)} · ${view.label}`;
-		arrow.style.setProperty('--bearing', `${view.bearing}deg`);
 	};
 
 	return { render };

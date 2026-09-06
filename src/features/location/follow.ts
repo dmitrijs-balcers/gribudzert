@@ -14,10 +14,8 @@ export type FollowController = {
 };
 
 const ARROW_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
-const ARROW_KEY_CODES = new Set([37, 38, 39, 40]);
 
-const isArrowKey = (event: KeyboardEvent): boolean =>
-	ARROW_KEYS.has(event.key) || ARROW_KEY_CODES.has(event.keyCode);
+const isArrowKey = (event: KeyboardEvent): boolean => ARROW_KEYS.has(event.key);
 
 const isSamePlace = (a: LatLon, b: LatLon): boolean => a.lat === b.lat && a.lon === b.lon;
 

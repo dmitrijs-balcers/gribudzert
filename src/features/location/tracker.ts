@@ -1,5 +1,5 @@
 import { POSITION_STALE_AFTER_MS, QUICK_FIX_OPTIONS, WATCH_OPTIONS } from '../../core/config';
-import type { Timestamp, UserPosition } from '../../domain';
+import type { DurationMs, Timestamp, UserPosition } from '../../domain';
 import { timestampNow, toUserPosition } from '../../domain';
 import type { LocationError } from '../../types/errors';
 
@@ -32,7 +32,7 @@ export type TrackerDeps = {
 	readonly visibility: VisibilityDeps;
 	readonly quickFixOptions: PositionOptions;
 	readonly watchOptions: PositionOptions;
-	readonly staleAfterMs: number;
+	readonly staleAfterMs: DurationMs;
 };
 
 export type LocationTracker = {
@@ -136,13 +136,15 @@ export function createLocationTracker(deps: TrackerDeps = defaultTrackerDeps): L
 		}
 	};
 
-	const scheduleStaleTimer = (): void => {
+	const scheduleStaleTimer = (position: UserPosition): void => {
 		clearStaleTimer();
+		const age = Math.max(0, deps.now() - position.at);
+		const delay = Math.max(0, deps.staleAfterMs - age);
 		staleTimer = setTimeout(() => {
 			if (state.kind === 'tracking' && state.freshness === 'live') {
 				setState({ kind: 'tracking', position: state.position, freshness: 'stale' });
 			}
-		}, deps.staleAfterMs);
+		}, delay);
 	};
 
 	const clearWatch = (): void => {
@@ -155,12 +157,15 @@ export function createLocationTracker(deps: TrackerDeps = defaultTrackerDeps): L
 
 	const acceptFix = (raw: GeolocationPosition): void => {
 		const position = toUserPosition(raw);
+		if (position === null) {
+			return;
+		}
 		if (latestPosition !== null && position.at <= latestPosition.at) {
 			return;
 		}
 		latestPosition = position;
 		setState({ kind: 'tracking', position, freshness: 'live' });
-		scheduleStaleTimer();
+		scheduleStaleTimer(position);
 	};
 
 	const handleWatchError = (error: GeolocationPositionError): void => {
@@ -181,7 +186,6 @@ export function createLocationTracker(deps: TrackerDeps = defaultTrackerDeps): L
 	const ignoreQuickFixError = (): void => undefined;
 
 	const beginAcquisition = (): void => {
-		setState({ kind: 'acquiring', lastKnown: latestPosition });
 		deps.geolocation.getCurrentPosition(acceptFix, ignoreQuickFixError, deps.quickFixOptions);
 		watchId = deps.geolocation.watchPosition(acceptFix, handleWatchError, deps.watchOptions);
 	};
@@ -195,7 +199,11 @@ export function createLocationTracker(deps: TrackerDeps = defaultTrackerDeps): L
 			setState({ kind: 'failed', error: unavailable, lastKnown: latestPosition });
 			return;
 		}
+		setState({ kind: 'acquiring', lastKnown: latestPosition });
 		void deps.permissionState().then((permission) => {
+			if (state.kind !== 'acquiring') {
+				return;
+			}
 			if (permission === 'denied') {
 				setState({
 					kind: 'failed',

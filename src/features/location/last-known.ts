@@ -1,22 +1,24 @@
 import { LAST_POSITION_MAX_AGE_MS, LAST_POSITION_STORAGE_KEY } from '../../core/config';
 import type { Timestamp, UserPosition } from '../../domain';
-import { heading, meters, metersPerSecond, timestamp } from '../../domain';
+import { coordinates, heading, meters, metersPerSecond, timestamp } from '../../domain';
 
 type UnknownRecord = Readonly<Record<string, unknown>>;
 
 const isRecord = (value: unknown): value is UnknownRecord =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
 
-type ParsedNullableNumber = { readonly present: true; readonly value: number | null };
-
-const parseNullableNumber = (value: unknown): ParsedNullableNumber | null => {
+const nullableNumberField = <T>(
+	value: unknown,
+	construct: (raw: number) => T | null
+): { readonly value: T | null } | null => {
 	if (value === null) {
-		return { present: true, value: null };
+		return { value: null };
 	}
-	if (typeof value === 'number') {
-		return { present: true, value };
+	if (typeof value !== 'number') {
+		return null;
 	}
-	return null;
+	const constructed = construct(value);
+	return constructed === null ? null : { value: constructed };
 };
 
 const parseStoredPosition = (value: unknown): UserPosition | null => {
@@ -24,34 +26,35 @@ const parseStoredPosition = (value: unknown): UserPosition | null => {
 		return null;
 	}
 	const { lat, lon, accuracy, heading: rawHeading, speed: rawSpeed, at } = value;
-	if (typeof lat !== 'number' || typeof lon !== 'number' || typeof accuracy !== 'number') {
+	if (
+		typeof lat !== 'number' ||
+		typeof lon !== 'number' ||
+		typeof accuracy !== 'number' ||
+		typeof at !== 'number'
+	) {
 		return null;
 	}
+	const validCoordinates = coordinates(lat, lon);
 	const validAccuracy = meters(accuracy);
-	if (validAccuracy === null) {
-		return null;
-	}
-	const parsedHeading = parseNullableNumber(rawHeading);
-	const parsedSpeed = parseNullableNumber(rawSpeed);
-	const parsedAt = typeof at === 'number' ? timestamp(at) : null;
-	if (parsedHeading === null || parsedSpeed === null || parsedAt === null) {
-		return null;
-	}
-	const validHeading = parsedHeading.value === null ? null : heading(parsedHeading.value);
-	if (parsedHeading.value !== null && validHeading === null) {
-		return null;
-	}
-	const validSpeed = parsedSpeed.value === null ? null : metersPerSecond(parsedSpeed.value);
-	if (parsedSpeed.value !== null && validSpeed === null) {
+	const validAt = timestamp(at);
+	const parsedHeading = nullableNumberField(rawHeading, heading);
+	const parsedSpeed = nullableNumberField(rawSpeed, metersPerSecond);
+	if (
+		validCoordinates === null ||
+		validAccuracy === null ||
+		validAt === null ||
+		parsedHeading === null ||
+		parsedSpeed === null
+	) {
 		return null;
 	}
 	return {
-		lat,
-		lon,
+		lat: validCoordinates.lat,
+		lon: validCoordinates.lon,
 		accuracy: validAccuracy,
-		heading: validHeading,
-		speed: validSpeed,
-		at: parsedAt,
+		heading: parsedHeading.value,
+		speed: parsedSpeed.value,
+		at: validAt,
 	};
 };
 

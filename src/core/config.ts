@@ -1,4 +1,6 @@
 import type * as L from 'leaflet';
+import type { Meters, MetersPerSecond } from '../domain/geo';
+import { metersLiteral, metersPerSecondLiteral } from '../domain/geo';
 import type { DurationMs, SchemaVersion, Zoom } from '../domain/units';
 import { durationMsLiteral, schemaVersionLiteral, zoomLevel } from '../domain/units';
 
@@ -14,7 +16,7 @@ export const MIN_FETCH_ZOOM: Zoom = zoomLevel(12);
 
 export const FETCH_PADDING_FACTOR = 2;
 
-export const EMPTY_AREA_NOTIFICATION_COOLDOWN_MS = 30_000;
+export const EMPTY_AREA_NOTIFICATION_COOLDOWN_MS: DurationMs = durationMsLiteral(30_000);
 
 export const OSM_ATTRIBUTION =
 	'&copy; <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
@@ -28,7 +30,7 @@ export const USER_LOCATION_STYLE = {
 	minRadius: 10,
 } as const;
 
-export const LOCATE_ZOOM = 15;
+export const LOCATE_ZOOM: Zoom = zoomLevel(15);
 
 export const QUICK_FIX_OPTIONS: PositionOptions = {
 	enableHighAccuracy: false,
@@ -42,13 +44,13 @@ export const WATCH_OPTIONS: PositionOptions = {
 	timeout: 20_000,
 };
 
-export const POSITION_STALE_AFTER_MS = 30_000;
+export const POSITION_STALE_AFTER_MS: DurationMs = durationMsLiteral(30_000);
 
-export const RERANK_MIN_MOVE_M = 25;
+export const RERANK_MIN_MOVE_M: Meters = metersLiteral(25);
 
-export const ACCURACY_CIRCLE_MAX_M = 500;
+export const ACCURACY_CIRCLE_MAX_M: Meters = metersLiteral(500);
 
-export const MOVING_SPEED_THRESHOLD_MPS = 0.5;
+export const MOVING_SPEED_THRESHOLD_MPS: MetersPerSecond = metersPerSecondLiteral(0.5);
 
 export const LAST_POSITION_STORAGE_KEY = 'gribudzert.lastPosition';
 

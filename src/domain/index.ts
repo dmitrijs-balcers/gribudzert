@@ -21,11 +21,11 @@ export {
 	wheelchairAccessOf,
 } from './facility';
 export type {
-	Coordinates,
 	CompassPoint,
+	Coordinates,
 	Heading,
-	LatLon,
 	Latitude,
+	LatLon,
 	Longitude,
 	Meters,
 	MetersPerSecond,
@@ -40,14 +40,16 @@ export {
 	latitude,
 	longitude,
 	meters,
+	metersLiteral,
 	metersPerSecond,
+	metersPerSecondLiteral,
 } from './geo';
 export type { Located } from './located';
 export { findNearest, markNearest, nearestOf, withDistances } from './located';
-export type { UserPosition } from './position';
-export { isMoving, toUserPosition } from './position';
 export type { OsmTags } from './osm';
 export { facilityFromTags, isToiletTags, waterSourceTypeOf } from './osm';
+export type { UserPosition } from './position';
+export { isMoving, toUserPosition } from './position';
 export type { TileBounds, TileId } from './tile';
 export { boundsOfTiles, parseTileId, tileBounds, tileOf, tilesCovering } from './tile';
 export type { DurationMs, SchemaVersion, Timestamp, Zoom, ZoomLevelLiteral } from './units';

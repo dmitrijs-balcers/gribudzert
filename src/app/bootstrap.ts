@@ -32,16 +32,14 @@ import type {
 	UserLocationLayer,
 } from '../features/location';
 import {
-	clearBeeline,
 	createBeelineLayer,
 	createFollowController,
 	createLocationTracker,
 	createUserLocationLayer,
 	loadLastKnownPosition,
 	saveLastKnownPosition,
-	showBeeline,
-	showUserPosition,
 } from '../features/location';
+import type { FollowMode } from '../features/location/follow';
 import type { TrackingState } from '../features/location/tracker';
 import { setupMapNavigationHandlers } from '../features/navigation/navigation';
 import drinkingWater from '../oql/drinking_water.overpassql?raw';
@@ -55,7 +53,7 @@ import { showNotification } from '../ui/notifications';
 import * as logger from '../utils/logger';
 import type { App, ExploreDeps } from './explore';
 import { defaultExploreDeps, exploreViewport, rerankFromCache, viewportOf } from './explore';
-import type { FacilityLayers, LayerKind } from './layers';
+import type { FacilityLayer, FacilityLayers, LayerKind } from './layers';
 import {
 	activeLayerCount,
 	createFacilityLayers,
@@ -65,10 +63,9 @@ import {
 } from './layers';
 import {
 	INITIALIZATION_FAILED_MESSAGE,
-	locationErrorMessage,
 	LOCATION_FALLBACK_MESSAGE,
+	locationErrorMessage,
 } from './messages';
-import type { FollowMode } from '../features/location/follow';
 import {
 	createSession,
 	initialState,
@@ -127,10 +124,10 @@ type ExploreSafelyOptions = {
 };
 
 const exploreSafely = (app: App, map: L.Map, options: ExploreSafelyOptions = {}): void => {
-	const deps: ExploreDeps =
-		options.reportNearest === undefined
-			? defaultExploreDeps
-			: { ...defaultExploreDeps, reportNearest: options.reportNearest };
+	const deps: ExploreDeps = {
+		...defaultExploreDeps,
+		reportNearest: options.reportNearest ?? defaultExploreDeps.reportNearest,
+	};
 	exploreViewport(app, viewportOf(map, options.bounds), deps, options.kinds).catch(
 		(error: unknown) => {
 			logger.error('Failed to refresh facilities:', error instanceof Error ? error.message : error);
@@ -143,19 +140,16 @@ const toLocatedWater = (item: Located<Facility>): Located<WaterFacility> | null 
 		? { facility: item.facility, distance: item.distance, isNearest: item.isNearest }
 		: null;
 
-const findMarkerAt = (group: L.FeatureGroup<L.Marker>, coordinates: LatLon): L.Marker | null => {
-	let found: L.Marker | null = null;
-	group.eachLayer((layer) => {
-		if (found !== null || !(layer instanceof L.Marker)) {
-			return;
-		}
-		const latLng = layer.getLatLng();
-		if (latLng.lat === coordinates.lat && latLng.lng === coordinates.lon) {
-			found = layer;
-		}
-	});
-	return found;
+const isMarkerAt = (layer: L.Layer, coordinates: LatLon): layer is L.Marker => {
+	if (!(layer instanceof L.Marker)) {
+		return false;
+	}
+	const latLng = layer.getLatLng();
+	return latLng.lat === coordinates.lat && latLng.lng === coordinates.lon;
 };
+
+const findMarkerAt = (group: L.FeatureGroup<L.Marker>, coordinates: LatLon): L.Marker | null =>
+	group.getLayers().find((layer): layer is L.Marker => isMarkerAt(layer, coordinates)) ?? null;
 
 const flyToNearestWaterAndOpenPopup = (app: App, map: L.Map): void => {
 	const nearest = app.session.get().nearestWater;
@@ -186,16 +180,27 @@ const locateButtonViewOf = (state: TrackingState, follow: FollowMode): LocateBut
 	}
 };
 
-const reportPressOutcome = (tracker: LocationTracker): void => {
+const onceSettled = (
+	tracker: LocationTracker,
+	onSettled: (state: Extract<TrackingState, { kind: 'tracking' | 'failed' }>) => void
+): void => {
 	const stop = tracker.subscribe((state) => {
-		if (state.kind === 'tracking') {
-			stop();
-			trackLocateSuccess();
-		} else if (state.kind === 'failed') {
-			stop();
-			trackLocateFailed(toLocationFailureCategory(state.error));
-			showNotification(locationErrorMessage(state.error), 'error', 5000);
+		if (state.kind !== 'tracking' && state.kind !== 'failed') {
+			return;
 		}
+		stop();
+		onSettled(state);
+	});
+};
+
+const reportPressOutcome = (tracker: LocationTracker): void => {
+	onceSettled(tracker, (state) => {
+		if (state.kind === 'tracking') {
+			trackLocateSuccess();
+			return;
+		}
+		trackLocateFailed(toLocationFailureCategory(state.error));
+		showNotification(locationErrorMessage(state.error), 'error', 5000);
 	});
 };
 
@@ -237,7 +242,7 @@ const wireLocation = (app: App, map: L.Map, remembered: UserPosition | null): Lo
 	const userLayer: UserLocationLayer = createUserLocationLayer(map);
 	const beelineLayer: BeelineLayer = createBeelineLayer(map);
 	if (remembered !== null) {
-		showUserPosition(userLayer, remembered, 'stale');
+		userLayer.show(remembered, 'stale');
 	}
 
 	const tracker = createLocationTracker();
@@ -250,7 +255,7 @@ const wireLocation = (app: App, map: L.Map, remembered: UserPosition | null): Lo
 		const nearest = app.session.get().nearestWater;
 		if (nearest === null || !app.layers.water.active) {
 			hud.render({ kind: 'hidden' });
-			clearBeeline(beelineLayer);
+			beelineLayer.clear();
 			return;
 		}
 		const to = nearest.facility.coordinates;
@@ -262,7 +267,7 @@ const wireLocation = (app: App, map: L.Map, remembered: UserPosition | null): Lo
 			glyph: NEAREST_WATER_GLYPH,
 			label: compassPointOf(bearing),
 		});
-		showBeeline(beelineLayer, position, to);
+		beelineLayer.show(position, to);
 	};
 
 	const reportNearest = (kind: LayerKind, nearest: Located<Facility> | null): void => {
@@ -283,6 +288,13 @@ const wireLocation = (app: App, map: L.Map, remembered: UserPosition | null): Lo
 	const rerank = (): void =>
 		rerankFromCache(app, viewportOf(map), { ...defaultExploreDeps, reportNearest });
 
+	const rerankIfMoved = (position: UserPosition): void => {
+		if (needsReranking(app.session.get(), position)) {
+			app.session.update((current) => withRankedFrom(current, position));
+			rerank();
+		}
+	};
+
 	const renderLocateButton = (): void => {
 		locateControl.render(locateButtonViewOf(tracker.state(), followController.mode()));
 	};
@@ -298,45 +310,38 @@ const wireLocation = (app: App, map: L.Map, remembered: UserPosition | null): Lo
 	locateControl.control.addTo(map);
 	followController.follow('setView');
 
-	let startupSettled = remembered !== null;
-	if (startupSettled) {
+	if (remembered !== null) {
 		trackMapLoaded('user');
-	}
-
-	tracker.subscribe((state) => {
-		renderLocateButton();
-
-		if (!startupSettled && (state.kind === 'tracking' || state.kind === 'failed')) {
-			startupSettled = true;
+	} else {
+		onceSettled(tracker, (state) => {
 			trackMapLoaded(state.kind === 'tracking' ? 'user' : 'default');
 			if (state.kind === 'failed') {
 				showNotification(LOCATION_FALLBACK_MESSAGE, 'info', 5000);
 			}
-		}
+		});
+	}
+
+	tracker.subscribe((state) => {
+		renderLocateButton();
 
 		if (state.kind !== 'tracking') {
 			return;
 		}
 
 		const position = state.position;
-		showUserPosition(userLayer, position, state.freshness);
+		userLayer.show(position, state.freshness);
 		saveLastKnownPosition(localStorage, position);
 		app.session.update((current) => withPosition(current, position));
 		refreshHudAndBeeline(position);
-
-		if (needsReranking(app.session.get(), position)) {
-			app.session.update((current) => withRankedFrom(current, position));
-			rerank();
-		}
+		rerankIfMoved(position);
 	});
 
 	map.on('popupopen', () => app.session.update((state) => withPopupOpen(state, true)));
 	map.on('popupclose', () => {
 		app.session.update((state) => withPopupOpen(state, false));
 		const position = app.session.get().userLocation;
-		if (position !== null && needsReranking(app.session.get(), position)) {
-			app.session.update((current) => withRankedFrom(current, position));
-			rerank();
+		if (position !== null) {
+			rerankIfMoved(position);
 		}
 	});
 
@@ -347,9 +352,22 @@ const wireLocation = (app: App, map: L.Map, remembered: UserPosition | null): Lo
 		onWaterLayerDisabled: () => {
 			app.session.update((state) => withNearestWater(state, null));
 			hud.render({ kind: 'hidden' });
-			clearBeeline(beelineLayer);
+			beelineLayer.clear();
 		},
 	};
+};
+
+type LayerControlTarget = {
+	readonly kind: LayerKind;
+	readonly layer: FacilityLayer;
+};
+
+const layerFor = (app: App, event: L.LayersControlEvent): LayerControlTarget | null => {
+	const kind = layerKindOf(event.name);
+	if (kind === null) {
+		return null;
+	}
+	return { kind, layer: app.layers[kind] };
 };
 
 const handleLayerEnabledFromControl = (
@@ -358,14 +376,13 @@ const handleLayerEnabledFromControl = (
 	event: L.LayersControlEvent,
 	location: LocationHandle
 ): void => {
-	const kind = layerKindOf(event.name);
-	if (kind === null) {
+	const target = layerFor(app, event);
+	if (target === null) {
 		return;
 	}
-	const layer = app.layers[kind];
-	enableLayer(layer, map);
-	trackLayerEnabled(layer.label, activeLayerCount(app.layers));
-	location.runExplore({ kinds: [kind] });
+	enableLayer(target.layer, map);
+	trackLayerEnabled(target.layer.label, activeLayerCount(app.layers));
+	location.runExplore({ kinds: [target.kind] });
 };
 
 const handleLayerDisabledFromControl = (
@@ -374,14 +391,13 @@ const handleLayerDisabledFromControl = (
 	event: L.LayersControlEvent,
 	location: LocationHandle
 ): void => {
-	const kind = layerKindOf(event.name);
-	if (kind === null) {
+	const target = layerFor(app, event);
+	if (target === null) {
 		return;
 	}
-	const layer = app.layers[kind];
-	disableLayer(layer, map);
-	trackLayerDisabled(layer.label, activeLayerCount(app.layers));
-	if (kind === 'water') {
+	disableLayer(target.layer, map);
+	trackLayerDisabled(target.layer.label, activeLayerCount(app.layers));
+	if (target.kind === 'water') {
 		location.onWaterLayerDisabled();
 	}
 };

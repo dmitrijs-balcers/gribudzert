@@ -6,9 +6,8 @@ import { isMoving } from '../../domain';
 export type UserLocationFreshness = 'live' | 'stale';
 
 export type UserLocationLayer = {
-	readonly group: L.LayerGroup;
-	marker: L.Marker | null;
-	circle: L.Circle | null;
+	readonly show: (position: UserPosition, freshness: UserLocationFreshness) => void;
+	readonly hide: () => void;
 };
 
 const USER_MARKER_HTML =
@@ -32,12 +31,6 @@ const popupTextOf = (position: UserPosition): string => {
 	return isMoving(position) ? `${base} · ${speedKmh(position).toFixed(1)} km/h` : base;
 };
 
-export const createUserLocationLayer = (map: L.Map): UserLocationLayer => {
-	const group = L.layerGroup();
-	group.addTo(map);
-	return { group, marker: null, circle: null };
-};
-
 const applyMarkerAttributes = (
 	element: HTMLElement,
 	freshness: UserLocationFreshness,
@@ -52,67 +45,71 @@ const applyMarkerAttributes = (
 	}
 };
 
-const ensureMarker = (layer: UserLocationLayer, latLng: L.LatLngTuple): L.Marker => {
-	if (layer.marker !== null) {
-		layer.marker.setLatLng(latLng);
-		return layer.marker;
-	}
-	const marker = L.marker(latLng, { icon: createUserIcon() });
-	marker.addTo(layer.group);
-	layer.marker = marker;
-	return marker;
-};
+export const createUserLocationLayer = (map: L.Map): UserLocationLayer => {
+	const group = L.layerGroup();
+	group.addTo(map);
+	let marker: L.Marker | null = null;
+	let circle: L.Circle | null = null;
 
-const ensureCircle = (layer: UserLocationLayer, latLng: L.LatLngTuple, radius: number): void => {
-	if (layer.circle !== null) {
-		layer.circle.setLatLng(latLng);
-		layer.circle.setRadius(radius);
-		return;
-	}
-	const circle = L.circle(latLng, {
-		radius,
-		color: USER_LOCATION_STYLE.color,
-		fillColor: USER_LOCATION_STYLE.fillColor,
-		fillOpacity: USER_LOCATION_STYLE.fillOpacity,
-	});
-	circle.addTo(layer.group);
-	layer.circle = circle;
-};
+	const ensureMarker = (latLng: L.LatLngTuple): L.Marker => {
+		if (marker !== null) {
+			marker.setLatLng(latLng);
+			return marker;
+		}
+		const created = L.marker(latLng, { icon: createUserIcon() });
+		created.addTo(group);
+		marker = created;
+		return created;
+	};
 
-const removeCircle = (layer: UserLocationLayer): void => {
-	if (layer.circle !== null) {
-		layer.group.removeLayer(layer.circle);
-		layer.circle = null;
-	}
-};
+	const ensureCircle = (latLng: L.LatLngTuple, radius: number): void => {
+		if (circle !== null) {
+			circle.setLatLng(latLng);
+			circle.setRadius(radius);
+			return;
+		}
+		const created = L.circle(latLng, {
+			radius,
+			color: USER_LOCATION_STYLE.color,
+			fillColor: USER_LOCATION_STYLE.fillColor,
+			fillOpacity: USER_LOCATION_STYLE.fillOpacity,
+		});
+		created.addTo(group);
+		circle = created;
+	};
 
-export const showUserPosition = (
-	layer: UserLocationLayer,
-	position: UserPosition,
-	freshness: UserLocationFreshness
-): void => {
-	const latLng: L.LatLngTuple = [position.lat, position.lon];
-	const marker = ensureMarker(layer, latLng);
-	const popup = marker.getPopup();
-	if (popup === undefined) {
-		marker.bindPopup(popupTextOf(position));
-	} else {
-		popup.setContent(popupTextOf(position));
-	}
-	const element = marker.getElement();
-	if (element !== undefined) {
-		applyMarkerAttributes(element, freshness, position);
-	}
+	const removeCircle = (): void => {
+		if (circle !== null) {
+			group.removeLayer(circle);
+			circle = null;
+		}
+	};
 
-	if (position.accuracy > ACCURACY_CIRCLE_MAX_M) {
-		removeCircle(layer);
-		return;
-	}
-	ensureCircle(layer, latLng, position.accuracy);
-};
+	return {
+		show: (position, freshness) => {
+			const latLng: L.LatLngTuple = [position.lat, position.lon];
+			const activeMarker = ensureMarker(latLng);
+			const popup = activeMarker.getPopup();
+			if (popup === undefined) {
+				activeMarker.bindPopup(popupTextOf(position));
+			} else {
+				popup.setContent(popupTextOf(position));
+			}
+			const element = activeMarker.getElement();
+			if (element !== undefined) {
+				applyMarkerAttributes(element, freshness, position);
+			}
 
-export const hideUserPosition = (layer: UserLocationLayer): void => {
-	layer.group.clearLayers();
-	layer.marker = null;
-	layer.circle = null;
+			if (position.accuracy > ACCURACY_CIRCLE_MAX_M) {
+				removeCircle();
+				return;
+			}
+			ensureCircle(latLng, position.accuracy);
+		},
+		hide: () => {
+			group.clearLayers();
+			marker = null;
+			circle = null;
+		},
+	};
 };

@@ -1,12 +1,12 @@
 import { MOVING_SPEED_THRESHOLD_MPS } from '../core/config';
-import type { Heading, Meters, MetersPerSecond } from './geo';
-import { heading, meters, metersPerSecond } from './geo';
+import type { Heading, Latitude, Longitude, Meters, MetersPerSecond } from './geo';
+import { coordinates, heading, meters, metersPerSecond } from './geo';
 import type { Timestamp } from './units';
 import { timestamp, timestampNow } from './units';
 
 export type UserPosition = {
-	readonly lat: number;
-	readonly lon: number;
+	readonly lat: Latitude;
+	readonly lon: Longitude;
 	readonly accuracy: Meters;
 	readonly heading: Heading | null;
 	readonly speed: MetersPerSecond | null;
@@ -15,14 +15,6 @@ export type UserPosition = {
 
 export const isMoving = (position: UserPosition): boolean =>
 	position.speed !== null && position.speed >= MOVING_SPEED_THRESHOLD_MPS;
-
-const accuracyOf = (raw: GeolocationPosition): Meters => {
-	const value = meters(raw.coords.accuracy);
-	if (value === null) {
-		throw new Error(`GeolocationPosition reported an invalid accuracy: ${raw.coords.accuracy}`);
-	}
-	return value;
-};
 
 const timestampOf = (raw: GeolocationPosition): Timestamp =>
 	timestamp(raw.timestamp) ?? timestampNow();
@@ -40,12 +32,17 @@ const headingOf = (raw: GeolocationPosition, speed: MetersPerSecond | null): Hea
 	return rawHeading === null ? null : heading(rawHeading);
 };
 
-export const toUserPosition = (raw: GeolocationPosition): UserPosition => {
+export const toUserPosition = (raw: GeolocationPosition): UserPosition | null => {
+	const validCoordinates = coordinates(raw.coords.latitude, raw.coords.longitude);
+	const validAccuracy = meters(raw.coords.accuracy);
+	if (validCoordinates === null || validAccuracy === null) {
+		return null;
+	}
 	const speed = speedOf(raw);
 	return {
-		lat: raw.coords.latitude,
-		lon: raw.coords.longitude,
-		accuracy: accuracyOf(raw),
+		lat: validCoordinates.lat,
+		lon: validCoordinates.lon,
+		accuracy: validAccuracy,
 		heading: headingOf(raw, speed),
 		speed,
 		at: timestampOf(raw),

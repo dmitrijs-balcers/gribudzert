@@ -438,6 +438,15 @@ const PAN_KEY_CODES: Readonly<Record<PanDirection, number>> = {
 	down: 40,
 };
 
+const PAN_KEYS: Readonly<
+	Record<PanDirection, 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'>
+> = {
+	left: 'ArrowLeft',
+	up: 'ArrowUp',
+	right: 'ArrowRight',
+	down: 'ArrowDown',
+};
+
 export type AppHandle = {
 	readonly container: HTMLElement;
 	readonly overpass: OverpassFake;
@@ -572,7 +581,11 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 
 	const dispatchArrowKey = (direction: PanDirection, far: boolean): void => {
 		container.focus();
-		const event = new KeyboardEvent('keydown', { bubbles: true, shiftKey: far });
+		const event = new KeyboardEvent('keydown', {
+			bubbles: true,
+			shiftKey: far,
+			key: PAN_KEYS[direction],
+		});
 		Object.defineProperty(event, 'keyCode', { value: PAN_KEY_CODES[direction] });
 		document.dispatchEvent(event);
 	};

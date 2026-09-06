@@ -34,14 +34,13 @@ import {
 	OFFLINE_SHOWING_SAVED_MESSAGE,
 	ZOOMED_OUT_MESSAGE,
 } from './messages';
-import type { Session } from './session';
+import type { Origin, Session } from './session';
 import {
 	canNotifyEmptyArea,
 	resolveOrigin,
 	withEmptyAreaNotified,
 	withZoomedOutNotice,
 } from './session';
-import type { Origin } from './session';
 
 export type App = {
 	readonly layers: FacilityLayers;
