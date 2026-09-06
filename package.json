@@ -12,6 +12,7 @@
     "@testing-library/dom": "^10.4.0",
     "@types/leaflet": "^1.9.20",
     "@vitest/ui": "^2.1.8",
+    "fake-indexeddb": "6",
     "happy-dom": "^20.14.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.9",

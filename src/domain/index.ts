@@ -1,8 +1,3 @@
-/**
- * Domain layer public API
- * Import from here rather than from the individual modules.
- */
-
 export type {
 	Facility,
 	FacilityId,
@@ -22,6 +17,7 @@ export {
 	isWaterFacility,
 	isWheelchairAccessible,
 	osmUrl,
+	parseFacility,
 	wheelchairAccessOf,
 } from './facility';
 export type { Coordinates, LatLon, Latitude, Longitude, Meters } from './geo';
@@ -30,3 +26,17 @@ export type { Located } from './located';
 export { findNearest, markNearest, nearestOf, withDistances } from './located';
 export type { OsmTags } from './osm';
 export { facilityFromTags, isToiletTags, waterSourceTypeOf } from './osm';
+export type { TileBounds, TileId } from './tile';
+export { boundsOfTiles, parseTileId, tileBounds, tileOf, tilesCovering } from './tile';
+export type { DurationMs, SchemaVersion, Timestamp, Zoom, ZoomLevelLiteral } from './units';
+export {
+	durationMs,
+	durationMsLiteral,
+	entriesOf,
+	keysOf,
+	schemaVersionLiteral,
+	timestamp,
+	timestampNow,
+	zoom,
+	zoomLevel,
+} from './units';

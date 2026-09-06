@@ -1,8 +1,3 @@
-/**
- * The Overpass API is down or slow: the visitor sees an error and the loading overlay
- * never gets stuck on screen.
- */
-
 import { waitFor } from '@testing-library/dom';
 import { describe, expect, it, vi } from 'vitest';
 import { WATER_ELEMENTS, WATER_MARKER_COUNT } from '../fixtures';
@@ -13,6 +8,7 @@ const NETWORK_ERROR =
 	'Failed to load water points. Please check your internet connection and try again.';
 const TIMEOUT_ERROR = 'Request timed out while loading water points. Please try again.';
 const BUSY_ERROR = 'The map data service is busy right now. Please wait a moment and try again.';
+const OFFLINE_SHOWING_SAVED = "Couldn't refresh map data. Showing saved points.";
 
 const failAfter = (ms: number): Promise<OverpassReply> =>
 	new Promise((resolve) => setTimeout(() => resolve(new Error('connection reset')), ms));
@@ -44,7 +40,7 @@ describe('When Overpass fails', () => {
 		const app = await renderApp({
 			overpass: () => {
 				attempts += 1;
-				return attempts === 1 ? { status: 429, retryAfter: 2 } : WATER_ELEMENTS;
+				return attempts === 1 ? { status: 429, retryAfterSeconds: 2 } : WATER_ELEMENTS;
 			},
 			settle: false,
 		});
@@ -60,7 +56,7 @@ describe('When Overpass fails', () => {
 	it('reports the busy message, not an internet-connection message, when the retry is also busy', async () => {
 		vi.useFakeTimers({ shouldAdvanceTime: true });
 		const app = await renderApp({
-			overpass: () => ({ status: 429, retryAfter: 1 }),
+			overpass: () => ({ status: 429, retryAfterSeconds: 1 }),
 			settle: false,
 		});
 
@@ -79,7 +75,7 @@ describe('When Overpass fails', () => {
 		await waitFor(() => expect(app.loadingVisible()).toBe(false));
 	});
 
-	it('announces a failed request once even when it served both layers', async () => {
+	it('replaces the per-layer error with a single "showing saved points" message when the failed area is partly covered by the offline cache', async () => {
 		const app = await renderApp();
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		app.toggleLayer('Public Toilets');
@@ -87,15 +83,16 @@ describe('When Overpass fails', () => {
 		await app.settled();
 		app.overpass.respondWith(() => ({ status: 500 }));
 
-		// Two pans push the viewport past the padded area and trigger one shared request.
+		const PAN_ANIMATION_SETTLE_MS = 400;
 		app.pan('right');
-		await new Promise((resolve) => setTimeout(resolve, 400));
+		await new Promise((resolve) => setTimeout(resolve, PAN_ANIMATION_SETTLE_MS));
 		app.pan('right');
 
 		await waitFor(() => expect(app.overpass.requests).toHaveLength(3));
 		expect(app.overpass.lastRequest().query).toContain('amenity"="toilets');
-		await waitFor(() => expect(app.toasts()).toContain(NETWORK_ERROR));
+		await waitFor(() => expect(app.toasts()).toContain(OFFLINE_SHOWING_SAVED));
 		await waitFor(() => expect(app.loadingVisible()).toBe(false));
-		expect(app.toasts().filter((toast) => toast.startsWith('Failed to load'))).toHaveLength(1);
+		expect(app.toasts().filter((toast) => toast === OFFLINE_SHOWING_SAVED)).toHaveLength(1);
+		expect(app.toasts()).not.toContain(NETWORK_ERROR);
 	});
 });

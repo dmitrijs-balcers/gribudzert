@@ -1,13 +1,8 @@
-/**
- * Application bootstrap
- * Creates the map, wires controls and events to the application layer, and kicks off
- * the first exploration. This is the only module that talks to every other layer.
- */
-
 import * as L from 'leaflet';
 import { trackLayerDisabled, trackLayerEnabled, trackMapLoaded } from '../analytics';
 import { DEFAULT_ZOOM, MAX_ZOOM, OSM_ATTRIBUTION, OSM_TILE_URL, RIGA_CENTER } from '../core/config';
 import type { LatLon } from '../domain';
+import { createFacilityCache, defaultSnapshotStore } from '../features/cache';
 import type { UserPosition } from '../features/location/geolocation';
 import {
 	createUserLocationLayer,
@@ -38,14 +33,24 @@ import {
 import { INITIALIZATION_FAILED_MESSAGE, LOCATION_FALLBACK_MESSAGE } from './messages';
 import { createSession, initialState, withUserLocation } from './session';
 
-/**
- * DOM id of the map container
- */
 export const MAP_CONTAINER_ID = 'map';
 
-/**
- * Detect the viewer's position before the map exists, so the map can open on it
- */
+const CACHE_WARMUP_TIMEOUT_MS = 2000;
+
+const awaitCacheReadyOrTimeout = async (ready: Promise<void>): Promise<void> => {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timedOut = new Promise<'timeout'>((resolve) => {
+		timer = setTimeout(() => resolve('timeout'), CACHE_WARMUP_TIMEOUT_MS);
+	});
+	const outcome = await Promise.race([ready.then((): 'ready' => 'ready'), timedOut]);
+	clearTimeout(timer);
+	if (outcome === 'timeout') {
+		logger.warn(
+			`Facility cache load timed out after ${CACHE_WARMUP_TIMEOUT_MS}ms; continuing without it`
+		);
+	}
+};
+
 const detectStartPosition = async (): Promise<UserPosition | null> => {
 	const detected = await withLoading(detectInitialLocation);
 	if (isOk(detected)) {
@@ -58,9 +63,6 @@ const detectStartPosition = async (): Promise<UserPosition | null> => {
 	return null;
 };
 
-/**
- * Create the map with its base tiles and scale control
- */
 const createMap = (center: L.LatLngTuple): L.Map => {
 	const map = L.map(MAP_CONTAINER_ID, { center, zoom: DEFAULT_ZOOM, zoomControl: true });
 	L.tileLayer(OSM_TILE_URL, { maxZoom: MAX_ZOOM, attribution: OSM_ATTRIBUTION }).addTo(map);
@@ -68,9 +70,6 @@ const createMap = (center: L.LatLngTuple): L.Map => {
 	return map;
 };
 
-/**
- * Add the layer control listing every facility layer under its label
- */
 const addLayerControl = (map: L.Map, layers: FacilityLayers): void => {
 	L.control
 		.layers(
@@ -84,14 +83,12 @@ const addLayerControl = (map: L.Map, layers: FacilityLayers): void => {
 		.addTo(map);
 };
 
-/**
- * Explore the current viewport, never letting a rejection escape into the event loop
- */
-const exploreSafely = (
-	app: App,
-	map: L.Map,
-	options: { readonly bounds?: L.LatLngBounds; readonly kinds?: readonly LayerKind[] } = {}
-): void => {
+type ExploreSafelyOptions = {
+	readonly bounds?: L.LatLngBounds;
+	readonly kinds?: readonly LayerKind[];
+};
+
+const exploreSafely = (app: App, map: L.Map, options: ExploreSafelyOptions = {}): void => {
 	exploreViewport(app, viewportOf(map, options.bounds), undefined, options.kinds).catch(
 		(error: unknown) => {
 			logger.error('Failed to refresh facilities:', error instanceof Error ? error.message : error);
@@ -99,36 +96,41 @@ const exploreSafely = (
 	);
 };
 
-/**
- * Keep the layer aggregates in sync with the layer control
- */
-const wireLayerControl = (app: App, map: L.Map): void => {
-	map.on('overlayadd', (event: L.LayersControlEvent) => {
-		const kind = layerKindOf(event.name);
-		if (kind === null) {
-			return;
-		}
-		const layer = app.layers[kind];
-		enableLayer(layer, map);
-		trackLayerEnabled(layer.label, activeLayerCount(app.layers));
-		exploreSafely(app, map, { kinds: [kind] });
-	});
-
-	map.on('overlayremove', (event: L.LayersControlEvent) => {
-		const kind = layerKindOf(event.name);
-		if (kind === null) {
-			return;
-		}
-		const layer = app.layers[kind];
-		disableLayer(layer, map);
-		trackLayerDisabled(layer.label, activeLayerCount(app.layers));
-	});
+const handleLayerEnabledFromControl = (app: App, map: L.Map, event: L.LayersControlEvent): void => {
+	const kind = layerKindOf(event.name);
+	if (kind === null) {
+		return;
+	}
+	const layer = app.layers[kind];
+	enableLayer(layer, map);
+	trackLayerEnabled(layer.label, activeLayerCount(app.layers));
+	exploreSafely(app, map, { kinds: [kind] });
 };
 
-/**
- * Build the map and wire everything together
- */
-const start = async (): Promise<void> => {
+const handleLayerDisabledFromControl = (
+	app: App,
+	map: L.Map,
+	event: L.LayersControlEvent
+): void => {
+	const kind = layerKindOf(event.name);
+	if (kind === null) {
+		return;
+	}
+	const layer = app.layers[kind];
+	disableLayer(layer, map);
+	trackLayerDisabled(layer.label, activeLayerCount(app.layers));
+};
+
+const wireLayerControl = (app: App, map: L.Map): void => {
+	map.on('overlayadd', (event: L.LayersControlEvent) =>
+		handleLayerEnabledFromControl(app, map, event)
+	);
+	map.on('overlayremove', (event: L.LayersControlEvent) =>
+		handleLayerDisabledFromControl(app, map, event)
+	);
+};
+
+const bootstrapOrThrow = async (): Promise<void> => {
 	const startPosition = await detectStartPosition();
 	trackMapLoaded(startPosition === null ? 'default' : 'user');
 
@@ -149,7 +151,9 @@ const start = async (): Promise<void> => {
 			toilet: overpassSelector(publicToilets),
 		}),
 		session: createSession(initialState(userLocation)),
+		cache: createFacilityCache(defaultSnapshotStore()),
 	};
+	await awaitCacheReadyOrTimeout(app.cache.ready);
 
 	enableLayer(app.layers.water, map);
 	addLayerControl(map, app.layers);
@@ -176,12 +180,9 @@ const start = async (): Promise<void> => {
 	logger.info('App initialization complete');
 };
 
-/**
- * Initialise the application. Never rejects: failures are reported to the user and logged.
- */
 export async function bootstrap(): Promise<void> {
 	try {
-		await start();
+		await bootstrapOrThrow();
 	} catch (error) {
 		resetLoading();
 		showNotification(INITIALIZATION_FAILED_MESSAGE, 'error', 0);

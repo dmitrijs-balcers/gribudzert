@@ -1,15 +1,10 @@
-/**
- * Viewport exploration
- * Refreshing the active facility layers for the visible area, with the zoom guard,
- * notifications and analytics that go with it.
- */
-
 import type * as L from 'leaflet';
 import { trackAreaExplored, trackEmptyArea } from '../analytics';
 import { FETCH_PADDING_FACTOR, MIN_FETCH_ZOOM } from '../core/config';
-import type { LatLon } from '../domain';
-import { formatDistance, nearestOf } from '../domain';
-import { padBounds } from '../features/navigation/bounds';
+import type { Facility, LatLon, TileId, Timestamp } from '../domain';
+import { boundsOfTiles, formatDistance, nearestOf, tilesCovering, timestampNow } from '../domain';
+import type { FacilityCache, Lookup } from '../features/cache';
+import { padBounds, toLatLngBounds, toTileBounds } from '../features/navigation/bounds';
 import { withLoading } from '../ui/loading';
 import type { NotificationType } from '../ui/notifications';
 import { showNotification } from '../ui/notifications';
@@ -17,19 +12,28 @@ import * as logger from '../utils/logger';
 import type {
 	FacilityLayer,
 	FacilityLayers,
+	FailureNotification,
 	LayerKind,
+	LayerRefresh,
 	RefreshDeps,
 	RefreshOutcome,
+	RefreshResult,
 } from './layers';
 import {
-	abortInflight,
+	abortSharedViewportRequest,
 	activeLayers,
 	clearLayerMarkers,
 	defaultRefreshDeps,
 	LAYER_KINDS,
 	refreshLayers,
+	renderCached,
 } from './layers';
-import { emptyAreaMessage, fetchErrorMessage, ZOOMED_OUT_MESSAGE } from './messages';
+import {
+	emptyAreaMessage,
+	fetchErrorMessage,
+	OFFLINE_SHOWING_SAVED_MESSAGE,
+	ZOOMED_OUT_MESSAGE,
+} from './messages';
 import type { Session } from './session';
 import {
 	canNotifyEmptyArea,
@@ -37,99 +41,75 @@ import {
 	withEmptyAreaNotified,
 	withZoomedOutNotice,
 } from './session';
+import type { Origin } from './session';
 
-/**
- * What exploration needs from the application
- */
 export type App = {
 	readonly layers: FacilityLayers;
 	readonly session: Session;
+	readonly cache: FacilityCache;
 };
 
-/**
- * Snapshot of the visible map area
- */
 export type Viewport = {
 	readonly bounds: L.LatLngBounds;
 	readonly zoom: number;
 	readonly center: LatLon;
 };
 
-/**
- * Snapshot the map's current view
- * @param map - Leaflet map
- * @param bounds - Bounds to use instead of `map.getBounds()` (e.g. from a moveend handler)
- */
-export const viewportOf = (map: L.Map, bounds?: L.LatLngBounds): Viewport => {
+export const viewportOf = (map: L.Map, boundsOverride?: L.LatLngBounds): Viewport => {
 	const center = map.getCenter();
 	return {
-		bounds: bounds ?? map.getBounds(),
+		bounds: boundsOverride ?? map.getBounds(),
 		zoom: map.getZoom(),
 		center: { lat: center.lat, lon: center.lng },
 	};
 };
 
-/**
- * Whether the map is zoomed in far enough for facility queries
- */
 export const canFetchAtZoom = (zoom: number): boolean => zoom >= MIN_FETCH_ZOOM;
 
-/**
- * Collaborators of `exploreViewport`, injectable for tests
- */
 export type ExploreDeps = {
 	readonly refresh: RefreshDeps;
 	readonly notify: (message: string, type: NotificationType, duration: number) => void;
-	readonly now: () => number;
+	readonly now: () => Timestamp;
 	readonly trackAreaExplored: () => void;
 	readonly trackEmptyArea: (kind: LayerKind) => void;
 };
 
-/**
- * Production collaborators
- */
 export const defaultExploreDeps: ExploreDeps = {
 	refresh: defaultRefreshDeps,
 	notify: showNotification,
-	now: () => Date.now(),
+	now: timestampNow,
 	trackAreaExplored,
 	trackEmptyArea,
 };
 
-/**
- * Apply the zoom guard: below MIN_FETCH_ZOOM every layer is emptied, the shared in-flight
- * request (if any) is cancelled, and the viewer is told to zoom in, once per zoomed-out
- * stretch.
- * @returns true when fetching may proceed
- */
+const showZoomedOutNoticeOnce = (app: App, deps: ExploreDeps): void => {
+	if (app.session.get().zoomedOutNoticeShown) {
+		return;
+	}
+	deps.notify(ZOOMED_OUT_MESSAGE, 'info', 5000);
+	app.session.update((state) => withZoomedOutNotice(state, true));
+};
+
 const passZoomGuard = (app: App, viewport: Viewport, deps: ExploreDeps): boolean => {
 	if (canFetchAtZoom(viewport.zoom)) {
 		app.session.update((state) => withZoomedOutNotice(state, false));
 		return true;
 	}
 
-	abortInflight(app.layers);
+	abortSharedViewportRequest(app.layers);
 	for (const kind of LAYER_KINDS) {
 		clearLayerMarkers(app.layers[kind]);
 	}
-	if (!app.session.get().zoomedOutNoticeShown) {
-		deps.notify(ZOOMED_OUT_MESSAGE, 'info', 5000);
-		app.session.update((state) => withZoomedOutNotice(state, true));
-	}
+	showZoomedOutNoticeOnce(app, deps);
 	return false;
 };
 
-/**
- * React to the outcome of one layer refresh
- * @param notifyFailure - Whether a failure should reach the viewer. Every layer in a refresh
- * shares one Overpass request, so one failure is announced once, not once per layer.
- */
 const handleOutcome = (
 	app: App,
 	layer: FacilityLayer,
 	outcome: RefreshOutcome,
 	deps: ExploreDeps,
-	notifyFailure: boolean
+	shouldNotifyFailure: boolean
 ): void => {
 	switch (outcome.kind) {
 		case 'loaded': {
@@ -156,7 +136,7 @@ const handleOutcome = (
 		case 'superseded':
 			return;
 		case 'failed': {
-			if (notifyFailure) {
+			if (shouldNotifyFailure) {
 				deps.notify(fetchErrorMessage(layer.kind, outcome.error), 'error', 5000);
 			}
 			logger.error(`Failed to fetch ${layer.kind} facilities:`, outcome.error);
@@ -169,15 +149,83 @@ const handleOutcome = (
 	}
 };
 
-/**
- * Refresh facility layers for the visible area. Every targeted layer is served by a single
- * Overpass request (see `refreshLayers`), so panning with both layers on never uses more
- * than one of Overpass's 2 concurrent request slots.
- * @param app - Layers and session
- * @param viewport - Visible area to explore
- * @param deps - Collaborators (default: production)
- * @param kinds - Layers to refresh; inactive ones are skipped (default: every active layer)
- */
+const shouldNotifyFailureFor = (notification: FailureNotification, kind: LayerKind): boolean => {
+	switch (notification.kind) {
+		case 'none':
+			return false;
+		case 'all':
+			return true;
+		case 'only':
+			return notification.layer === kind;
+		default: {
+			const exhaustive: never = notification;
+			throw new Error(`Unhandled failure notification: ${JSON.stringify(exhaustive)}`);
+		}
+	}
+};
+
+const reportOutcomes = (
+	app: App,
+	refreshes: readonly LayerRefresh[],
+	deps: ExploreDeps,
+	notification: FailureNotification
+): void => {
+	for (const refresh of refreshes) {
+		handleOutcome(
+			app,
+			app.layers[refresh.kind],
+			refresh.outcome,
+			deps,
+			shouldNotifyFailureFor(notification, refresh.kind)
+		);
+	}
+};
+
+const tilesCoveringPaddedViewport = (bounds: L.LatLngBounds): readonly TileId[] => {
+	const loadBounds = padBounds(bounds, FETCH_PADDING_FACTOR);
+	return tilesCovering(toTileBounds(loadBounds));
+};
+
+export type CachePreview =
+	| { readonly kind: 'nothing-known' }
+	| { readonly kind: 'rendered'; readonly outcomes: readonly LayerRefresh[] };
+
+const previewFromCache = (
+	app: App,
+	targets: readonly FacilityLayer[],
+	tiles: readonly TileId[],
+	targetKinds: readonly LayerKind[],
+	origin: Origin,
+	deps: ExploreDeps,
+	now: Timestamp
+): { readonly lookup: Lookup; readonly preview: CachePreview } => {
+	const lookup = app.cache.lookup(tiles, targetKinds, now);
+	const preview: CachePreview =
+		lookup.known.length > 0
+			? {
+					kind: 'rendered',
+					outcomes: renderCached(targets, lookup.facilities, origin, deps.refresh),
+				}
+			: { kind: 'nothing-known' };
+	return { lookup, preview };
+};
+
+const absorbFetchedAndRenderCacheUnion = (
+	app: App,
+	targets: readonly FacilityLayer[],
+	tiles: readonly TileId[],
+	targetKinds: readonly LayerKind[],
+	origin: Origin,
+	deps: ExploreDeps,
+	now: Timestamp,
+	fetchedTiles: readonly TileId[],
+	fetchedFacilities: readonly Facility[]
+): readonly LayerRefresh[] => {
+	app.cache.absorb(fetchedTiles, targetKinds, fetchedFacilities, now);
+	const updated = app.cache.lookup(tiles, targetKinds, now);
+	return renderCached(targets, updated.facilities, origin, deps.refresh);
+};
+
 export async function exploreViewport(
 	app: App,
 	viewport: Viewport,
@@ -190,16 +238,83 @@ export async function exploreViewport(
 
 	const origin = resolveOrigin(app.session.get(), viewport.center);
 	const targets = activeLayers(app.layers).filter((layer) => kinds.includes(layer.kind));
-	// Fetch a larger area than what's visible so panning and zooming within it can reuse
-	// this data instead of hitting Overpass's rate limit again.
-	const loadBounds = padBounds(viewport.bounds, FETCH_PADDING_FACTOR);
+	if (targets.length === 0) {
+		return;
+	}
+	const targetKinds = targets.map((layer) => layer.kind);
+	const tiles = tilesCoveringPaddedViewport(viewport.bounds);
+	const now = deps.now();
 
-	const results = await withLoading(() =>
-		refreshLayers(app.layers, targets, loadBounds, origin, deps.refresh)
-	);
+	const { lookup, preview } = previewFromCache(app, targets, tiles, targetKinds, origin, deps, now);
+	const renderedFromCache = preview.kind === 'rendered';
 
-	const firstFailed = results.find(({ outcome }) => outcome.kind === 'failed');
-	for (const result of results) {
-		handleOutcome(app, app.layers[result.kind], result.outcome, deps, result === firstFailed);
+	if (lookup.toFetch.length === 0) {
+		switch (preview.kind) {
+			case 'rendered':
+				reportOutcomes(app, preview.outcomes, deps, { kind: 'all' });
+				return;
+			case 'nothing-known':
+				return;
+			default: {
+				const exhaustive: never = preview;
+				throw new Error(`Unhandled cache preview: ${JSON.stringify(exhaustive)}`);
+			}
+		}
+	}
+
+	const fetchTileBounds = boundsOfTiles(lookup.toFetch);
+	if (fetchTileBounds === null) {
+		return;
+	}
+	const fetchBounds = toLatLngBounds(fetchTileBounds);
+
+	const fetchOutstandingTiles = (): Promise<RefreshResult> =>
+		refreshLayers(app.layers, targets, fetchBounds, origin, deps.refresh, { rendering: 'defer' });
+	const result = renderedFromCache
+		? await fetchOutstandingTiles()
+		: await withLoading(fetchOutstandingTiles);
+
+	switch (result.kind) {
+		case 'nothing-to-refresh':
+		case 'superseded':
+			return;
+		case 'fetched': {
+			const shown = absorbFetchedAndRenderCacheUnion(
+				app,
+				targets,
+				tiles,
+				targetKinds,
+				origin,
+				deps,
+				now,
+				lookup.toFetch,
+				result.facilities
+			);
+			reportOutcomes(app, shown, deps, { kind: 'none' });
+			return;
+		}
+		case 'failed': {
+			const failedRefreshes: readonly LayerRefresh[] = result.kinds.map((kind) => ({
+				kind,
+				outcome: { kind: 'failed', error: result.error },
+			}));
+			if (renderedFromCache) {
+				deps.notify(OFFLINE_SHOWING_SAVED_MESSAGE, 'info', 5000);
+				reportOutcomes(app, failedRefreshes, deps, { kind: 'none' });
+				return;
+			}
+			const [firstFailedKind] = result.kinds;
+			reportOutcomes(
+				app,
+				failedRefreshes,
+				deps,
+				firstFailedKind === undefined ? { kind: 'none' } : { kind: 'only', layer: firstFailedKind }
+			);
+			return;
+		}
+		default: {
+			const exhaustive: never = result;
+			throw new Error(`Unhandled refresh result: ${JSON.stringify(exhaustive)}`);
+		}
 	}
 }
