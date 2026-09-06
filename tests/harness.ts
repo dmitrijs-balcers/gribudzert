@@ -436,14 +436,8 @@ const observeToastHistory = (): readonly string[] => {
 	return history;
 };
 
-const facilityMarkerElements = (container: HTMLElement): readonly Element[] => [
-	...Array.from(
-		container.querySelectorAll(
-			`.leaflet-overlay-pane path.leaflet-interactive:not([stroke="${USER_ACCURACY_CIRCLE_STROKE_COLOR}"])`
-		)
-	),
-	...Array.from(container.querySelectorAll('.leaflet-marker-pane div.leaflet-marker-icon')),
-];
+const facilityMarkerElements = (container: HTMLElement): readonly Element[] =>
+	Array.from(container.querySelectorAll('.leaflet-marker-pane div.leaflet-marker-icon'));
 
 export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
 	blurFocusedElement();

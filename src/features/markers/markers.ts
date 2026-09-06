@@ -1,36 +1,34 @@
-/**
- * Marker creation and management
- */
-
-import type * as L from 'leaflet';
+import * as L from 'leaflet';
 import type { Facility, Located } from '../../domain';
 import { attachPopupHandlers, createPopupContent } from './popup';
-import { createGenericMarker, getMarkerStyle } from './styling';
+import { appearanceOf, createFacilityIcon, rootAttributesOf } from './styling';
 
-/**
- * CSS class applied to the marker flagged as nearest
- */
-export const NEAREST_MARKER_CLASS = 'nearest-marker';
+export type FacilityLayer = L.FeatureGroup<L.Marker>;
 
-/**
- * Layer type that can hold both circle markers and icon markers
- */
-export type FacilityLayer = L.FeatureGroup<L.CircleMarker | L.Marker>;
+const applyRootAttributes = (
+	marker: L.Marker,
+	attributes: Readonly<Record<string, string>>
+): void => {
+	marker.on('add', () => {
+		const element = marker.getElement();
+		if (element === undefined) {
+			return;
+		}
+		for (const [name, value] of Object.entries(attributes)) {
+			element.setAttribute(name, value);
+		}
+	});
+};
 
-/**
- * Create a styled marker for a located facility
- */
-export function createFacilityMarker(item: Located<Facility>): L.CircleMarker | L.Marker {
-	const style = getMarkerStyle(item.facility, { isNearest: item.isNearest });
-	const options = item.isNearest ? { className: NEAREST_MARKER_CLASS } : {};
-	return createGenericMarker(item.facility.coordinates, style, options);
+export function createFacilityMarker(item: Located<Facility>): L.Marker {
+	const appearance = appearanceOf(item.facility, { isNearest: item.isNearest });
+	const marker = L.marker([item.facility.coordinates.lat, item.facility.coordinates.lon], {
+		icon: createFacilityIcon(appearance),
+	});
+	applyRootAttributes(marker, rootAttributesOf(appearance));
+	return marker;
 }
 
-/**
- * Add markers for located facilities to a layer, binding popups and handlers
- * @param items - Facilities enriched with distance information
- * @param layer - Leaflet layer to add markers to
- */
 export function addMarkers(items: readonly Located<Facility>[], layer: FacilityLayer): void {
 	for (const item of items) {
 		const marker = createFacilityMarker(item);

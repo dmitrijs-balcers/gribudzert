@@ -15,7 +15,7 @@ export type LayerKind = FacilityKind;
 
 export const LAYER_KINDS: readonly LayerKind[] = ['water', 'toilet'];
 
-export type FacilityLayerGroup = L.FeatureGroup<L.CircleMarker | L.Marker>;
+export type FacilityLayerGroup = L.FeatureGroup<L.Marker>;
 
 export type FacilityLayer = {
 	readonly kind: LayerKind;

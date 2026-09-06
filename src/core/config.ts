@@ -21,29 +21,6 @@ export const OSM_ATTRIBUTION =
 
 export const OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
 
-export const COLOUR_MAP: Record<string, string> = {
-	teal: '#2A93EE',
-	blue: '#1E90FF',
-	red: '#E53935',
-	beige: '#D7C7A1',
-	default: '#0078ff',
-} as const;
-
-export const MARKER_RADIUS = {
-	default: 8,
-	bottle: 8,
-	wheelchair: 8,
-} as const;
-
-export const MARKER_STYLE = {
-	color: '#333',
-	weight: 1,
-	fillOpacity: {
-		normal: 0.75,
-		seasonal: 0.35,
-	},
-} as const;
-
 export const USER_LOCATION_STYLE = {
 	color: '#136AEC',
 	fillColor: '#2A93EE',

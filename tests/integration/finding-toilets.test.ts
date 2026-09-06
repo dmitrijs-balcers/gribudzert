@@ -52,8 +52,13 @@ describe('Finding public toilets', () => {
 		expect(app.overpass.lastRequest().query).toContain('amenity"="toilets');
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT + 1));
 
-		const iconMarkersFollowCircleMarkers = app.markers().length - 2;
-		app.openPopupOf(iconMarkersFollowCircleMarkers);
+		const newestMarkerIndex = app.markers().length - 1;
+		const toiletMarker = app.markers()[newestMarkerIndex] as HTMLElement;
+		expect(toiletMarker.textContent).toContain('🚻');
+		expect(toiletMarker.getAttribute('data-facility-kind')).toBe('toilet');
+		expect(toiletMarker.getAttribute('title')).toContain('Public Toilet');
+
+		app.openPopupOf(newestMarkerIndex);
 		await waitFor(() => expect(app.popupText()).toContain('Public Toilet'));
 		expect(app.popupText()).toContain('Wheelchair Accessible');
 		expect(
