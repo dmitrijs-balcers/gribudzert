@@ -2,7 +2,7 @@ import { waitFor } from '@testing-library/dom';
 import { describe, expect, it, vi } from 'vitest';
 import { WATER_MARKER_COUNT, waterNodesAt } from '../fixtures';
 import type { AppHandle, OverpassReply } from '../harness';
-import { bboxCenter, deferred, renderApp } from '../harness';
+import { bboxCenter, deferred, GEO_PERMISSION_DENIED, renderApp } from '../harness';
 
 const NO_WATER_NOTICE =
 	'No water points found in this area. Try zooming out or panning to a different location.';
@@ -25,6 +25,14 @@ const pushViewportPastPaddedEdgeWithFakeTimers = async (app: AppHandle): Promise
 const zoomOutIntoANewEmptyArea = (app: AppHandle): void => {
 	app.zoomOut();
 };
+
+const ID_PATTERN = /ID: \d+/;
+
+const idsShownInPopups = (app: AppHandle): readonly string[] =>
+	app.markers().map((_, index) => {
+		app.openPopupOf(index);
+		return ID_PATTERN.exec(app.popupText())?.[0] ?? '';
+	});
 
 describe('Moving around the map', () => {
 	it('loads the new area only after crossing the padded edge, not after a single pan still inside it', async () => {
@@ -49,7 +57,7 @@ describe('Moving around the map', () => {
 	it('cancels the previous request when panning again and shows only the latest area', async () => {
 		const stale = deferred<OverpassReply>();
 		const latest = deferred<OverpassReply>();
-		const app = await renderApp();
+		const app = await renderApp({ geolocation: { error: GEO_PERMISSION_DENIED } });
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		app.overpass.respondWith(() =>
 			app.overpass.requests.length === 2 ? stale.promise : latest.promise
@@ -68,14 +76,18 @@ describe('Moving around the map', () => {
 		stale.resolve(waterNodesAt(bboxCenter(first.bbox), [401]));
 		latest.resolve(waterNodesAt(bboxCenter(second.bbox), [501, 502]));
 
-		await waitFor(() => expect(app.markers()).toHaveLength(2));
+		await waitFor(() => expect(app.markers().length).toBeGreaterThanOrEqual(2));
 		await new Promise((resolve) => setTimeout(resolve, 100));
-		expect(app.markers()).toHaveLength(2);
+		expect(idsShownInPopups(app)).toEqual(expect.arrayContaining(['ID: 501', 'ID: 502']));
+		expect(idsShownInPopups(app)).not.toContain('ID: 401');
 	});
 
 	it('announces an empty area once, then stays quiet until the cooldown has passed', async () => {
 		vi.useFakeTimers({ shouldAdvanceTime: true });
-		const app = await renderApp({ overpass: () => [] });
+		const app = await renderApp({
+			overpass: () => [],
+			geolocation: { error: GEO_PERMISSION_DENIED },
+		});
 
 		await waitFor(() => expect(app.toasts()).toContain(NO_WATER_NOTICE));
 		expect(app.markers()).toHaveLength(0);

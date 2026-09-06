@@ -5,7 +5,7 @@ import { FACILITY_CACHE_TTL_MS } from '../../src/core/config';
 import { boundsOfTiles, tilesCovering } from '../../src/domain';
 import { NEAREST_TO_USER, NON_DRINKABLE, WATER_MARKER_COUNT, waterNodesAt } from '../fixtures';
 import type { AppHandle, Bbox, OverpassReply } from '../harness';
-import { bboxCenter, deferred, renderApp, seedSnapshot } from '../harness';
+import { bboxCenter, deferred, GEO_PERMISSION_DENIED, renderApp, seedSnapshot } from '../harness';
 
 const OFFLINE_SHOWING_SAVED = "Couldn't refresh map data. Showing saved points.";
 const NETWORK_ERROR =
@@ -54,10 +54,10 @@ describe('Coming back later', () => {
 	});
 
 	it('does not ask Overpass again for an area saved recently', async () => {
-		const first = await renderApp();
+		const first = await renderApp({ geolocation: { error: GEO_PERMISSION_DENIED } });
 		await waitFor(() => expect(first.markers()).toHaveLength(WATER_MARKER_COUNT));
 
-		const app = await renderApp({ reload: true });
+		const app = await renderApp({ reload: true, geolocation: { error: GEO_PERMISSION_DENIED } });
 		await new Promise((resolve) => setTimeout(resolve, 600));
 
 		expect(app.overpass.requests).toHaveLength(0);

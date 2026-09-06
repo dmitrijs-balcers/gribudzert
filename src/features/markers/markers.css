@@ -1,0 +1,90 @@
+.facility-marker {
+	background: transparent;
+	border: none;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.facility-marker-badge {
+	position: relative;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+	border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+.facility-marker--toilet .facility-marker-badge {
+	border-radius: 22%;
+}
+
+.facility-marker-glyph {
+	font-size: 17px;
+	line-height: 1;
+	user-select: none;
+	pointer-events: none;
+}
+
+.facility-marker-strike {
+	position: absolute;
+	top: 50%;
+	left: 10%;
+	width: 80%;
+	height: 3px;
+	background: #d32f2f;
+	transform: translateY(-50%) rotate(-45deg);
+	border-radius: 2px;
+	pointer-events: none;
+}
+
+.facility-marker-tail {
+	position: relative;
+	width: 0;
+	height: 0;
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	border-top: 7px solid rgba(255, 255, 255, 0.9);
+}
+
+.facility-marker-tail-fill {
+	position: absolute;
+	left: 50%;
+	top: -9px;
+	transform: translateX(-50%);
+	width: 0;
+	height: 0;
+	border-left: 3px solid transparent;
+	border-right: 3px solid transparent;
+	border-top: 5px solid;
+}
+
+.facility-marker-distance {
+	margin-top: 4px;
+	background: #ffffff;
+	color: #222222;
+	font-size: 11px;
+	line-height: 1.4;
+	padding: 1px 6px;
+	border-radius: 999px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.nearest-marker .facility-marker-badge {
+	box-shadow:
+		0 0 0 3px #ffd700,
+		0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.nearest-marker .facility-marker-tail {
+	border-top-color: #ffd700;
+}
+
+.seasonal-marker .facility-marker-badge {
+	opacity: 0.6;
+	outline: 2px dashed rgba(255, 255, 255, 0.9);
+	outline-offset: 2px;
+}

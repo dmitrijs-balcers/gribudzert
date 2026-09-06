@@ -10,7 +10,7 @@ import {
 	waterNodesAt,
 } from '../fixtures';
 import type { AppHandle } from '../harness';
-import { bboxCenter, renderApp } from '../harness';
+import { bboxCenter, GEO_PERMISSION_DENIED, renderApp } from '../harness';
 
 const toiletAt = (
 	center: { readonly lat: number; readonly lon: number },
@@ -56,6 +56,7 @@ describe('Finding public toilets', () => {
 		const toiletMarker = app.markers()[newestMarkerIndex] as HTMLElement;
 		expect(toiletMarker.textContent).toContain('🚻');
 		expect(toiletMarker.getAttribute('data-facility-kind')).toBe('toilet');
+		expect(toiletMarker.classList.contains('facility-marker--toilet')).toBe(true);
 		expect(toiletMarker.getAttribute('title')).toContain('Public Toilet');
 
 		app.openPopupOf(newestMarkerIndex);
@@ -95,13 +96,14 @@ describe('Finding public toilets', () => {
 	it('shows saved toilets right after a reload without asking Overpass', async () => {
 		const first = await renderApp({
 			overpass: (request) => (isToiletQuery(request.query) ? TOILET_ELEMENTS : WATER_ELEMENTS),
+			geolocation: { error: GEO_PERMISSION_DENIED },
 		});
 		await waitFor(() => expect(first.markers()).toHaveLength(WATER_MARKER_COUNT));
 
 		first.toggleLayer('Public Toilets');
 		await waitFor(() => expect(first.markers()).toHaveLength(WATER_MARKER_COUNT + 1));
 
-		const app = await renderApp({ reload: true });
+		const app = await renderApp({ reload: true, geolocation: { error: GEO_PERMISSION_DENIED } });
 		await waitFor(() => app.layerCheckbox('Public Toilets'));
 		app.toggleLayer('Public Toilets');
 		await new Promise((resolve) => setTimeout(resolve, 600));

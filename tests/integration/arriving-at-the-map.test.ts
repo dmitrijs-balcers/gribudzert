@@ -24,16 +24,27 @@ const nearestIndex = (markers: readonly Element[]): number =>
 	markers.findIndex((marker) => marker.classList.contains('nearest-marker'));
 
 describe('Arriving at the map', () => {
-	it('centres on the visitor and shows the water points around them', async () => {
-		const app = await renderApp({ geolocation: { position: USER } });
+	it('creates the map before the fix resolves, then recentres and ranks from the runner once it arrives', async () => {
+		const app = await renderApp({ geolocation: { pending: true } });
 
-		const center = bboxCenter(app.overpass.lastRequest().bbox);
-		const tolerance = maxCenterDriftFromTileRounding(USER);
-		expect(Math.abs(center.lat - USER.lat)).toBeLessThan(tolerance.lat);
-		expect(Math.abs(center.lon - USER.lon)).toBeLessThan(tolerance.lon);
+		expect(app.container.classList.contains('leaflet-container')).toBe(true);
+		const rigaCenter = bboxCenter(app.overpass.lastRequest().bbox);
+		const rigaTolerance = maxCenterDriftFromTileRounding(RIGA);
+		expect(Math.abs(rigaCenter.lat - RIGA.lat)).toBeLessThan(rigaTolerance.lat);
+		expect(Math.abs(rigaCenter.lon - RIGA.lon)).toBeLessThan(rigaTolerance.lon);
 
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
-		expect(app.userLocation()).toEqual({ markers: 1, circles: 1 });
+		expect(app.userLocation()).toEqual({ markers: 0, circles: 0 });
+		app.openPopupOf(nearestIndex(app.markers()));
+		await waitFor(() => expect(app.popupText()).toContain(`ID: ${SEASONAL_TAP.id}`));
+
+		app.geolocation.respondWith({ position: USER });
+
+		await waitFor(() => expect(app.userLocation()).toEqual({ markers: 1, circles: 1 }));
+		await waitFor(() => {
+			app.openPopupOf(nearestIndex(app.markers()));
+			expect(app.popupText()).toContain(`ID: ${NEAREST_TO_USER.id}`);
+		});
 	});
 
 	it('fetches a padded area, larger than the visible viewport, so nearby panning is free', async () => {
@@ -98,6 +109,18 @@ describe('Arriving at the map', () => {
 			'href',
 			expect.stringContaining(`/node/${NEAREST_TO_USER.id}`)
 		);
+	});
+
+	it('shows a distance chip on the nearest marker, matching the distance in its title', async () => {
+		const app = await renderApp({ geolocation: { position: USER } });
+		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
+
+		const nearestMarker = app.markers()[nearestIndex(app.markers())] as HTMLElement;
+		const chip = nearestMarker.querySelector('.facility-marker-distance');
+		expect(chip).not.toBeNull();
+		const chipText = chip?.textContent ?? '';
+		expect(chipText).toMatch(/^\d+m$|^\d+\.\d\dkm$/);
+		expect(nearestMarker.getAttribute('title')).toContain(chipText);
 	});
 
 	it('falls back to Riga with a notice when the visitor denies location access, ranking nearest by distance from the map centre', async () => {

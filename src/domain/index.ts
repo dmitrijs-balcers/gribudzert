@@ -20,12 +20,36 @@ export {
 	parseFacility,
 	wheelchairAccessOf,
 } from './facility';
-export type { Coordinates, LatLon, Latitude, Longitude, Meters } from './geo';
-export { coordinates, distanceBetween, formatDistance, latitude, longitude, meters } from './geo';
+export type {
+	CompassPoint,
+	Coordinates,
+	Heading,
+	Latitude,
+	LatLon,
+	Longitude,
+	Meters,
+	MetersPerSecond,
+} from './geo';
+export {
+	bearingBetween,
+	compassPointOf,
+	coordinates,
+	distanceBetween,
+	formatDistance,
+	heading,
+	latitude,
+	longitude,
+	meters,
+	metersLiteral,
+	metersPerSecond,
+	metersPerSecondLiteral,
+} from './geo';
 export type { Located } from './located';
 export { findNearest, markNearest, nearestOf, withDistances } from './located';
 export type { OsmTags } from './osm';
 export { facilityFromTags, isToiletTags, waterSourceTypeOf } from './osm';
+export type { UserPosition } from './position';
+export { isMoving, toUserPosition } from './position';
 export type { TileBounds, TileId } from './tile';
 export { boundsOfTiles, parseTileId, tileBounds, tileOf, tilesCovering } from './tile';
 export type { DurationMs, SchemaVersion, Timestamp, Zoom, ZoomLevelLiteral } from './units';

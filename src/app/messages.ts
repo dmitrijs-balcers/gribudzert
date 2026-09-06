@@ -1,3 +1,4 @@
+import type { LocationError } from '../types/errors';
 import type { LayerKind, UserFacingFetchError } from './layers';
 
 export const ZOOMED_OUT_MESSAGE = 'Zoom in to see water points and toilets';
@@ -33,6 +34,23 @@ export const fetchErrorMessage = (kind: LayerKind, error: UserFacingFetchError):
 			return `Failed to read ${subject} data. Please try again.`;
 		case 'busy':
 			return 'The map data service is busy right now. Please wait a moment and try again.';
+		default: {
+			const exhaustive: never = error;
+			return exhaustive;
+		}
+	}
+};
+
+export const locationErrorMessage = (error: LocationError): string => {
+	switch (error.type) {
+		case 'permission-denied':
+			return 'Permission to access location was denied. Check your browser site settings and allow location access.';
+		case 'position-unavailable':
+			return 'Location information is unavailable.';
+		case 'timeout':
+			return 'Location request timed out. Try again.';
+		case 'not-supported':
+			return 'Geolocation is not available in this browser.';
 		default: {
 			const exhaustive: never = error;
 			return exhaustive;
