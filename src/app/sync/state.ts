@@ -30,9 +30,13 @@ export type SyncState = {
 	readonly userOrigin: LatLon | null;
 	readonly zoomedOutNoticeShown: boolean;
 	readonly emptyAreaNotifiedAt: Readonly<Record<LayerKind, Timestamp | null>>;
+	readonly sessionStartedAt: Timestamp;
 };
 
-export const initialSyncState = (snapshot: Snapshot = emptySnapshot()): SyncState => ({
+export const initialSyncState = (
+	sessionStartedAt: Timestamp,
+	snapshot: Snapshot = emptySnapshot()
+): SyncState => ({
 	snapshot,
 	coverage: emptyCoverage,
 	pending: null,
@@ -42,4 +46,5 @@ export const initialSyncState = (snapshot: Snapshot = emptySnapshot()): SyncStat
 	userOrigin: null,
 	zoomedOutNoticeShown: false,
 	emptyAreaNotifiedAt: { water: null, toilet: null },
+	sessionStartedAt,
 });

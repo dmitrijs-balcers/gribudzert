@@ -20,6 +20,7 @@ import {
 	padTileBounds,
 	statusOf,
 	type TileId,
+	type TileStatus,
 	type Timestamp,
 	tilesCovering,
 	tilesThatMustBeLoaded,
@@ -36,6 +37,7 @@ import {
 } from '../messages';
 import type { LayerRender, SyncEffect } from './effects';
 import type { SyncEvent } from './events';
+import { provenanceOf } from './provenance';
 import type { PendingFetch, SyncState } from './state';
 
 const neededTilesOf = (viewport: Viewport): readonly TileId[] =>
@@ -77,7 +79,11 @@ const settleZoomedOut = (
 	viewport: Viewport
 ): readonly [SyncState, readonly SyncEffect[]] => {
 	const released = releasePending(state.pending, state.coverage);
-	const effects: SyncEffect[] = [...released.effects, { kind: 'clear-render' }];
+	const effects: SyncEffect[] = [
+		...released.effects,
+		{ kind: 'clear-render' },
+		{ kind: 'report-provenance', provenance: null },
+	];
 	if (!state.zoomedOutNoticeShown) {
 		effects.push({
 			kind: 'notify',
@@ -170,6 +176,27 @@ const projectFetchable = (
 
 const overlapsNeeded = (fetch: PendingFetch, neededTileSet: ReadonlySet<TileId>): boolean =>
 	fetch.tiles.some((tile) => neededTileSet.has(tile));
+
+const provenanceEffectOf = (
+	snapshot: Snapshot,
+	coverage: Coverage,
+	neededTiles: readonly TileId[],
+	activeKinds: readonly LayerKind[],
+	sessionStartedAt: Timestamp,
+	now: Timestamp
+): SyncEffect => {
+	if (activeKinds.length === 0) {
+		return { kind: 'report-provenance', provenance: null };
+	}
+	const statuses: TileStatus[] = [];
+	for (const tile of neededTiles) {
+		for (const kind of activeKinds) {
+			const fetchedAt = snapshot.tiles[tile]?.[kind];
+			statuses.push(statusOf(coverage, fetchedAt, tile, kind, now, FACILITY_CACHE_TTL_MS));
+		}
+	}
+	return { kind: 'report-provenance', provenance: provenanceOf(statuses, sessionStartedAt) };
+};
 
 const settleFetchable = (
 	state: SyncState,
@@ -271,6 +298,17 @@ const settleFetchable = (
 			effects.push({ kind: 'start-fetch', request, tiles, kinds, bounds });
 		}
 	}
+
+	effects.push(
+		provenanceEffectOf(
+			state.snapshot,
+			coverage,
+			neededTiles,
+			activeKinds,
+			state.sessionStartedAt,
+			now
+		)
+	);
 
 	const nextState: SyncState = {
 		...state,

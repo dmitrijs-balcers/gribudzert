@@ -10,6 +10,7 @@ import type { NotificationType } from '../../ui/notifications';
 import type { LayerKind } from '../layers';
 import type { LayerRender, SyncEffect } from './effects';
 import type { SyncEvent } from './events';
+import type { DataProvenance } from './provenance';
 import { apply } from './reducer';
 import type { SyncState } from './state';
 
@@ -30,6 +31,7 @@ export type SyncPorts = {
 	readonly reportNearest: (kind: LayerKind, nearest: Located<Facility> | null) => void;
 	readonly trackAreaExplored: () => void;
 	readonly trackEmptyArea: (kind: LayerKind) => void;
+	readonly reportProvenance: (provenance: DataProvenance | null) => void;
 };
 
 export type SyncRuntime = {
@@ -109,6 +111,9 @@ export const createSyncRuntime = (ports: SyncPorts, initial: SyncState): SyncRun
 				return;
 			case 'track-empty-area':
 				ports.trackEmptyArea(effect.layer);
+				return;
+			case 'report-provenance':
+				ports.reportProvenance(effect.provenance);
 				return;
 			default: {
 				const exhaustive: never = effect;

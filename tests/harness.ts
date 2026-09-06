@@ -539,6 +539,7 @@ export type AppHandle = {
 	readonly clickHud: () => void;
 	readonly beelineVisible: () => boolean;
 	readonly snapshot: () => Promise<unknown>;
+	readonly provenance: () => string | null;
 };
 
 export type RenderOptions = {
@@ -707,5 +708,12 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		clickHud: () => clickOn(hudButton(), 'Nearest HUD'),
 		beelineVisible: () => container.querySelector('.leaflet-overlay-pane path.beeline') !== null,
 		snapshot: () => readCacheRecord(),
+		provenance: () => {
+			const element = container.querySelector('.provenance-indicator');
+			if (!(element instanceof HTMLElement) || element.hidden) {
+				return null;
+			}
+			return element.getAttribute('data-provenance');
+		},
 	};
 }

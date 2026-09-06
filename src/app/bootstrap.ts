@@ -65,6 +65,7 @@ import type { LocateButtonView, LocateControl } from '../ui/locate-control';
 import { createLocateControl } from '../ui/locate-control';
 import { createNearestHud } from '../ui/nearest-hud';
 import { showNotification } from '../ui/notifications';
+import { createProvenanceIndicator } from '../ui/provenance-indicator';
 import * as logger from '../utils/logger';
 import type { FacilityLayer, FacilityLayers, LayerKind } from './layers';
 import {
@@ -249,6 +250,9 @@ const bootstrapOrThrow = async (): Promise<void> => {
 		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
 	const map = createMap(center);
 
+	const provenanceIndicator = createProvenanceIndicator('topleft');
+	provenanceIndicator.control.addTo(map);
+
 	const layers = createFacilityLayers({
 		water: overpassSelector(drinkingWater),
 		toilet: overpassSelector(publicToilets),
@@ -345,8 +349,9 @@ const bootstrapOrThrow = async (): Promise<void> => {
 			reportNearest,
 			trackAreaExplored,
 			trackEmptyArea,
+			reportProvenance: provenanceIndicator.render,
 		},
-		initialSyncState()
+		initialSyncState(timestampNow())
 	);
 
 	const mapContainerStillMounted = (): boolean => document.body.contains(map.getContainer());

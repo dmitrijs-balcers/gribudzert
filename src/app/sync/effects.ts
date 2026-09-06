@@ -2,6 +2,7 @@ import type { Facility, Located, RequestId, TileBounds, TileId } from '../../dom
 import type { Snapshot } from '../../features/cache/snapshot';
 import type { NotificationType } from '../../ui/notifications';
 import type { LayerKind } from '../layers';
+import type { DataProvenance } from './provenance';
 
 export type LayerRender = {
 	readonly kind: LayerKind;
@@ -34,4 +35,5 @@ export type SyncEffect =
 			readonly nearest: Located<Facility> | null;
 	  }
 	| { readonly kind: 'track-area-explored' }
-	| { readonly kind: 'track-empty-area'; readonly layer: LayerKind };
+	| { readonly kind: 'track-empty-area'; readonly layer: LayerKind }
+	| { readonly kind: 'report-provenance'; readonly provenance: DataProvenance | null };
