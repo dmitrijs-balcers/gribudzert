@@ -64,7 +64,7 @@ describe('Following my run', () => {
 		const app = await renderApp({ geolocation: { position: USER } });
 		await waitFor(() => expect(app.locateButton().getAttribute('data-follow')).toBe('on'));
 
-		app.pressArrowKey('right');
+		await app.pressArrowKey('right');
 
 		await waitFor(() => expect(app.locateButton().getAttribute('data-follow')).toBe('off'));
 		expect(app.locateButton().getAttribute('aria-pressed')).toBe('false');

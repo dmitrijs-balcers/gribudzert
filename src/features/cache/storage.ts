@@ -1,8 +1,8 @@
 import { FACILITY_CACHE_DB_NAME, FACILITY_CACHE_SCHEMA_VERSION } from '../../core/config';
-import * as logger from '../../utils/logger';
 import { isErr } from '../../types/result';
+import * as logger from '../../utils/logger';
 import type { Snapshot, SnapshotParseError } from './snapshot';
-import { parseSnapshot } from './snapshot';
+import { emptySnapshot, parseSnapshot } from './snapshot';
 
 export type LoadedSnapshot =
 	| { readonly kind: 'absent' }
@@ -127,3 +127,18 @@ export const memorySnapshotStore = (): SnapshotStore => {
 
 export const defaultSnapshotStore = (): SnapshotStore =>
 	typeof indexedDB === 'undefined' ? memorySnapshotStore() : indexedDbSnapshotStore();
+
+export const snapshotFrom = (loaded: LoadedSnapshot): Snapshot => {
+	switch (loaded.kind) {
+		case 'present':
+			return loaded.snapshot;
+		case 'absent':
+		case 'corrupt':
+		case 'unavailable':
+			return emptySnapshot();
+		default: {
+			const exhaustive: never = loaded;
+			throw new Error(`Unhandled snapshot load outcome: ${JSON.stringify(exhaustive)}`);
+		}
+	}
+};

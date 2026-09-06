@@ -1,3 +1,14 @@
+export type { Coverage, RequestId, RequestSequence, TileStatus } from './coverage';
+export {
+	clearMany,
+	emptyCoverage,
+	initialRequestSequence,
+	issueRequestId,
+	markFailed,
+	markLoading,
+	statusOf,
+	wantsFetch,
+} from './coverage';
 export type {
 	Facility,
 	FacilityId,
@@ -64,3 +75,5 @@ export {
 	zoom,
 	zoomLevel,
 } from './units';
+export type { FetchableViewport, Viewport, ViewportClass } from './viewport';
+export { classify, padTileBounds, tilesThatMustBeLoaded } from './viewport';

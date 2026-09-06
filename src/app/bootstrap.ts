@@ -1,5 +1,7 @@
 import * as L from 'leaflet';
 import {
+	trackAreaExplored,
+	trackEmptyArea,
 	trackLayerDisabled,
 	trackLayerEnabled,
 	trackLocateFailed,
@@ -8,23 +10,35 @@ import {
 	trackMapLoaded,
 } from '../analytics';
 import {
+	CACHE_WARMUP_TIMEOUT_MS,
 	DEFAULT_ZOOM,
 	LOCATE_ZOOM,
 	MAX_ZOOM,
 	OSM_ATTRIBUTION,
 	OSM_TILE_URL,
+	RERANK_MIN_MOVE_M,
 	RIGA_CENTER,
 } from '../core/config';
-import type { Facility, LatLon, Located, UserPosition, WaterFacility } from '../domain';
+import type {
+	Facility,
+	LatLon,
+	Located,
+	UserPosition,
+	Viewport,
+	WaterFacility,
+	Zoom,
+} from '../domain';
 import {
 	bearingBetween,
 	compassPointOf,
 	distanceBetween,
 	isWaterFacility,
 	timestampNow,
+	zoom,
 } from '../domain';
-import { createFacilityCache, defaultSnapshotStore } from '../features/cache';
-import { overpassSelector } from '../features/data';
+import { defaultSnapshotStore, snapshotFrom } from '../features/cache';
+import type { Snapshot } from '../features/cache/snapshot';
+import { composeQuery, fetchFacilities, overpassSelector } from '../features/data';
 import type {
 	BeelineLayer,
 	FollowController,
@@ -41,24 +55,24 @@ import {
 } from '../features/location';
 import type { FollowMode } from '../features/location/follow';
 import type { TrackingState } from '../features/location/tracker';
-import { setupMapNavigationHandlers } from '../features/navigation/navigation';
+import { addMarkers } from '../features/markers/markers';
+import { toTileBounds } from '../features/navigation/bounds';
 import drinkingWater from '../oql/drinking_water.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
 import { toLocationFailureCategory } from '../types/errors';
-import { resetLoading } from '../ui/loading';
+import { hideLoading, resetLoading, showLoading } from '../ui/loading';
 import type { LocateButtonView, LocateControl } from '../ui/locate-control';
 import { createLocateControl } from '../ui/locate-control';
 import { createNearestHud } from '../ui/nearest-hud';
 import { showNotification } from '../ui/notifications';
 import * as logger from '../utils/logger';
-import type { App, ExploreDeps } from './explore';
-import { defaultExploreDeps, exploreViewport, rerankFromCache, viewportOf } from './explore';
 import type { FacilityLayer, FacilityLayers, LayerKind } from './layers';
 import {
 	activeLayerCount,
 	createFacilityLayers,
 	disableLayer,
 	enableLayer,
+	LAYER_KINDS,
 	layerKindOf,
 } from './layers';
 import {
@@ -66,24 +80,16 @@ import {
 	LOCATION_FALLBACK_MESSAGE,
 	locationErrorMessage,
 } from './messages';
-import {
-	createSession,
-	initialState,
-	needsReranking,
-	withFollowMode,
-	withNearestWater,
-	withPopupOpen,
-	withPosition,
-	withRankedFrom,
-} from './session';
+import type { LayerRender, SyncRuntime } from './sync';
+import { createSyncRuntime, initialSyncState } from './sync';
 
 export const MAP_CONTAINER_ID = 'map';
 
 const NEAREST_WATER_GLYPH = '🚰';
 
-const CACHE_WARMUP_TIMEOUT_MS = 2000;
+const VIEWPORT_DEBOUNCE_MS = 300;
 
-const awaitCacheReadyOrTimeout = async (ready: Promise<void>): Promise<void> => {
+const awaitCacheReadyOrTimeout = async (ready: Promise<unknown>): Promise<void> => {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const timedOut = new Promise<'timeout'>((resolve) => {
 		timer = setTimeout(() => resolve('timeout'), CACHE_WARMUP_TIMEOUT_MS);
@@ -95,6 +101,23 @@ const awaitCacheReadyOrTimeout = async (ready: Promise<void>): Promise<void> => 
 			`Facility cache load timed out after ${CACHE_WARMUP_TIMEOUT_MS}ms; continuing without it`
 		);
 	}
+};
+
+const requireZoom = (value: number): Zoom => {
+	const validated = zoom(Math.round(value));
+	if (validated === null) {
+		throw new Error(`Invalid map zoom: ${value}`);
+	}
+	return validated;
+};
+
+const viewportOf = (map: L.Map): Viewport => {
+	const center = map.getCenter();
+	return {
+		bounds: toTileBounds(map.getBounds()),
+		zoom: requireZoom(map.getZoom()),
+		center: { lat: center.lat, lon: center.lng },
+	};
 };
 
 const createMap = (center: L.LatLngTuple): L.Map => {
@@ -117,24 +140,6 @@ const addLayerControl = (map: L.Map, layers: FacilityLayers): void => {
 		.addTo(map);
 };
 
-type ExploreSafelyOptions = {
-	readonly bounds?: L.LatLngBounds;
-	readonly kinds?: readonly LayerKind[];
-	readonly reportNearest?: ExploreDeps['reportNearest'];
-};
-
-const exploreSafely = (app: App, map: L.Map, options: ExploreSafelyOptions = {}): void => {
-	const deps: ExploreDeps = {
-		...defaultExploreDeps,
-		reportNearest: options.reportNearest ?? defaultExploreDeps.reportNearest,
-	};
-	exploreViewport(app, viewportOf(map, options.bounds), deps, options.kinds).catch(
-		(error: unknown) => {
-			logger.error('Failed to refresh facilities:', error instanceof Error ? error.message : error);
-		}
-	);
-};
-
 const toLocatedWater = (item: Located<Facility>): Located<WaterFacility> | null =>
 	isWaterFacility(item.facility)
 		? { facility: item.facility, distance: item.distance, isNearest: item.isNearest }
@@ -150,16 +155,6 @@ const isMarkerAt = (layer: L.Layer, coordinates: LatLon): layer is L.Marker => {
 
 const findMarkerAt = (group: L.FeatureGroup<L.Marker>, coordinates: LatLon): L.Marker | null =>
 	group.getLayers().find((layer): layer is L.Marker => isMarkerAt(layer, coordinates)) ?? null;
-
-const flyToNearestWaterAndOpenPopup = (app: App, map: L.Map): void => {
-	const nearest = app.session.get().nearestWater;
-	if (nearest === null) {
-		return;
-	}
-	const coordinates = nearest.facility.coordinates;
-	map.flyTo([coordinates.lat, coordinates.lon], Math.max(map.getZoom(), LOCATE_ZOOM));
-	findMarkerAt(app.layers.water.group, coordinates)?.openPopup();
-};
 
 const locateButtonViewOf = (state: TrackingState, follow: FollowMode): LocateButtonView => {
 	switch (state.kind) {
@@ -233,32 +228,50 @@ const onLocateActivate = (tracker: LocationTracker, followController: FollowCont
 	}
 };
 
-type LocationHandle = {
-	readonly runExplore: (options?: ExploreSafelyOptions) => void;
-	readonly onWaterLayerDisabled: () => void;
+const needsReranking = (
+	popupOpen: boolean,
+	rankedFrom: LatLon | null,
+	position: LatLon
+): boolean => {
+	if (popupOpen) {
+		return false;
+	}
+	if (rankedFrom === null) {
+		return true;
+	}
+	return distanceBetween(rankedFrom, position) >= RERANK_MIN_MOVE_M;
 };
 
-const wireLocation = (app: App, map: L.Map, remembered: UserPosition | null): LocationHandle => {
+const bootstrapOrThrow = async (): Promise<void> => {
+	const remembered = loadLastKnownPosition(localStorage, timestampNow());
+
+	const center: L.LatLngTuple =
+		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
+	const map = createMap(center);
+
+	const layers = createFacilityLayers({
+		water: overpassSelector(drinkingWater),
+		toilet: overpassSelector(publicToilets),
+	});
+
 	const userLayer: UserLocationLayer = createUserLocationLayer(map);
 	const beelineLayer: BeelineLayer = createBeelineLayer(map);
 	if (remembered !== null) {
 		userLayer.show(remembered, 'stale');
 	}
 
-	const tracker = createLocationTracker();
-	const hud = createNearestHud(map, () => {
-		followController.unfollow();
-		flyToNearestWaterAndOpenPopup(app, map);
-	});
+	let nearestWater: Located<WaterFacility> | null = null;
+	let lastPosition: UserPosition | null = null;
+	let popupOpen = false;
+	let rankedFrom: LatLon | null = null;
 
 	const refreshHudAndBeeline = (position: UserPosition): void => {
-		const nearest = app.session.get().nearestWater;
-		if (nearest === null || !app.layers.water.active) {
+		if (nearestWater === null || !layers.water.active) {
 			hud.render({ kind: 'hidden' });
 			beelineLayer.clear();
 			return;
 		}
-		const to = nearest.facility.coordinates;
+		const to = nearestWater.facility.coordinates;
 		const bearing = bearingBetween(position, to);
 		hud.render({
 			kind: 'shown',
@@ -270,37 +283,105 @@ const wireLocation = (app: App, map: L.Map, remembered: UserPosition | null): Lo
 		beelineLayer.show(position, to);
 	};
 
+	const flyToNearestWaterAndOpenPopup = (): void => {
+		if (nearestWater === null) {
+			return;
+		}
+		const coordinates = nearestWater.facility.coordinates;
+		map.flyTo([coordinates.lat, coordinates.lon], Math.max(map.getZoom(), LOCATE_ZOOM));
+		findMarkerAt(layers.water.group, coordinates)?.openPopup();
+	};
+
+	const hud = createNearestHud(map, () => {
+		followController.unfollow();
+		flyToNearestWaterAndOpenPopup();
+	});
+
 	const reportNearest = (kind: LayerKind, nearest: Located<Facility> | null): void => {
 		if (kind !== 'water') {
 			return;
 		}
-		const water = nearest === null ? null : toLocatedWater(nearest);
-		app.session.update((state) => withNearestWater(state, water));
-		const position = app.session.get().userLocation;
-		if (position !== null) {
-			refreshHudAndBeeline(position);
+		nearestWater = nearest === null ? null : toLocatedWater(nearest);
+		if (lastPosition !== null) {
+			refreshHudAndBeeline(lastPosition);
 		}
 	};
 
-	const runExplore = (options: ExploreSafelyOptions = {}): void =>
-		exploreSafely(app, map, { ...options, reportNearest });
+	const store = defaultSnapshotStore();
+	let saveChain: Promise<void> = Promise.resolve();
+	const persist = (snapshot: Snapshot): void => {
+		saveChain = saveChain
+			.then(() => store.save(snapshot))
+			.catch((error: unknown) => {
+				logger.error('Facility cache persist failed', error);
+			});
+	};
 
-	const rerank = (): void =>
-		rerankFromCache(app, viewportOf(map), { ...defaultExploreDeps, reportNearest });
-
-	const rerankIfMoved = (position: UserPosition): void => {
-		if (needsReranking(app.session.get(), position)) {
-			app.session.update((current) => withRankedFrom(current, position));
-			rerank();
+	const render = (renders: readonly LayerRender[]): void => {
+		for (const layerRender of renders) {
+			const layer = layers[layerRender.kind];
+			layer.group.clearLayers();
+			addMarkers(layerRender.items, layer.group);
 		}
 	};
+
+	const clearRenderAll = (): void => {
+		for (const kind of LAYER_KINDS) {
+			layers[kind].group.clearLayers();
+		}
+	};
+
+	const runtime: SyncRuntime = createSyncRuntime(
+		{
+			now: timestampNow,
+			queryFor: (kinds) => composeQuery(kinds.map((kind) => layers[kind].selector)),
+			fetchFacilities,
+			render,
+			clearRender: clearRenderAll,
+			notify: showNotification,
+			showLoading,
+			hideLoading,
+			persist,
+			reportNearest,
+			trackAreaExplored,
+			trackEmptyArea,
+		},
+		initialSyncState()
+	);
+
+	const mapContainerStillMounted = (): boolean => document.body.contains(map.getContainer());
+	const dispatchWhileMounted: SyncRuntime['dispatch'] = (event) => {
+		if (mapContainerStillMounted()) {
+			runtime.dispatch(event);
+		}
+	};
+
+	const cacheLoad = store.load().then(snapshotFrom);
+	let cacheReadyDispatched = false;
+	const dispatchCacheReadyOnce = (snapshot: Snapshot): void => {
+		if (cacheReadyDispatched) {
+			return;
+		}
+		cacheReadyDispatched = true;
+		dispatchWhileMounted({ kind: 'cache-ready', snapshot });
+	};
+	await awaitCacheReadyOrTimeout(cacheLoad.then(dispatchCacheReadyOnce));
+	cacheLoad.then(dispatchCacheReadyOnce);
+
+	const dispatchOriginIfNeeded = (position: LatLon): void => {
+		if (needsReranking(popupOpen, rankedFrom, position)) {
+			rankedFrom = position;
+			dispatchWhileMounted({ kind: 'origin-moved', position });
+		}
+	};
+
+	const tracker = createLocationTracker();
 
 	const renderLocateButton = (): void => {
 		locateControl.render(locateButtonViewOf(tracker.state(), followController.mode()));
 	};
 
-	const followController = createFollowController(map, tracker, (mode) => {
-		app.session.update((state) => withFollowMode(state, mode));
+	const followController = createFollowController(map, tracker, () => {
 		renderLocateButton();
 	});
 
@@ -329,115 +410,81 @@ const wireLocation = (app: App, map: L.Map, remembered: UserPosition | null): Lo
 		}
 
 		const position = state.position;
+		lastPosition = position;
 		userLayer.show(position, state.freshness);
 		saveLastKnownPosition(localStorage, position);
-		app.session.update((current) => withPosition(current, position));
 		refreshHudAndBeeline(position);
-		rerankIfMoved(position);
+		dispatchOriginIfNeeded(position);
 	});
 
-	map.on('popupopen', () => app.session.update((state) => withPopupOpen(state, true)));
+	map.on('popupopen', () => {
+		popupOpen = true;
+	});
 	map.on('popupclose', () => {
-		app.session.update((state) => withPopupOpen(state, false));
-		const position = app.session.get().userLocation;
-		if (position !== null) {
-			rerankIfMoved(position);
+		popupOpen = false;
+		if (lastPosition !== null) {
+			dispatchOriginIfNeeded(lastPosition);
 		}
 	});
 
 	tracker.start();
 
-	return {
-		runExplore,
-		onWaterLayerDisabled: () => {
-			app.session.update((state) => withNearestWater(state, null));
-			hud.render({ kind: 'hidden' });
-			beelineLayer.clear();
-		},
+	const onWaterLayerDisabled = (): void => {
+		nearestWater = null;
+		hud.render({ kind: 'hidden' });
+		beelineLayer.clear();
 	};
-};
 
-type LayerControlTarget = {
-	readonly kind: LayerKind;
-	readonly layer: FacilityLayer;
-};
-
-const layerFor = (app: App, event: L.LayersControlEvent): LayerControlTarget | null => {
-	const kind = layerKindOf(event.name);
-	if (kind === null) {
-		return null;
-	}
-	return { kind, layer: app.layers[kind] };
-};
-
-const handleLayerEnabledFromControl = (
-	app: App,
-	map: L.Map,
-	event: L.LayersControlEvent,
-	location: LocationHandle
-): void => {
-	const target = layerFor(app, event);
-	if (target === null) {
-		return;
-	}
-	enableLayer(target.layer, map);
-	trackLayerEnabled(target.layer.label, activeLayerCount(app.layers));
-	location.runExplore({ kinds: [target.kind] });
-};
-
-const handleLayerDisabledFromControl = (
-	app: App,
-	map: L.Map,
-	event: L.LayersControlEvent,
-	location: LocationHandle
-): void => {
-	const target = layerFor(app, event);
-	if (target === null) {
-		return;
-	}
-	disableLayer(target.layer, map);
-	trackLayerDisabled(target.layer.label, activeLayerCount(app.layers));
-	if (target.kind === 'water') {
-		location.onWaterLayerDisabled();
-	}
-};
-
-const wireLayerControl = (app: App, map: L.Map, location: LocationHandle): void => {
-	map.on('overlayadd', (event: L.LayersControlEvent) =>
-		handleLayerEnabledFromControl(app, map, event, location)
-	);
-	map.on('overlayremove', (event: L.LayersControlEvent) =>
-		handleLayerDisabledFromControl(app, map, event, location)
-	);
-};
-
-const bootstrapOrThrow = async (): Promise<void> => {
-	const remembered = loadLastKnownPosition(localStorage, timestampNow());
-
-	const center: L.LatLngTuple =
-		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
-	const map = createMap(center);
-
-	const app: App = {
-		layers: createFacilityLayers({
-			water: overpassSelector(drinkingWater),
-			toilet: overpassSelector(publicToilets),
-		}),
-		session: createSession(initialState(remembered)),
-		cache: createFacilityCache(defaultSnapshotStore()),
+	const layerFor = (
+		event: L.LayersControlEvent
+	): { readonly kind: LayerKind; readonly layer: FacilityLayer } | null => {
+		const kind = layerKindOf(event.name);
+		return kind === null ? null : { kind, layer: layers[kind] };
 	};
-	await awaitCacheReadyOrTimeout(app.cache.ready);
 
-	const location = wireLocation(app, map, remembered);
-
-	enableLayer(app.layers.water, map);
-	addLayerControl(map, app.layers);
-	wireLayerControl(app, map, location);
-
-	location.runExplore();
-	setupMapNavigationHandlers(map, (bounds) => location.runExplore({ bounds }), {
-		initialBounds: map.getBounds(),
+	map.on('overlayadd', (event: L.LayersControlEvent) => {
+		const target = layerFor(event);
+		if (target === null) {
+			return;
+		}
+		enableLayer(target.layer, map);
+		trackLayerEnabled(target.layer.label, activeLayerCount(layers));
+		dispatchWhileMounted({ kind: 'layer-toggled', layer: target.kind, active: true });
 	});
+	map.on('overlayremove', (event: L.LayersControlEvent) => {
+		const target = layerFor(event);
+		if (target === null) {
+			return;
+		}
+		disableLayer(target.layer, map);
+		trackLayerDisabled(target.layer.label, activeLayerCount(layers));
+		dispatchWhileMounted({ kind: 'layer-toggled', layer: target.kind, active: false });
+		if (target.kind === 'water') {
+			onWaterLayerDisabled();
+		}
+	});
+
+	enableLayer(layers.water, map);
+	addLayerControl(map, layers);
+
+	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	const cancelPendingViewportDispatch = (): void => {
+		if (debounceTimer !== null) {
+			clearTimeout(debounceTimer);
+			debounceTimer = null;
+		}
+	};
+	map.on('movestart', cancelPendingViewportDispatch);
+	map.on('dragstart', cancelPendingViewportDispatch);
+	map.on('moveend', () => {
+		cancelPendingViewportDispatch();
+		debounceTimer = setTimeout(() => {
+			debounceTimer = null;
+			dispatchWhileMounted({ kind: 'viewport-settled', viewport: viewportOf(map) });
+		}, VIEWPORT_DEBOUNCE_MS);
+	});
+
+	dispatchWhileMounted({ kind: 'viewport-settled', viewport: viewportOf(map) });
 
 	logger.info('App initialization complete');
 };

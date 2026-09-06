@@ -5,7 +5,14 @@ import { FACILITY_CACHE_TTL_MS } from '../../src/core/config';
 import { boundsOfTiles, tilesCovering } from '../../src/domain';
 import { NEAREST_TO_USER, NON_DRINKABLE, WATER_MARKER_COUNT, waterNodesAt } from '../fixtures';
 import type { AppHandle, Bbox, OverpassReply } from '../harness';
-import { bboxCenter, deferred, GEO_PERMISSION_DENIED, renderApp, seedSnapshot } from '../harness';
+import {
+	bboxCenter,
+	deferred,
+	GEO_PERMISSION_DENIED,
+	makeIndexedDbOpenSlow,
+	renderApp,
+	seedSnapshot,
+} from '../harness';
 
 const OFFLINE_SHOWING_SAVED = "Couldn't refresh map data. Showing saved points.";
 const NETWORK_ERROR =
@@ -33,9 +40,9 @@ const advanceSystemClockPastCacheTtl = (): void => {
 const PAN_ANIMATION_SETTLE_MS = 500;
 
 const pushViewportPastPaddedEdge = async (app: AppHandle): Promise<void> => {
-	app.pan('right');
+	await app.pan('right');
 	await new Promise((resolve) => setTimeout(resolve, PAN_ANIMATION_SETTLE_MS));
-	app.pan('right');
+	await app.pan('right');
 };
 
 describe('Coming back later', () => {
@@ -135,4 +142,31 @@ describe('Coming back later', () => {
 		expect(secondRequestAsksOnlyForTheUnsavedStrip).toBe(true);
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT + 2));
 	});
+
+	const CACHE_PERSIST_SETTLE_MS = 200;
+	const SLOW_INDEXED_DB_OPEN_DELAY_MS = 3_000;
+	const SLOW_CACHE_MARKERS_TIMEOUT_MS = 6_000;
+
+	it('shows saved points once a slow cache finally loads, even while Overpass is still busy', async () => {
+		const first = await renderApp({ geolocation: { error: GEO_PERMISSION_DENIED } });
+		await waitFor(() => expect(first.markers()).toHaveLength(WATER_MARKER_COUNT));
+		await new Promise((resolve) => setTimeout(resolve, CACHE_PERSIST_SETTLE_MS));
+
+		const restoreIndexedDbOpen = makeIndexedDbOpenSlow(SLOW_INDEXED_DB_OPEN_DELAY_MS);
+		try {
+			const overpassReplyThatNeverArrives = deferred<OverpassReply>();
+			const app = await renderApp({
+				reload: true,
+				settle: false,
+				geolocation: { error: GEO_PERMISSION_DENIED },
+				overpass: () => overpassReplyThatNeverArrives.promise,
+			});
+
+			await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT), {
+				timeout: SLOW_CACHE_MARKERS_TIMEOUT_MS,
+			});
+		} finally {
+			restoreIndexedDbOpen();
+		}
+	}, 20_000);
 });

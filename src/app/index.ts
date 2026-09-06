@@ -1,39 +1,18 @@
 export { bootstrap, MAP_CONTAINER_ID } from './bootstrap';
-export type { App, CachePreview, ExploreDeps, Viewport } from './explore';
-export {
-	canFetchAtZoom,
-	defaultExploreDeps,
-	exploreViewport,
-	rerankFromCache,
-	viewportOf,
-} from './explore';
 export type {
-	AddMarkers,
 	FacilityLayer,
 	FacilityLayerGroup,
 	FacilityLayers,
-	FailureNotification,
-	FetchFacilities,
 	LayerHost,
 	LayerKind,
-	LayerRefresh,
-	MarkerRendering,
-	RefreshDeps,
-	RefreshOptions,
-	RefreshOutcome,
-	RefreshResult,
-	RefreshSource,
-	SharedViewportRequestState,
 	UserFacingFetchError,
 } from './layers';
 export {
-	abortSharedViewportRequest,
 	activeLayerCount,
 	activeLayers,
 	clearLayerMarkers,
 	createFacilityLayer,
 	createFacilityLayers,
-	defaultRefreshDeps,
 	disableLayer,
 	enableLayer,
 	isLayerName,
@@ -41,8 +20,6 @@ export {
 	labelOf,
 	layerKindOf,
 	locateFacilities,
-	refreshLayers,
-	renderCached,
 } from './layers';
 export {
 	emptyAreaMessage,
@@ -53,18 +30,5 @@ export {
 	subjectOf,
 	ZOOMED_OUT_MESSAGE,
 } from './messages';
-export type { AppState, Origin, OriginSource, Session } from './session';
-export {
-	canNotifyEmptyArea,
-	createSession,
-	initialState,
-	needsReranking,
-	resolveOrigin,
-	withEmptyAreaNotified,
-	withFollowMode,
-	withNearestWater,
-	withPopupOpen,
-	withPosition,
-	withRankedFrom,
-	withZoomedOutNotice,
-} from './session';
+export type { LayerRender, SyncEffect, SyncEvent, SyncPorts, SyncRuntime, SyncState } from './sync';
+export { apply, createSyncRuntime, initialSyncState } from './sync';

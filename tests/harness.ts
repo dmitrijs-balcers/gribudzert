@@ -427,6 +427,44 @@ export async function seedSnapshot(value: unknown): Promise<void> {
 	}
 }
 
+type IndexedDbOpenRequestHandlers = {
+	onsuccess: ((event: Event) => void) | null;
+	onerror: ((event: Event) => void) | null;
+	onblocked: ((event: Event) => void) | null;
+	onupgradeneeded: ((event: Event) => void) | null;
+	readonly result: IDBDatabase;
+	readonly error: DOMException | null;
+};
+
+export const makeIndexedDbOpenSlow = (delayMs: number): (() => void) => {
+	const realOpen = indexedDB.open.bind(indexedDB);
+	const slowOpen = (name: string, version?: number): IDBOpenDBRequest => {
+		const real = realOpen(name, version);
+		const proxy: IndexedDbOpenRequestHandlers = {
+			onsuccess: null,
+			onerror: null,
+			onblocked: null,
+			onupgradeneeded: null,
+			get result() {
+				return real.result;
+			},
+			get error() {
+				return real.error;
+			},
+		};
+		real.onupgradeneeded = (event) => proxy.onupgradeneeded?.(event);
+		real.onsuccess = (event) => {
+			setTimeout(() => proxy.onsuccess?.(event), delayMs);
+		};
+		real.onerror = (event) => proxy.onerror?.(event);
+		return proxy as unknown as IDBOpenDBRequest;
+	};
+	indexedDB.open = slowOpen as typeof indexedDB.open;
+	return () => {
+		indexedDB.open = realOpen as typeof indexedDB.open;
+	};
+};
+
 const USER_ACCURACY_CIRCLE_STROKE_COLOR = '#136AEC';
 
 export type PanDirection = 'left' | 'up' | 'right' | 'down';
@@ -447,6 +485,34 @@ const PAN_KEYS: Readonly<
 	down: 'ArrowDown',
 };
 
+const PAN_ANIMATION_CLASS = 'leaflet-pan-anim';
+const PAN_ANIMATION_POLL_MS = 10;
+const PAN_ANIMATION_START_GRACE_POLLS = 5;
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const mapPaneOf = (container: HTMLElement): Element | null =>
+	container.querySelector('.leaflet-map-pane');
+
+const isPanAnimating = (container: HTMLElement): boolean =>
+	mapPaneOf(container)?.classList.contains(PAN_ANIMATION_CLASS) ?? false;
+
+const waitWhilePanAnimating = async (container: HTMLElement): Promise<void> => {
+	while (isPanAnimating(container)) {
+		await sleep(PAN_ANIMATION_POLL_MS);
+	}
+};
+
+const panAnimationHasStarted = async (container: HTMLElement): Promise<boolean> => {
+	for (let poll = 0; poll < PAN_ANIMATION_START_GRACE_POLLS; poll += 1) {
+		if (isPanAnimating(container)) {
+			return true;
+		}
+		await sleep(PAN_ANIMATION_POLL_MS);
+	}
+	return isPanAnimating(container);
+};
+
 export type AppHandle = {
 	readonly container: HTMLElement;
 	readonly overpass: OverpassFake;
@@ -463,8 +529,8 @@ export type AppHandle = {
 	readonly clickLocate: () => void;
 	readonly zoomIn: () => void;
 	readonly zoomOut: () => void;
-	readonly pan: (direction: PanDirection, options?: { readonly far?: boolean }) => void;
-	readonly pressArrowKey: (direction: PanDirection) => void;
+	readonly pan: (direction: PanDirection, options?: { readonly far?: boolean }) => Promise<void>;
+	readonly pressArrowKey: (direction: PanDirection) => Promise<void>;
 	readonly openPopupOf: (index: number) => void;
 	readonly closePopup: () => void;
 	readonly popup: () => HTMLElement | null;
@@ -579,7 +645,8 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		return button;
 	};
 
-	const dispatchArrowKey = (direction: PanDirection, far: boolean): void => {
+	const dispatchArrowKey = async (direction: PanDirection, far: boolean): Promise<void> => {
+		await waitWhilePanAnimating(container);
 		container.focus();
 		const event = new KeyboardEvent('keydown', {
 			bubbles: true,
@@ -588,6 +655,9 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		});
 		Object.defineProperty(event, 'keyCode', { value: PAN_KEY_CODES[direction] });
 		document.dispatchEvent(event);
+		if (await panAnimationHasStarted(container)) {
+			await waitWhilePanAnimating(container);
+		}
 	};
 
 	const hudButton = (): HTMLButtonElement | null => {

@@ -72,3 +72,7 @@ export const FACILITY_CACHE_MAX_TILES = 400;
 export const FACILITY_CACHE_DB_NAME = 'gribudzert';
 
 export const FACILITY_CACHE_SCHEMA_VERSION: SchemaVersion = schemaVersionLiteral(1);
+
+export const FETCH_RETRY_BACKOFF_MS: DurationMs = durationMsLiteral(400);
+
+export const CACHE_WARMUP_TIMEOUT_MS: DurationMs = durationMsLiteral(2_000);
