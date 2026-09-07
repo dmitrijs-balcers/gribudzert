@@ -118,3 +118,19 @@ export const trackAreaExplored = debounce(trackAreaExploredInternal, AREA_EXPLOR
 export const trackEmptyArea = (facilityType: FacilityType): void => {
 	safeTrack('empty_area', { facility_type: facilityType });
 };
+
+// =============================================================================
+// Install Prompt Events (P3)
+// =============================================================================
+
+export const trackInstallPromptShown = (): void => {
+	safeTrack('install_prompt_shown');
+};
+
+export const trackInstallPromptAccepted = (): void => {
+	safeTrack('install_prompt_accepted');
+};
+
+export const trackInstallPromptDismissed = (): void => {
+	safeTrack('install_prompt_dismissed');
+};

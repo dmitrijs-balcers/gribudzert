@@ -24,7 +24,15 @@ const readViteManifest = (): ViteManifest => {
 };
 
 const collectAssets = (manifest: ViteManifest): readonly string[] => {
-  const paths = new Set<string>(['/index.html', '/manifest.json', '/favicon.svg', '/icons/icon.svg']);
+  const paths = new Set<string>([
+    '/index.html',
+    '/manifest.json',
+    '/favicon.svg',
+    '/icons/icon.svg',
+    '/icons/icon-192.png',
+    '/icons/icon-512.png',
+    '/apple-touch-icon.png',
+  ]);
   for (const entry of Object.values(manifest)) {
     paths.add(`/${entry.file}`);
     for (const css of entry.css ?? []) {

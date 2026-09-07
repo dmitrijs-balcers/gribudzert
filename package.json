@@ -5,7 +5,9 @@
   "author": "<dmitrijs.balcers@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "leaflet": "^1.9.4"
+    "@khmyznikov/pwa-install": "^0.6.4",
+    "leaflet": "^1.9.4",
+    "lit": "^3.3.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",

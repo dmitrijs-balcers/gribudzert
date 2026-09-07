@@ -63,6 +63,7 @@ import { toLocationFailureCategory } from '../types/errors';
 import { hideLoading, resetLoading, showLoading } from '../ui/loading';
 import type { LocateButtonView, LocateControl } from '../ui/locate-control';
 import { createLocateControl } from '../ui/locate-control';
+import { initInstallPrompt } from '../ui/install-prompt';
 import { createNearestHud } from '../ui/nearest-hud';
 import { showNotification } from '../ui/notifications';
 import { createProvenanceIndicator } from '../ui/provenance-indicator';
@@ -255,6 +256,7 @@ const bootstrapOrThrow = async (): Promise<void> => {
 		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
 	const map = createMap(center);
 	registerServiceWorker();
+	initInstallPrompt(localStorage);
 
 	const provenanceIndicator = createProvenanceIndicator('topleft');
 	provenanceIndicator.control.addTo(map);

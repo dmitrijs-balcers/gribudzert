@@ -160,6 +160,22 @@ export type EmptyAreaEvent = {
 	readonly facilityType: FacilityType;
 };
 
+// =============================================================================
+// Install Prompt Events (P3)
+// =============================================================================
+
+export type InstallPromptShownEvent = {
+	readonly kind: 'install_prompt_shown';
+};
+
+export type InstallPromptAcceptedEvent = {
+	readonly kind: 'install_prompt_accepted';
+};
+
+export type InstallPromptDismissedEvent = {
+	readonly kind: 'install_prompt_dismissed';
+};
+
 /**
  * Discriminated union of all analytics events.
  * Each event variant has a unique `kind` field for type narrowing.
@@ -174,7 +190,10 @@ export type AnalyticsEvent =
 	| LocateSuccessEvent
 	| LocateFailedEvent
 	| AreaExploredEvent
-	| EmptyAreaEvent;
+	| EmptyAreaEvent
+	| InstallPromptShownEvent
+	| InstallPromptAcceptedEvent
+	| InstallPromptDismissedEvent;
 
 /**
  * Extract event kind strings for type-safe event name handling
