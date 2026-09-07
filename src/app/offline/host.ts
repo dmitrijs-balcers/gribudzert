@@ -23,12 +23,11 @@ export type ServiceWorkerHost = {
 
 const SKIP_WAITING_MESSAGE_TYPE = 'SKIP_WAITING';
 
-const isSkipWaitingMessage = (data: unknown): boolean => {
-	if (typeof data !== 'object' || data === null) {
-		return false;
-	}
-	return (data as Record<string, unknown>).type === SKIP_WAITING_MESSAGE_TYPE;
-};
+const isSkipWaitingMessage = (data: unknown): boolean =>
+	typeof data === 'object' &&
+	data !== null &&
+	'type' in data &&
+	data.type === SKIP_WAITING_MESSAGE_TYPE;
 
 export const installServiceWorker = (host: ServiceWorkerHost, runtime: OfflineRuntime): void => {
 	host.addEventListener('install', (event) => {

@@ -8,10 +8,10 @@
 
 export type NotificationType = 'info' | 'success' | 'error' | 'warning';
 
-export interface NotificationAction {
-	label: string;
-	onSelect: () => void;
-}
+export type NotificationAction = {
+	readonly label: string;
+	readonly onSelect: () => void;
+};
 
 interface Notification {
 	id: string;
