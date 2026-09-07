@@ -46,10 +46,6 @@ const dispatchUserChoice = (dialog: Element, message: 'accepted' | 'dismissed'):
 	dialog.dispatchEvent(new CustomEvent('pwa-user-choice-result-event', { detail: { message } }));
 };
 
-/**
- * What Chrome's beforeinstallprompt (or the component's Apple/Android fallbacks)
- * would do on a real phone: tell the component the app can be installed.
- */
 const markInstallAvailable = (): void => {
 	const dialog = installDialog();
 	if (dialog === null) {
@@ -104,8 +100,6 @@ describe('Inviting to install the app', () => {
 		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
 
 		await waitPastShowDelay();
-		// The component paints only while isInstallAvailable is true, so this is
-		// the real "nothing on screen" signal (isDialogHidden defaults to false).
 		expect(installDialog()?.isInstallAvailable).toBe(false);
 		expect(track).not.toHaveBeenCalledWith('install_prompt_shown');
 	}, 15_000);

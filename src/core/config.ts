@@ -97,7 +97,7 @@ export const SHELL_CACHE_PREFIX = 'gribudzert-shell-';
 
 export const SERVICE_WORKER_PATH = '/sw.js';
 
-export const INSTALL_PROMPT_STORAGE_PREFIX = 'gribudzert:install-prompt';
+export const INSTALL_PROMPT_STORAGE_KEY = 'gribudzert:install-prompt';
 
 export const INSTALL_PROMPT_MIN_VISITS = 2;
 

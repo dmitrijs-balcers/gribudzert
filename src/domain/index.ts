@@ -55,6 +55,14 @@ export {
 	metersPerSecond,
 	metersPerSecondLiteral,
 } from './geo';
+export type { InstallHistory, InvitationPolicy, InvitationVerdict } from './install-invitation';
+export {
+	invitationVerdict,
+	noInstallHistory,
+	recordDismissal,
+	recordInstall,
+	recordVisit,
+} from './install-invitation';
 export type { Located } from './located';
 export { findNearest, markNearest, nearestOf, withDistances } from './located';
 export type { MapTileKey } from './map-tile';

@@ -256,7 +256,7 @@ const bootstrapOrThrow = async (): Promise<void> => {
 		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
 	const map = createMap(center);
 	registerServiceWorker();
-	initInstallPrompt();
+	initInstallPrompt(localStorage);
 
 	const provenanceIndicator = createProvenanceIndicator('topleft');
 	provenanceIndicator.control.addTo(map);

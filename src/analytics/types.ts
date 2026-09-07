@@ -164,23 +164,14 @@ export type EmptyAreaEvent = {
 // Install Prompt Events (P3)
 // =============================================================================
 
-/**
- * Install prompt shown event - tracked when the "install this app" dialog is displayed
- */
 export type InstallPromptShownEvent = {
 	readonly kind: 'install_prompt_shown';
 };
 
-/**
- * Install prompt accepted event - tracked when the visitor accepts the install offer
- */
 export type InstallPromptAcceptedEvent = {
 	readonly kind: 'install_prompt_accepted';
 };
 
-/**
- * Install prompt dismissed event - tracked when the visitor dismisses the install dialog
- */
 export type InstallPromptDismissedEvent = {
 	readonly kind: 'install_prompt_dismissed';
 };

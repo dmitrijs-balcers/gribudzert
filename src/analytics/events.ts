@@ -123,23 +123,14 @@ export const trackEmptyArea = (facilityType: FacilityType): void => {
 // Install Prompt Events (P3)
 // =============================================================================
 
-/**
- * Track install prompt shown event
- */
 export const trackInstallPromptShown = (): void => {
 	safeTrack('install_prompt_shown');
 };
 
-/**
- * Track install prompt accepted event
- */
 export const trackInstallPromptAccepted = (): void => {
 	safeTrack('install_prompt_accepted');
 };
 
-/**
- * Track install prompt dismissed event
- */
 export const trackInstallPromptDismissed = (): void => {
 	safeTrack('install_prompt_dismissed');
 };

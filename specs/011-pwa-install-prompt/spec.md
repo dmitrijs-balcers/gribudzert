@@ -53,4 +53,5 @@ As a visitor who dismissed the prompt, I don't want to be asked again right away
 ## Assumptions
 
 - "Mobile" is approximated by `(pointer: coarse)` or a ≤768px viewport; there is no user-agent sniffing.
-- Visit counting, dismiss cooldown, and the installed flag live in `localStorage` under the `gribudzert:install-prompt` key prefix, scoped per browser (not per account — there is no account).
+- Visit count, dismiss timestamp, and the installed flag are one `InstallHistory` record in `localStorage` under the `gribudzert:install-prompt` key, scoped per browser (not per account — there is no account).
+- Layering: the eligibility rules are pure domain code (`src/domain/install-invitation.ts`); storage and platform detection are feature adapters (`src/features/install/`); the `<pwa-install>` element lives in `src/ui/install-prompt.ts`.
