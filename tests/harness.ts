@@ -2,6 +2,7 @@ import { fireEvent, waitFor } from '@testing-library/dom';
 import * as L from 'leaflet';
 import { expect, vi } from 'vitest';
 import { FACILITY_CACHE_DB_NAME, LAST_POSITION_STORAGE_KEY } from '../src/core/config';
+import type { Connectivity } from '../src/domain';
 import type { OverpassElement } from './fixtures';
 import { USER, WATER_ELEMENTS } from './fixtures';
 import { MAP_HEIGHT, MAP_WIDTH } from './setup';
@@ -362,6 +363,26 @@ export const installPermissionsFake = (state: Permission): void => {
 	Object.defineProperty(navigator, 'permissions', { configurable: true, value: permissions });
 };
 
+export type OnLineFake = {
+	readonly goOffline: () => void;
+	readonly goOnline: () => void;
+};
+
+export const installOnLineFake = (connectivity: Connectivity): OnLineFake => {
+	let onLine = connectivity === 'online';
+	Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => onLine });
+	return {
+		goOffline: () => {
+			onLine = false;
+			window.dispatchEvent(new Event('offline'));
+		},
+		goOnline: () => {
+			onLine = true;
+			window.dispatchEvent(new Event('online'));
+		},
+	};
+};
+
 export const seedRememberedPosition = (
 	position: GeoPosition & { readonly ageMs?: number }
 ): void => {
@@ -540,6 +561,8 @@ export type AppHandle = {
 	readonly beelineVisible: () => boolean;
 	readonly snapshot: () => Promise<unknown>;
 	readonly provenance: () => string | null;
+	readonly goOffline: () => void;
+	readonly goOnline: () => void;
 };
 
 export type RenderOptions = {
@@ -549,6 +572,7 @@ export type RenderOptions = {
 	readonly reload?: boolean;
 	readonly permission?: Permission;
 	readonly rememberedPosition?: GeoPosition & { readonly ageMs?: number };
+	readonly connectivity?: Connectivity;
 };
 
 const clickOn = (element: Element | null, what: string): void => {
@@ -605,6 +629,8 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 	const overpass = fakeOverpass(options.overpass ?? (() => WATER_ELEMENTS));
 	const geolocation = fakeGeolocation(options.geolocation ?? { position: USER });
 	installPermissionsFake(options.permission ?? 'prompt');
+	const connectivity = options.connectivity ?? 'online';
+	const onLineFake = installOnLineFake(connectivity);
 	if (options.rememberedPosition !== undefined) {
 		seedRememberedPosition(options.rememberedPosition);
 	}
@@ -614,7 +640,7 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 
 	await waitFor(() => expect(container.classList.contains('leaflet-container')).toBe(true));
 	const isReload = options.reload === true;
-	if (!isReload) {
+	if (!isReload && connectivity === 'online') {
 		await waitFor(() => expect(overpass.requests.length).toBeGreaterThan(0));
 	}
 	const settled = async (): Promise<void> => {
@@ -715,5 +741,7 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 			}
 			return element.getAttribute('data-provenance');
 		},
+		goOffline: onLineFake.goOffline,
+		goOnline: onLineFake.goOnline,
 	};
 }

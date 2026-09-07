@@ -101,6 +101,7 @@ const blurFocusedElement = (): void => {
 const clearScenarioInstalledBrowserFakes = (): void => {
 	delete (navigator as { doNotTrack?: string }).doNotTrack;
 	delete (window as { umami?: unknown }).umami;
+	Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
 };
 
 afterEach(async () => {

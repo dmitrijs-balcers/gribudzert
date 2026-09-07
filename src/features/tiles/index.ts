@@ -1,4 +1,5 @@
-export type { Connectivity, TileDecision } from './decision';
+export type { Connectivity } from '../../domain';
+export type { TileDecision } from './decision';
 export { decide } from './decision';
 export type { EvictionPlan, TileBudget } from './ledger';
 export { evictionPlan } from './ledger';

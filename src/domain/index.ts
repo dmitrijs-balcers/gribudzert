@@ -1,3 +1,4 @@
+export type { Connectivity } from './connectivity';
 export type { Coverage, RequestId, RequestSequence, TileStatus } from './coverage';
 export {
 	clearMany,
