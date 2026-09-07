@@ -383,6 +383,37 @@ export const installOnLineFake = (connectivity: Connectivity): OnLineFake => {
 	};
 };
 
+const fakeMediaQueryList = (query: string, matches: boolean): MediaQueryList =>
+	({
+		matches,
+		media: query,
+		onchange: null,
+		addListener: () => undefined,
+		removeListener: () => undefined,
+		addEventListener: () => undefined,
+		removeEventListener: () => undefined,
+		dispatchEvent: () => false,
+	}) as MediaQueryList;
+
+export type PointerKind = 'coarse' | 'fine';
+export type DisplayMode = 'browser' | 'standalone';
+
+const mediaQueryMatches = (
+	query: string,
+	pointer: PointerKind,
+	displayMode: DisplayMode
+): boolean =>
+	query.includes(`pointer: ${pointer}`) ||
+	(displayMode === 'standalone' && query.includes('display-mode: standalone'));
+
+export const installMatchMediaFake = (pointer: PointerKind, displayMode: DisplayMode): void => {
+	Object.defineProperty(window, 'matchMedia', {
+		configurable: true,
+		value: (query: string) =>
+			fakeMediaQueryList(query, mediaQueryMatches(query, pointer, displayMode)),
+	});
+};
+
 export const seedRememberedPosition = (
 	position: GeoPosition & { readonly ageMs?: number }
 ): void => {
@@ -563,6 +594,14 @@ export type AppHandle = {
 	readonly provenance: () => string | null;
 	readonly goOffline: () => void;
 	readonly goOnline: () => void;
+	readonly zoomControlVisible: () => boolean;
+	readonly tileZoom: () => number | null;
+	readonly draggingEnabled: () => boolean;
+	readonly gesturePointer: (
+		type: GesturePointerType,
+		point: { x: number; y: number },
+		pointerId?: number
+	) => void;
 };
 
 export type RenderOptions = {
@@ -573,6 +612,8 @@ export type RenderOptions = {
 	readonly permission?: Permission;
 	readonly rememberedPosition?: GeoPosition & { readonly ageMs?: number };
 	readonly connectivity?: Connectivity;
+	readonly pointer?: PointerKind;
+	readonly displayMode?: DisplayMode;
 };
 
 const clickOn = (element: Element | null, what: string): void => {
@@ -617,6 +658,35 @@ const observeToastHistory = (): readonly string[] => {
 const facilityMarkerElements = (container: HTMLElement): readonly Element[] =>
 	Array.from(container.querySelectorAll('.leaflet-marker-pane .facility-marker'));
 
+export type GesturePointerType = 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel';
+
+const dispatchGesturePointer = (
+	container: HTMLElement,
+	type: GesturePointerType,
+	point: { readonly x: number; readonly y: number },
+	pointerId: number
+): void => {
+	container.dispatchEvent(
+		new PointerEvent(type, {
+			bubbles: true,
+			cancelable: true,
+			clientX: point.x,
+			clientY: point.y,
+			pointerId,
+			isPrimary: true,
+			pointerType: 'touch',
+		})
+	);
+};
+
+const TILE_ZOOM_PATTERN = /tile\.openstreetmap\.org\/(\d+)\//;
+
+const tileZoomOf = (container: HTMLElement): number | null => {
+	const image = container.querySelector<HTMLImageElement>('.leaflet-tile-pane img.leaflet-tile');
+	const match = image === null ? null : TILE_ZOOM_PATTERN.exec(image.src);
+	return match?.[1] === undefined ? null : Number(match[1]);
+};
+
 export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
 	blurFocusedElement();
 	document.body.innerHTML = '';
@@ -631,6 +701,7 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 	installPermissionsFake(options.permission ?? 'prompt');
 	const connectivity = options.connectivity ?? 'online';
 	const onLineFake = installOnLineFake(connectivity);
+	installMatchMediaFake(options.pointer ?? 'fine', options.displayMode ?? 'browser');
 	if (options.rememberedPosition !== undefined) {
 		seedRememberedPosition(options.rememberedPosition);
 	}
@@ -743,5 +814,10 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		},
 		goOffline: onLineFake.goOffline,
 		goOnline: onLineFake.goOnline,
+		zoomControlVisible: () => container.querySelector('.leaflet-control-zoom-in') !== null,
+		tileZoom: () => tileZoomOf(container),
+		draggingEnabled: () => container.classList.contains('leaflet-grab'),
+		gesturePointer: (type, point, pointerId = 1) =>
+			dispatchGesturePointer(container, type, point, pointerId),
 	};
 }
