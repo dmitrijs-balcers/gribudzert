@@ -19,10 +19,9 @@
 // =============================================================================
 
 export {
-	// Map Engagement (P1)
-	trackMapLoaded,
-	trackMarkerClicked,
-	trackNavigationStarted,
+	// Exploration Events (P3)
+	trackAreaExplored,
+	trackEmptyArea,
 	// Layer Events (P2)
 	trackLayerDisabled,
 	trackLayerEnabled,
@@ -30,9 +29,10 @@ export {
 	trackLocateFailed,
 	trackLocateRequested,
 	trackLocateSuccess,
-	// Exploration Events (P3)
-	trackAreaExplored,
-	trackEmptyArea,
+	// Map Engagement (P1)
+	trackMapLoaded,
+	trackMarkerClicked,
+	trackNavigationStarted,
 } from './events';
 
 // =============================================================================
@@ -46,20 +46,20 @@ export { isAnalyticsEnabled } from './tracker';
 // =============================================================================
 
 export type {
-	FacilityType,
-	LayerName,
-	LocationFailureReason,
-	LocationType,
 	// Event types for advanced usage
 	AnalyticsEvent,
 	AnalyticsEventKind,
 	AreaExploredEvent,
 	EmptyAreaEvent,
+	FacilityType,
 	LayerDisabledEvent,
 	LayerEnabledEvent,
+	LayerName,
 	LocateFailedEvent,
 	LocateRequestedEvent,
 	LocateSuccessEvent,
+	LocationFailureReason,
+	LocationType,
 	MapLoadedEvent,
 	MarkerClickedEvent,
 	NavigationStartedEvent,

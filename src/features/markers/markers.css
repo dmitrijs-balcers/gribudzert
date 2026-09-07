@@ -8,6 +8,8 @@
 
 .facility-marker-badge {
 	position: relative;
+	box-sizing: border-box;
+	flex-shrink: 0;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
@@ -41,6 +43,7 @@
 
 .facility-marker-tail {
 	position: relative;
+	flex-shrink: 0;
 	width: 0;
 	height: 0;
 	border-left: 5px solid transparent;
@@ -61,6 +64,7 @@
 }
 
 .facility-marker-distance {
+	flex-shrink: 0;
 	margin-top: 4px;
 	background: #ffffff;
 	color: #222222;

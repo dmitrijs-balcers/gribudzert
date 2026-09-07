@@ -8,7 +8,7 @@ import type {
 	TileId,
 	Timestamp,
 } from '../../domain';
-import { entriesOf, keysOf, parseFacility, parseTileId, timestamp, tileOf } from '../../domain';
+import { entriesOf, keysOf, parseFacility, parseTileId, tileOf, timestamp } from '../../domain';
 import type { Result } from '../../types/result';
 import { Err, isErr, Ok } from '../../types/result';
 

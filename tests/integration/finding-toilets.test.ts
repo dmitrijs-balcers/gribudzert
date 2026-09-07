@@ -25,9 +25,9 @@ const toiletAt = (
 const PAN_ANIMATION_SETTLE_MS = 500;
 
 const pushViewportPastPaddedEdge = async (app: AppHandle): Promise<void> => {
-	app.pan('right');
+	await app.pan('right');
 	await new Promise((resolve) => setTimeout(resolve, PAN_ANIMATION_SETTLE_MS));
-	app.pan('right');
+	await app.pan('right');
 };
 
 describe('Finding public toilets', () => {

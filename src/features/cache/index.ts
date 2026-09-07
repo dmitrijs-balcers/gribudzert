@@ -1,5 +1,3 @@
-export type { FacilityCache, FacilityCacheOptions } from './cache';
-export { createFacilityCache } from './cache';
 export type {
 	CachedFacility,
 	Lookup,
@@ -20,4 +18,9 @@ export {
 	tileStatus,
 } from './snapshot';
 export type { LoadedSnapshot, SnapshotStore } from './storage';
-export { defaultSnapshotStore, indexedDbSnapshotStore, memorySnapshotStore } from './storage';
+export {
+	defaultSnapshotStore,
+	indexedDbSnapshotStore,
+	memorySnapshotStore,
+	snapshotFrom,
+} from './storage';

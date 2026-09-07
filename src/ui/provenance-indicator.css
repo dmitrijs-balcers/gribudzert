@@ -1,0 +1,59 @@
+.provenance-indicator {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 10px;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.95);
+	color: #1a1a1a;
+	font-size: 12px;
+	font-weight: 600;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+	white-space: nowrap;
+	cursor: default;
+}
+
+.provenance-indicator[hidden] {
+	display: none;
+}
+
+.provenance-indicator-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #9e9e9e;
+}
+
+.provenance-indicator[data-provenance='live'] .provenance-indicator-dot {
+	background: #2e7d32;
+}
+
+.provenance-indicator[data-provenance='saved'] .provenance-indicator-dot {
+	background: #f9a825;
+}
+
+.provenance-indicator[data-provenance='updating'] .provenance-indicator-dot {
+	background: #0078ff;
+	animation: provenance-indicator-pulse 1.2s ease-in-out infinite;
+}
+
+.provenance-indicator[data-provenance='failed'] .provenance-indicator-dot {
+	background: #d32f2f;
+}
+
+@keyframes provenance-indicator-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.35;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.provenance-indicator[data-provenance='updating'] .provenance-indicator-dot {
+		animation: none;
+	}
+}

@@ -92,6 +92,10 @@
 	cursor: pointer;
 }
 
+.nearest-hud[hidden] {
+	display: none;
+}
+
 .nearest-hud-text {
 	overflow: hidden;
 	text-overflow: ellipsis;

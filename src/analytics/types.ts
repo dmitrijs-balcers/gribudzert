@@ -11,8 +11,8 @@
  */
 
 import type { LayerName } from '../core/config';
-import type { LocationFailureCategory } from '../types/errors';
 import type { Facility } from '../domain';
+import type { LocationFailureCategory } from '../types/errors';
 
 // =============================================================================
 // Re-export Umami types from contracts (DO NOT duplicate)
