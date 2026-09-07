@@ -1,0 +1,3 @@
+.leaflet-container.one-hand-zoom-active {
+	touch-action: none !important;
+}

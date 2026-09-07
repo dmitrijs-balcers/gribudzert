@@ -32,6 +32,14 @@ export const USER_LOCATION_STYLE = {
 
 export const LOCATE_ZOOM: Zoom = zoomLevel(15);
 
+export const ONE_HAND_ZOOM_TAP_INTERVAL_MS: DurationMs = durationMsLiteral(300);
+
+export const ONE_HAND_ZOOM_TAP_SLOP_PX = 30;
+
+export const ONE_HAND_ZOOM_DRAG_THRESHOLD_PX = 10;
+
+export const ONE_HAND_ZOOM_PX_PER_ZOOM_LEVEL = 150;
+
 export const QUICK_FIX_OPTIONS: PositionOptions = {
 	enableHighAccuracy: false,
 	maximumAge: 60_000,

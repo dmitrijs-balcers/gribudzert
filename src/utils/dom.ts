@@ -40,3 +40,16 @@ export function queryHTMLElement(parent: Element | Document, selector: string): 
 export function isActivationKey(event: KeyboardEvent): boolean {
 	return event.key === 'Enter' || event.key === ' ';
 }
+
+/**
+ * Check whether the primary pointing device is coarse (touch, stylus)
+ * rather than fine (mouse, trackpad). Safe to call in environments
+ * without `matchMedia`.
+ * @returns true if the primary pointer is coarse
+ */
+export function isCoarsePointer(): boolean {
+	if (typeof matchMedia !== 'function') {
+		return false;
+	}
+	return matchMedia('(pointer: coarse)').matches;
+}

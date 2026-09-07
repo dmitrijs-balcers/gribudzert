@@ -1,6 +1,7 @@
 import type * as L from 'leaflet';
 import { LOCATE_ZOOM } from '../../core/config';
 import type { LatLon } from '../../domain';
+import type { UserInteractionSource } from '../navigation/user-interaction';
 import type { LocationTracker } from './tracker';
 
 export type FollowMode = 'off' | 'on';
@@ -13,15 +14,12 @@ export type FollowController = {
 	readonly mode: () => FollowMode;
 };
 
-const ARROW_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
-
-const isArrowKey = (event: KeyboardEvent): boolean => ARROW_KEYS.has(event.key);
-
 const isSamePlace = (a: LatLon, b: LatLon): boolean => a.lat === b.lat && a.lon === b.lon;
 
 export function createFollowController(
 	map: L.Map,
 	tracker: LocationTracker,
+	userInteraction: UserInteractionSource,
 	onModeChange: (mode: FollowMode) => void
 ): FollowController {
 	let mode: FollowMode = 'off';
@@ -83,13 +81,7 @@ export function createFollowController(
 		}
 	});
 
-	map.on('dragstart', leaveFollowMode);
-
-	document.addEventListener('keydown', (event: KeyboardEvent) => {
-		if (isArrowKey(event) && document.activeElement === map.getContainer()) {
-			leaveFollowMode();
-		}
-	});
+	userInteraction.onUserMovedMap(leaveFollowMode);
 
 	return {
 		follow: (transition) => {

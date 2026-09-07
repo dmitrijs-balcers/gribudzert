@@ -57,6 +57,8 @@ import type { FollowMode } from '../features/location/follow';
 import type { TrackingState } from '../features/location/tracker';
 import { addMarkers } from '../features/markers/markers';
 import { toTileBounds } from '../features/navigation/bounds';
+import { createUserInteractionSource } from '../features/navigation/user-interaction';
+import { createOneHandZoomHandler } from '../features/zoom-gesture';
 import drinkingWater from '../oql/drinking_water.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
 import { toLocationFailureCategory } from '../types/errors';
@@ -67,6 +69,7 @@ import { initInstallPrompt } from '../ui/install-prompt';
 import { createNearestHud } from '../ui/nearest-hud';
 import { showNotification } from '../ui/notifications';
 import { createProvenanceIndicator } from '../ui/provenance-indicator';
+import { isCoarsePointer } from '../utils/dom';
 import * as logger from '../utils/logger';
 import type { FacilityLayer, FacilityLayers, LayerKind } from './layers';
 import {
@@ -123,8 +126,18 @@ const viewportOf = (map: L.Map): Viewport => {
 	};
 };
 
-const createMap = (center: L.LatLngTuple): L.Map => {
-	const map = L.map(MAP_CONTAINER_ID, { center, zoom: DEFAULT_ZOOM, zoomControl: true });
+export const mapOptionsFor = (input: {
+	readonly coarsePointer: boolean;
+	readonly center: L.LatLngTuple;
+}): L.MapOptions => ({
+	center: input.center,
+	zoom: DEFAULT_ZOOM,
+	zoomControl: !input.coarsePointer,
+	zoomSnap: input.coarsePointer ? 0 : 1,
+});
+
+const createMap = (center: L.LatLngTuple, coarsePointer: boolean): L.Map => {
+	const map = L.map(MAP_CONTAINER_ID, mapOptionsFor({ coarsePointer, center }));
 	L.tileLayer(OSM_TILE_URL, {
 		maxZoom: MAX_ZOOM,
 		attribution: OSM_ATTRIBUTION,
@@ -254,9 +267,15 @@ const bootstrapOrThrow = async (): Promise<void> => {
 
 	const center: L.LatLngTuple =
 		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
-	const map = createMap(center);
+	const coarsePointer = isCoarsePointer();
+	const map = createMap(center, coarsePointer);
 	registerServiceWorker();
 	initInstallPrompt(localStorage);
+
+	const userInteraction = createUserInteractionSource(map);
+	if (coarsePointer) {
+		createOneHandZoomHandler(map, userInteraction.notifyUserMovedMap).enable();
+	}
 
 	const provenanceIndicator = createProvenanceIndicator('topleft');
 	provenanceIndicator.control.addTo(map);
@@ -394,7 +413,7 @@ const bootstrapOrThrow = async (): Promise<void> => {
 		locateControl.render(locateButtonViewOf(tracker.state(), followController.mode()));
 	};
 
-	const followController = createFollowController(map, tracker, () => {
+	const followController = createFollowController(map, tracker, userInteraction, () => {
 		renderLocateButton();
 	});
 
