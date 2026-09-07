@@ -11,7 +11,12 @@ const assertResponded = (response: Response | null): Response => {
 
 const ORIGIN = 'https://gribudzert.test';
 const DEFAULT_BUILD_ID = 'abcdef0123456789';
-const DEFAULT_ASSETS = ['/index.html', '/assets/index-abc.js', '/assets/index-abc.css', '/manifest.json'];
+const DEFAULT_ASSETS = [
+	'/index.html',
+	'/assets/index-abc.js',
+	'/assets/index-abc.css',
+	'/manifest.json',
+];
 
 describe('Opening the app after a deploy', () => {
 	it('precaches every asset from the shell manifest on install', async () => {

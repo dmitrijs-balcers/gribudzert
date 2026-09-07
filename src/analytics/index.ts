@@ -22,6 +22,10 @@ export {
 	// Exploration Events (P3)
 	trackAreaExplored,
 	trackEmptyArea,
+	// Install Prompt Events (P3)
+	trackInstallPromptAccepted,
+	trackInstallPromptDismissed,
+	trackInstallPromptShown,
 	// Layer Events (P2)
 	trackLayerDisabled,
 	trackLayerEnabled,
@@ -52,6 +56,9 @@ export type {
 	AreaExploredEvent,
 	EmptyAreaEvent,
 	FacilityType,
+	InstallPromptAcceptedEvent,
+	InstallPromptDismissedEvent,
+	InstallPromptShownEvent,
 	LayerDisabledEvent,
 	LayerEnabledEvent,
 	LayerName,

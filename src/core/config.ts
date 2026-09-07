@@ -96,3 +96,11 @@ export const TILE_EVICTION_EVERY_N_PUTS = 25;
 export const SHELL_CACHE_PREFIX = 'gribudzert-shell-';
 
 export const SERVICE_WORKER_PATH = '/sw.js';
+
+export const INSTALL_PROMPT_STORAGE_PREFIX = 'gribudzert:install-prompt';
+
+export const INSTALL_PROMPT_MIN_VISITS = 2;
+
+export const INSTALL_PROMPT_SHOW_DELAY_MS: DurationMs = durationMsLiteral(3_000);
+
+export const INSTALL_PROMPT_DISMISS_COOLDOWN_MS: DurationMs = durationMsLiteral(1_209_600_000);
