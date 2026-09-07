@@ -362,6 +362,25 @@ export const installPermissionsFake = (state: Permission): void => {
 	Object.defineProperty(navigator, 'permissions', { configurable: true, value: permissions });
 };
 
+const fakeMediaQueryList = (query: string, matches: boolean): MediaQueryList =>
+	({
+		matches,
+		media: query,
+		onchange: null,
+		addListener: () => undefined,
+		removeListener: () => undefined,
+		addEventListener: () => undefined,
+		removeEventListener: () => undefined,
+		dispatchEvent: () => false,
+	}) as MediaQueryList;
+
+export const installPointerFake = (kind: 'coarse' | 'fine'): void => {
+	Object.defineProperty(window, 'matchMedia', {
+		configurable: true,
+		value: (query: string) => fakeMediaQueryList(query, query.includes(`pointer: ${kind}`)),
+	});
+};
+
 export const seedRememberedPosition = (
 	position: GeoPosition & { readonly ageMs?: number }
 ): void => {
@@ -540,6 +559,14 @@ export type AppHandle = {
 	readonly beelineVisible: () => boolean;
 	readonly snapshot: () => Promise<unknown>;
 	readonly provenance: () => string | null;
+	readonly zoomControlVisible: () => boolean;
+	readonly tileZoom: () => number | null;
+	readonly draggingEnabled: () => boolean;
+	readonly gesturePointer: (
+		type: GesturePointerType,
+		point: { x: number; y: number },
+		pointerId?: number
+	) => void;
 };
 
 export type RenderOptions = {
@@ -549,6 +576,7 @@ export type RenderOptions = {
 	readonly reload?: boolean;
 	readonly permission?: Permission;
 	readonly rememberedPosition?: GeoPosition & { readonly ageMs?: number };
+	readonly pointer?: 'coarse' | 'fine';
 };
 
 const clickOn = (element: Element | null, what: string): void => {
@@ -593,6 +621,35 @@ const observeToastHistory = (): readonly string[] => {
 const facilityMarkerElements = (container: HTMLElement): readonly Element[] =>
 	Array.from(container.querySelectorAll('.leaflet-marker-pane .facility-marker'));
 
+export type GesturePointerType = 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel';
+
+const dispatchGesturePointer = (
+	container: HTMLElement,
+	type: GesturePointerType,
+	point: { readonly x: number; readonly y: number },
+	pointerId: number
+): void => {
+	container.dispatchEvent(
+		new PointerEvent(type, {
+			bubbles: true,
+			cancelable: true,
+			clientX: point.x,
+			clientY: point.y,
+			pointerId,
+			isPrimary: true,
+			pointerType: 'touch',
+		})
+	);
+};
+
+const TILE_ZOOM_PATTERN = /tile\.openstreetmap\.org\/(\d+)\//;
+
+const tileZoomOf = (container: HTMLElement): number | null => {
+	const image = container.querySelector<HTMLImageElement>('.leaflet-tile-pane img.leaflet-tile');
+	const match = image === null ? null : TILE_ZOOM_PATTERN.exec(image.src);
+	return match?.[1] === undefined ? null : Number(match[1]);
+};
+
 export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
 	blurFocusedElement();
 	document.body.innerHTML = '';
@@ -605,6 +662,7 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 	const overpass = fakeOverpass(options.overpass ?? (() => WATER_ELEMENTS));
 	const geolocation = fakeGeolocation(options.geolocation ?? { position: USER });
 	installPermissionsFake(options.permission ?? 'prompt');
+	installPointerFake(options.pointer ?? 'fine');
 	if (options.rememberedPosition !== undefined) {
 		seedRememberedPosition(options.rememberedPosition);
 	}
@@ -715,5 +773,10 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 			}
 			return element.getAttribute('data-provenance');
 		},
+		zoomControlVisible: () => container.querySelector('.leaflet-control-zoom-in') !== null,
+		tileZoom: () => tileZoomOf(container),
+		draggingEnabled: () => container.classList.contains('leaflet-grab'),
+		gesturePointer: (type, point, pointerId = 1) =>
+			dispatchGesturePointer(container, type, point, pointerId),
 	};
 }
