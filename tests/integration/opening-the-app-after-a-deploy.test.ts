@@ -94,4 +94,22 @@ describe('Opening the app after a deploy', () => {
 		expect(navigation).toBeNull();
 		expect(asset).toBeNull();
 	});
+
+	it('skips waiting when the page asks the new worker to take over', async () => {
+		const worker = startWorker();
+
+		worker.sendMessage({ type: 'SKIP_WAITING' });
+
+		expect(worker.skipWaitingCallCount()).toBe(1);
+	});
+
+	it('ignores messages that are not a request to skip waiting', async () => {
+		const worker = startWorker();
+
+		worker.sendMessage({ type: 'SOMETHING_ELSE' });
+		worker.sendMessage('not an object');
+		worker.sendMessage(null);
+
+		expect(worker.skipWaitingCallCount()).toBe(0);
+	});
 });

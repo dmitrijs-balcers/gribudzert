@@ -22,6 +22,8 @@ const copyOf = (provenance: DataProvenance): ProvenanceCopy => {
 			return { label: 'Updating', title: 'Refreshing points…' };
 		case 'failed':
 			return { label: 'Failed', title: "Couldn't refresh. Showing saved points if any." };
+		case 'offline':
+			return { label: 'Offline', title: 'No connection. Showing saved points.' };
 		default: {
 			const exhaustive: never = provenance;
 			throw new Error(`Unhandled data provenance: ${JSON.stringify(exhaustive)}`);

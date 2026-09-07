@@ -1,3 +1,6 @@
+export type { AppUpdateEffect, AppUpdateEvent, AppUpdatePhase, AppUpdateState } from './app-update';
+export { applyAppUpdate, initialAppUpdateState } from './app-update';
+export type { Connectivity } from './connectivity';
 export type { Coverage, RequestId, RequestSequence, TileStatus } from './coverage';
 export {
 	clearMany,

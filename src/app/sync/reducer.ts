@@ -9,6 +9,7 @@ import {
 } from '../../core/config';
 import {
 	boundsOfTiles,
+	type Connectivity,
 	type Coverage,
 	classify,
 	clearMany,
@@ -30,6 +31,7 @@ import {
 import { evict, mergeSnapshots, reconcile, type Snapshot } from '../../features/cache/snapshot';
 import { LAYER_KINDS, type LayerKind, locateFacilities } from '../layers';
 import {
+	BACK_ONLINE_MESSAGE,
 	emptyAreaMessage,
 	fetchErrorMessage,
 	OFFLINE_SHOWING_SAVED_MESSAGE,
@@ -183,10 +185,14 @@ const provenanceEffectOf = (
 	neededTiles: readonly TileId[],
 	activeKinds: readonly LayerKind[],
 	sessionStartedAt: Timestamp,
+	connectivity: Connectivity,
 	now: Timestamp
 ): SyncEffect => {
 	if (activeKinds.length === 0) {
 		return { kind: 'report-provenance', provenance: null };
+	}
+	if (connectivity === 'offline') {
+		return { kind: 'report-provenance', provenance: 'offline' };
 	}
 	const statuses: TileStatus[] = [];
 	for (const tile of neededTiles) {
@@ -278,7 +284,7 @@ const settleFetchable = (
 
 	let nextRequest = state.nextRequest;
 
-	if (missingTiles.size > 0 && missingKinds.size > 0) {
+	if (missingTiles.size > 0 && missingKinds.size > 0 && state.connectivity === 'online') {
 		const tiles = [...missingTiles];
 		const kinds = [...missingKinds];
 		const bounds = boundsOfTiles(tiles);
@@ -306,6 +312,7 @@ const settleFetchable = (
 			neededTiles,
 			activeKinds,
 			state.sessionStartedAt,
+			state.connectivity,
 			now
 		)
 	);
@@ -389,7 +396,11 @@ const handleFetchFailed = (
 
 	const notifyEffects: SyncEffect[] = [];
 	const classification = state.viewport === null ? null : classify(state.viewport, MIN_FETCH_ZOOM);
-	if (classification !== null && classification.kind === 'fetchable') {
+	if (
+		state.connectivity === 'online' &&
+		classification !== null &&
+		classification.kind === 'fetchable'
+	) {
 		const neededTiles = neededTilesOf(classification.viewport);
 		const somethingKnown = fetch.kinds.some((kind) => isKnown(state.snapshot, neededTiles, kind));
 		if (somethingKnown) {
@@ -421,6 +432,32 @@ const handleFetchFailed = (
 	return [settled, effects];
 };
 
+const handleConnectivityChanged = (
+	state: SyncState,
+	event: Extract<SyncEvent, { readonly kind: 'connectivity-changed' }>,
+	now: Timestamp
+): readonly [SyncState, readonly SyncEffect[]] => {
+	if (event.connectivity === state.connectivity) {
+		return [state, []];
+	}
+
+	if (event.connectivity === 'offline') {
+		const released = releasePending(state.pending, state.coverage);
+		const [settled, settleEffects] = settle(
+			{ ...state, connectivity: 'offline', coverage: released.coverage, pending: null },
+			now
+		);
+		return [settled, [...released.effects, ...settleEffects]];
+	}
+
+	const [settled, settleEffects] = settle({ ...state, connectivity: 'online' }, now);
+	const effects: SyncEffect[] = [
+		{ kind: 'notify', message: BACK_ONLINE_MESSAGE, notificationType: 'info', duration: 3000 },
+		...settleEffects,
+	];
+	return [settled, effects];
+};
+
 export const apply = (
 	state: SyncState,
 	event: SyncEvent,
@@ -446,6 +483,8 @@ export const apply = (
 			return handleFetchSucceeded(state, event, now);
 		case 'fetch-failed':
 			return handleFetchFailed(state, event, now);
+		case 'connectivity-changed':
+			return handleConnectivityChanged(state, event, now);
 		default: {
 			const exhaustive: never = event;
 			return exhaustive;

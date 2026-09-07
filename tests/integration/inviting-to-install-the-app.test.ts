@@ -18,27 +18,6 @@ const waitPastShowDelay = (): Promise<void> =>
 		setTimeout(resolve, INSTALL_PROMPT_SHOW_DELAY_MS + SHOW_DELAY_MARGIN_MS)
 	);
 
-const stubMatchMedia = (isMatch: (query: string) => boolean): void => {
-	window.matchMedia = (query: string): MediaQueryList =>
-		({
-			matches: isMatch(query),
-			media: query,
-			onchange: null,
-			addListener: () => undefined,
-			removeListener: () => undefined,
-			addEventListener: () => undefined,
-			removeEventListener: () => undefined,
-			dispatchEvent: () => false,
-		}) as MediaQueryList;
-};
-
-const stubMobileViewport = (): void => stubMatchMedia((query) => query.includes('pointer: coarse'));
-
-const stubDesktopViewport = (): void => stubMatchMedia(() => false);
-
-const stubStandaloneDisplayMode = (): void =>
-	stubMatchMedia((query) => query.includes('display-mode: standalone'));
-
 const installDialog = (): PWAInstallElement | null =>
 	document.querySelector<PWAInstallElement>('pwa-install');
 
@@ -56,10 +35,13 @@ const markInstallAvailable = (): void => {
 
 const DENIED_LOCATION = { error: GEO_PERMISSION_DENIED } as const;
 
+const MOBILE = { pointer: 'coarse', geolocation: DENIED_LOCATION } as const;
+const DESKTOP = { pointer: 'fine', geolocation: DENIED_LOCATION } as const;
+const STANDALONE = { displayMode: 'standalone', geolocation: DENIED_LOCATION } as const;
+
 describe('Inviting to install the app', () => {
 	it('does not show the install dialog on a first mobile visit', async () => {
-		stubMobileViewport();
-		await renderApp({ geolocation: DENIED_LOCATION });
+		await renderApp(MOBILE);
 
 		await waitPastShowDelay();
 		expect(installDialog()).toBeNull();
@@ -69,12 +51,10 @@ describe('Inviting to install the app', () => {
 		const track = vi.fn();
 		(window as TrackerWindow).umami = { track };
 
-		stubMobileViewport();
-		await renderApp({ geolocation: DENIED_LOCATION });
+		await renderApp(MOBILE);
 		expect(installDialog()).toBeNull();
 
-		stubMobileViewport();
-		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
+		await renderApp({ ...MOBILE, reload: true });
 		markInstallAvailable();
 
 		await waitPastShowDelay();
@@ -93,11 +73,9 @@ describe('Inviting to install the app', () => {
 		const track = vi.fn();
 		(window as TrackerWindow).umami = { track };
 
-		stubMobileViewport();
-		await renderApp({ geolocation: DENIED_LOCATION });
+		await renderApp(MOBILE);
 
-		stubMobileViewport();
-		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
+		await renderApp({ ...MOBILE, reload: true });
 
 		await waitPastShowDelay();
 		expect(installDialog()?.isInstallAvailable).toBe(false);
@@ -105,22 +83,18 @@ describe('Inviting to install the app', () => {
 	}, 15_000);
 
 	it('never shows the install dialog while running in standalone display mode', async () => {
-		stubStandaloneDisplayMode();
-		await renderApp({ geolocation: DENIED_LOCATION });
+		await renderApp(STANDALONE);
 		expect(installDialog()).toBeNull();
 
-		stubStandaloneDisplayMode();
-		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
+		await renderApp({ ...STANDALONE, reload: true });
 		await waitPastShowDelay();
 		expect(installDialog()).toBeNull();
 	}, 15_000);
 
 	it('never shows the install dialog on a desktop viewport', async () => {
-		stubDesktopViewport();
-		await renderApp({ geolocation: DENIED_LOCATION });
+		await renderApp(DESKTOP);
 
-		stubDesktopViewport();
-		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
+		await renderApp({ ...DESKTOP, reload: true });
 		await waitPastShowDelay();
 		expect(installDialog()).toBeNull();
 	}, 15_000);
@@ -129,12 +103,10 @@ describe('Inviting to install the app', () => {
 		const track = vi.fn();
 		(window as TrackerWindow).umami = { track };
 
-		stubMobileViewport();
-		await renderApp({ geolocation: DENIED_LOCATION });
+		await renderApp(MOBILE);
 		expect(installDialog()).toBeNull();
 
-		stubMobileViewport();
-		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
+		await renderApp({ ...MOBILE, reload: true });
 		markInstallAvailable();
 		await waitPastShowDelay();
 		const dialog = installDialog();
@@ -144,8 +116,7 @@ describe('Inviting to install the app', () => {
 		dispatchUserChoice(dialog, 'dismissed');
 		expect(track).toHaveBeenCalledWith('install_prompt_dismissed');
 
-		stubMobileViewport();
-		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
+		await renderApp({ ...MOBILE, reload: true });
 		await waitPastShowDelay();
 		expect(installDialog()).toBeNull();
 	}, 20_000);

@@ -11,6 +11,7 @@ import { timestamp } from '../src/domain';
 import type {
 	ExtendableContext,
 	FetchContext,
+	MessageContext,
 	OfflineConfig,
 	OfflinePorts,
 	OfflineRuntime,
@@ -55,6 +56,8 @@ export type OfflineWorker = {
 	readonly replyToShell: (
 		handler: (url: URL) => Response | Promise<Response> | 'network-error'
 	) => void;
+	readonly sendMessage: (data: unknown) => void;
+	readonly skipWaitingCallCount: () => number;
 };
 
 export type StartWorkerOptions = {
@@ -205,17 +208,24 @@ export const startWorker = (options: StartWorkerOptions = {}): OfflineWorker => 
 	let installListener: ((event: ExtendableContext) => void) | null = null;
 	let activateListener: ((event: ExtendableContext) => void) | null = null;
 	let fetchListener: ((event: FetchContext) => void) | null = null;
+	let messageListener: ((event: MessageContext) => void) | null = null;
+	let skipWaitingCallCount = 0;
 
 	const addEventListener = (
-		type: 'install' | 'activate' | 'fetch',
-		listener: ((event: ExtendableContext) => void) | ((event: FetchContext) => void)
+		type: 'install' | 'activate' | 'fetch' | 'message',
+		listener:
+			| ((event: ExtendableContext) => void)
+			| ((event: FetchContext) => void)
+			| ((event: MessageContext) => void)
 	): void => {
 		if (type === 'install') {
 			installListener = listener as (event: ExtendableContext) => void;
 		} else if (type === 'activate') {
 			activateListener = listener as (event: ExtendableContext) => void;
-		} else {
+		} else if (type === 'fetch') {
 			fetchListener = listener as (event: FetchContext) => void;
+		} else {
+			messageListener = listener as (event: MessageContext) => void;
 		}
 	};
 
@@ -225,6 +235,9 @@ export const startWorker = (options: StartWorkerOptions = {}): OfflineWorker => 
 			claim: async () => undefined,
 		},
 		location: { origin: FAKE_ORIGIN },
+		skipWaiting: async () => {
+			skipWaitingCallCount += 1;
+		},
 	};
 
 	installServiceWorker(host, runtime);
@@ -313,5 +326,9 @@ export const startWorker = (options: StartWorkerOptions = {}): OfflineWorker => 
 		replyToShell: (handler) => {
 			shellHandler = handler;
 		},
+		sendMessage: (data) => {
+			messageListener?.({ data });
+		},
+		skipWaitingCallCount: () => skipWaitingCallCount,
 	};
 };

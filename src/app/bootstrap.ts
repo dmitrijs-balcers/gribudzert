@@ -55,6 +55,7 @@ import {
 } from '../features/location';
 import type { FollowMode } from '../features/location/follow';
 import type { TrackingState } from '../features/location/tracker';
+import { currentConnectivity, observeConnectivity } from '../features/connectivity';
 import { addMarkers } from '../features/markers/markers';
 import { toTileBounds } from '../features/navigation/bounds';
 import { createUserInteractionSource } from '../features/navigation/user-interaction';
@@ -378,7 +379,7 @@ const bootstrapOrThrow = async (): Promise<void> => {
 			trackEmptyArea,
 			reportProvenance: provenanceIndicator.render,
 		},
-		initialSyncState(timestampNow())
+		initialSyncState(timestampNow(), undefined, currentConnectivity(navigator))
 	);
 
 	const mapContainerStillMounted = (): boolean => document.body.contains(map.getContainer());
@@ -387,6 +388,10 @@ const bootstrapOrThrow = async (): Promise<void> => {
 			runtime.dispatch(event);
 		}
 	};
+
+	observeConnectivity(window, navigator, (connectivity) => {
+		dispatchWhileMounted({ kind: 'connectivity-changed', connectivity });
+	});
 
 	const cacheLoad = store.load().then(snapshotFrom);
 	let cacheReadyDispatched = false;

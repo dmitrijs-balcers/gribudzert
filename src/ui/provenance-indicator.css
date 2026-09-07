@@ -42,6 +42,10 @@
 	background: #d32f2f;
 }
 
+.provenance-indicator[data-provenance='offline'] .provenance-indicator-dot {
+	background: #616161;
+}
+
 @keyframes provenance-indicator-pulse {
 	0%,
 	100% {

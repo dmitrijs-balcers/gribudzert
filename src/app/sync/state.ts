@@ -1,4 +1,5 @@
 import type {
+	Connectivity,
 	Coverage,
 	FacilityKind,
 	LatLon,
@@ -31,11 +32,13 @@ export type SyncState = {
 	readonly zoomedOutNoticeShown: boolean;
 	readonly emptyAreaNotifiedAt: Readonly<Record<LayerKind, Timestamp | null>>;
 	readonly sessionStartedAt: Timestamp;
+	readonly connectivity: Connectivity;
 };
 
 export const initialSyncState = (
 	sessionStartedAt: Timestamp,
-	snapshot: Snapshot = emptySnapshot()
+	snapshot: Snapshot = emptySnapshot(),
+	connectivity: Connectivity = 'online'
 ): SyncState => ({
 	snapshot,
 	coverage: emptyCoverage,
@@ -47,4 +50,5 @@ export const initialSyncState = (
 	zoomedOutNoticeShown: false,
 	emptyAreaNotifiedAt: { water: null, toilet: null },
 	sessionStartedAt,
+	connectivity,
 });

@@ -1,8 +1,6 @@
-import type { Timestamp } from '../../domain';
+import type { Connectivity, Timestamp } from '../../domain';
 import { freshnessAt } from '../../domain';
 import type { StoredTile } from './record';
-
-export type Connectivity = 'online' | 'offline';
 
 export type TileDecision =
 	| { readonly kind: 'serve'; readonly tile: StoredTile }

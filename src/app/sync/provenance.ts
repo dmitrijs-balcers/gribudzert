@@ -1,6 +1,6 @@
 import type { TileStatus, Timestamp } from '../../domain';
 
-export type DataProvenance = 'live' | 'saved' | 'updating' | 'failed';
+export type DataProvenance = 'live' | 'saved' | 'updating' | 'failed' | 'offline';
 
 export const provenanceOf = (
 	statuses: readonly TileStatus[],
