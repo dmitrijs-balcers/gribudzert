@@ -1,6 +1,6 @@
 import type * as L from 'leaflet';
-import { point as leafletPoint } from 'leaflet';
 import { timestampNow } from '../../domain';
+import { createContinuousZoom } from './continuous-zoom';
 import type { GestureEffect, GestureEvent, GesturePoint, GestureState } from './gesture';
 import { idleGestureState, reduce } from './gesture';
 
@@ -18,6 +18,7 @@ export const createOneHandZoomHandler = (
 	let state: GestureState = idleGestureState;
 	let enabled = false;
 	const activePointerIds = new Set<number>();
+	const zoom = createContinuousZoom(map);
 
 	const containerPointOf = (event: PointerEvent): GesturePoint => {
 		const rect = map.getContainer().getBoundingClientRect();
@@ -29,14 +30,14 @@ export const createOneHandZoomHandler = (
 			case 'begin':
 				map.dragging.disable();
 				map.getContainer().classList.add(GESTURE_ACTIVE_CLASS);
+				zoom.start(effect.anchor);
 				notifyUserMovedMap();
 				return;
 			case 'zoomTo':
-				map.setZoomAround(leafletPoint(effect.anchor.x, effect.anchor.y), effect.zoom, {
-					animate: false,
-				});
+				zoom.zoomTo(effect.zoom);
 				return;
 			case 'end':
+				zoom.finish();
 				map.dragging.enable();
 				map.getContainer().classList.remove(GESTURE_ACTIVE_CLASS);
 				return;
@@ -67,6 +68,8 @@ export const createOneHandZoomHandler = (
 		});
 	};
 
+	// Move, up and cancel are heard on the window: a finger that slides off the map container
+	// (or lifts there) must still finish the gesture, otherwise dragging stays disabled.
 	const onPointerMove = (event: PointerEvent): void => {
 		if (!activePointerIds.has(event.pointerId)) {
 			return;
@@ -76,7 +79,9 @@ export const createOneHandZoomHandler = (
 	};
 
 	const onPointerUp = (event: PointerEvent): void => {
-		activePointerIds.delete(event.pointerId);
+		if (!activePointerIds.delete(event.pointerId)) {
+			return;
+		}
 		dispatch({ kind: 'pointerUp', pointerCount: activePointerIds.size });
 	};
 
@@ -91,24 +96,22 @@ export const createOneHandZoomHandler = (
 				return;
 			}
 			enabled = true;
-			const container = map.getContainer();
-			container.addEventListener('pointerdown', onPointerDown);
-			container.addEventListener('pointermove', onPointerMove, { passive: false });
-			container.addEventListener('pointerup', onPointerUp);
-			container.addEventListener('pointercancel', onPointerCancel);
+			map.getContainer().addEventListener('pointerdown', onPointerDown);
+			window.addEventListener('pointermove', onPointerMove);
+			window.addEventListener('pointerup', onPointerUp);
+			window.addEventListener('pointercancel', onPointerCancel);
 		},
 		disable: () => {
 			if (!enabled) {
 				return;
 			}
 			enabled = false;
-			const container = map.getContainer();
-			container.removeEventListener('pointerdown', onPointerDown);
-			container.removeEventListener('pointermove', onPointerMove);
-			container.removeEventListener('pointerup', onPointerUp);
-			container.removeEventListener('pointercancel', onPointerCancel);
+			map.getContainer().removeEventListener('pointerdown', onPointerDown);
+			window.removeEventListener('pointermove', onPointerMove);
+			window.removeEventListener('pointerup', onPointerUp);
+			window.removeEventListener('pointercancel', onPointerCancel);
 			activePointerIds.clear();
-			state = idleGestureState;
+			dispatch({ kind: 'cancel' });
 		},
 	};
 };

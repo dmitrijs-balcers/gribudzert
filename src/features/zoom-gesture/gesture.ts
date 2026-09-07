@@ -43,8 +43,8 @@ export type GestureEvent =
 	| { readonly kind: 'cancel' };
 
 export type GestureEffect =
-	| { readonly kind: 'begin' }
-	| { readonly kind: 'zoomTo'; readonly anchor: GesturePoint; readonly zoom: number }
+	| { readonly kind: 'begin'; readonly anchor: GesturePoint }
+	| { readonly kind: 'zoomTo'; readonly zoom: number }
 	| { readonly kind: 'end' };
 
 type Reduction = readonly [GestureState, readonly GestureEffect[]];
@@ -107,10 +107,8 @@ const reduceFirstTapUp = (
 			if (!withinInterval || !withinSlop) {
 				return [{ kind: 'firstTapDown', x: event.x, y: event.y, at: now }, []];
 			}
-			return [
-				{ kind: 'armed', anchor: { x: event.x, y: event.y }, baseZoom: event.zoom },
-				[{ kind: 'begin' }],
-			];
+			const anchor = { x: event.x, y: event.y };
+			return [{ kind: 'armed', anchor, baseZoom: event.zoom }, [{ kind: 'begin', anchor }]];
 		}
 		case 'pointerMove':
 		case 'pointerUp':
@@ -142,7 +140,7 @@ const reduceArmed = (
 			const zoom = zoomFor(state.anchor, state.baseZoom, event.y);
 			return [
 				{ kind: 'dragging', anchor: state.anchor, baseZoom: state.baseZoom },
-				[{ kind: 'zoomTo', anchor: state.anchor, zoom }],
+				[{ kind: 'zoomTo', zoom }],
 			];
 		}
 		case 'pointerUp':
@@ -167,7 +165,7 @@ const reduceDragging = (
 				return [idleGestureState, [{ kind: 'end' }]];
 			}
 			const zoom = zoomFor(state.anchor, state.baseZoom, event.y);
-			return [state, [{ kind: 'zoomTo', anchor: state.anchor, zoom }]];
+			return [state, [{ kind: 'zoomTo', zoom }]];
 		}
 		case 'pointerUp':
 		case 'cancel':
