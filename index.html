@@ -2,13 +2,20 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
         <title>Gribudzert – drinking water &amp; public toilets map</title>
         <meta
             name="description"
             content="Find free drinking water taps and public toilets near you on an interactive OpenStreetMap-based map."
         />
         <meta name="theme-color" content="#0078ff" />
+        <!-- Translucent status bar in iOS standalone mode so map tiles render under the notch -->
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
         <link rel="manifest" href="manifest.json" />
@@ -23,10 +30,24 @@
         ></script>
 
         <style>
+            /*
+             * Safe-area insets (notch, home indicator, rounded corners).
+             * Resolve to 0 on devices without them. Requires viewport-fit=cover.
+             */
+            :root {
+                --safe-top: env(safe-area-inset-top, 0px);
+                --safe-right: env(safe-area-inset-right, 0px);
+                --safe-bottom: env(safe-area-inset-bottom, 0px);
+                --safe-left: env(safe-area-inset-left, 0px);
+            }
+
             html,
             body {
                 height: 100%;
                 margin: 0;
+                /* Stop rubber-band / pull-to-refresh from moving the map page */
+                overscroll-behavior: none;
+                overflow: hidden;
                 font-family:
                     system-ui,
                     -apple-system,
@@ -39,16 +60,41 @@
                 -moz-osx-font-smoothing: grayscale;
             }
 
-            /* Map fills viewport */
+            /*
+             * Map fills the whole screen edge to edge, including under the
+             * notch and home indicator. position:fixed + inset:0 tracks the
+             * real visual viewport on iOS (100vh does not shrink for the
+             * Safari toolbar). Tiles go under the notch; controls are padded
+             * out of it below.
+             */
             #map {
-                height: 100vh;
+                position: fixed;
+                inset: 0;
                 width: 100%;
+                height: 100%;
+            }
+
+            /*
+             * Push Leaflet's corner control containers out of the safe areas.
+             * Scoped to #map so these beat leaflet.css, which Vite injects later.
+             */
+            #map .leaflet-top {
+                top: var(--safe-top);
+            }
+            #map .leaflet-bottom {
+                bottom: var(--safe-bottom);
+            }
+            #map .leaflet-left {
+                left: var(--safe-left);
+            }
+            #map .leaflet-right {
+                right: var(--safe-right);
             }
 
             .info {
                 position: absolute;
-                bottom: 12px;
-                right: 12px;
+                bottom: calc(12px + var(--safe-bottom));
+                right: calc(12px + var(--safe-right));
                 z-index: 1000;
                 background: rgba(255, 255, 255, 0.95);
                 padding: 8px 12px;
@@ -162,8 +208,8 @@
             /* Notification System Styles */
             .notification-container {
                 position: fixed;
-                bottom: 20px;
-                right: 20px;
+                bottom: calc(20px + var(--safe-bottom));
+                right: calc(20px + var(--safe-right));
                 z-index: 10000;
                 display: flex;
                 flex-direction: column;
@@ -319,9 +365,9 @@
             /* Responsive notifications on mobile */
             @media (max-width: 600px) {
                 .notification-container {
-                    left: 12px;
-                    right: 12px;
-                    bottom: 12px;
+                    left: calc(12px + var(--safe-left));
+                    right: calc(12px + var(--safe-right));
+                    bottom: calc(12px + var(--safe-bottom));
                 }
 
                 .notification {
