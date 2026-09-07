@@ -57,12 +57,16 @@ export {
 } from './geo';
 export type { Located } from './located';
 export { findNearest, markNearest, nearestOf, withDistances } from './located';
+export type { MapTileKey } from './map-tile';
+export { mapTileKey, parseMapTileKey } from './map-tile';
 export type { OsmTags } from './osm';
 export { facilityFromTags, isToiletTags, waterSourceTypeOf } from './osm';
 export type { UserPosition } from './position';
 export { isMoving, toUserPosition } from './position';
 export type { TileBounds, TileId } from './tile';
 export { boundsOfTiles, parseTileId, tileBounds, tileOf, tilesCovering } from './tile';
+export type { CacheHeaders, Freshness, LifetimeBounds, TileLifetime } from './tile-lifetime';
+export { freshnessAt, lifetimeFrom } from './tile-lifetime';
 export type { DurationMs, SchemaVersion, Timestamp, Zoom, ZoomLevelLiteral } from './units';
 export {
 	durationMs,

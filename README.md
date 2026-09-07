@@ -11,6 +11,17 @@ Interactive map application using Leaflet and OpenStreetMap to display points of
 - 🗺️ **Interactive Map**: Pan and zoom to explore different areas
 - 🧭 **Navigation**: Get directions to any water source or toilet
 
+## 🛰️ Offline
+
+A service worker caches the map tiles you've actually viewed and the built app shell, so the
+map keeps working when the network drops and reopens instantly on a repeat visit. There is no
+"download this area for offline" feature — the OpenStreetMap tile usage policy forbids
+prefetching tiles that were never requested by the map itself.
+
+Production builds are two steps: `yarn build` runs `vite build` (the app) followed by
+`vite build --config vite.sw.config.ts` (the worker, built from the first build's asset
+manifest so it knows exactly what to precache).
+
 ## 🚀 Development
 
 ```bash

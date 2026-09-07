@@ -76,3 +76,23 @@ export const FACILITY_CACHE_SCHEMA_VERSION: SchemaVersion = schemaVersionLiteral
 export const FETCH_RETRY_BACKOFF_MS: DurationMs = durationMsLiteral(400);
 
 export const CACHE_WARMUP_TIMEOUT_MS: DurationMs = durationMsLiteral(2_000);
+
+export const TILE_HOSTS: readonly string[] = ['tile.openstreetmap.org'];
+
+export const TILE_CACHE_DB_NAME = 'gribudzert-tiles';
+
+export const TILE_CACHE_SCHEMA_VERSION: SchemaVersion = schemaVersionLiteral(1);
+
+export const TILE_LIFETIME_FLOOR_MS: DurationMs = durationMsLiteral(604_800_000);
+
+export const TILE_MAX_AGE_MS: DurationMs = durationMsLiteral(2_592_000_000);
+
+export const TILE_BUDGET = { maxTiles: 3000, maxBytes: 40_000_000 } as const;
+
+export const TILE_TOUCH_INTERVAL_MS: DurationMs = durationMsLiteral(3_600_000);
+
+export const TILE_EVICTION_EVERY_N_PUTS = 25;
+
+export const SHELL_CACHE_PREFIX = 'gribudzert-shell-';
+
+export const SERVICE_WORKER_PATH = '/sw.js';

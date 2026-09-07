@@ -81,6 +81,7 @@ import {
 	LOCATION_FALLBACK_MESSAGE,
 	locationErrorMessage,
 } from './messages';
+import { registerServiceWorker } from './service-worker-client';
 import type { LayerRender, SyncRuntime } from './sync';
 import { createSyncRuntime, initialSyncState } from './sync';
 
@@ -123,7 +124,11 @@ const viewportOf = (map: L.Map): Viewport => {
 
 const createMap = (center: L.LatLngTuple): L.Map => {
 	const map = L.map(MAP_CONTAINER_ID, { center, zoom: DEFAULT_ZOOM, zoomControl: true });
-	L.tileLayer(OSM_TILE_URL, { maxZoom: MAX_ZOOM, attribution: OSM_ATTRIBUTION }).addTo(map);
+	L.tileLayer(OSM_TILE_URL, {
+		maxZoom: MAX_ZOOM,
+		attribution: OSM_ATTRIBUTION,
+		crossOrigin: 'anonymous',
+	}).addTo(map);
 	L.control.scale({ metric: true, imperial: false }).addTo(map);
 	return map;
 };
@@ -249,6 +254,7 @@ const bootstrapOrThrow = async (): Promise<void> => {
 	const center: L.LatLngTuple =
 		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
 	const map = createMap(center);
+	registerServiceWorker();
 
 	const provenanceIndicator = createProvenanceIndicator('topleft');
 	provenanceIndicator.control.addTo(map);
