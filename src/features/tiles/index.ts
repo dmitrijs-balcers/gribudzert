@@ -1,0 +1,10 @@
+export type { Connectivity, TileDecision } from './decision';
+export { decide } from './decision';
+export type { EvictionPlan, TileBudget } from './ledger';
+export { evictionPlan } from './ledger';
+export type { StoredTile, StoredTileMeta, StoredTileParseError } from './record';
+export { parseStoredTile, storedTileRecord } from './record';
+export type { RequestFacts, Route, RouteConfig } from './route';
+export { route } from './route';
+export type { TileStore } from './store';
+export { indexedDbTileStore, memoryTileStore } from './store';

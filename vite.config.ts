@@ -27,5 +27,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, envDir, 'VITE_');
   return {
     plugins: [umamiAnalytics(mode, env.VITE_UMAMI_WEBSITE_ID ?? '')],
+    build: {
+      manifest: true,
+    },
   };
 });
