@@ -144,7 +144,10 @@ export function initInstallPrompt(storage: Storage = localStorage): void {
 	document.body.appendChild(element);
 
 	setTimeout(() => {
-		if (!document.body.contains(element)) {
+		// The component only renders once the platform says install is possible
+		// (Chrome's beforeinstallprompt, or its Apple/Android fallbacks). Without
+		// that, showDialog() paints nothing, so don't count it as shown.
+		if (!document.body.contains(element) || !element.isInstallAvailable) {
 			return;
 		}
 		trackInstallPromptShown();

@@ -46,6 +46,18 @@ const dispatchUserChoice = (dialog: Element, message: 'accepted' | 'dismissed'):
 	dialog.dispatchEvent(new CustomEvent('pwa-user-choice-result-event', { detail: { message } }));
 };
 
+/**
+ * What Chrome's beforeinstallprompt (or the component's Apple/Android fallbacks)
+ * would do on a real phone: tell the component the app can be installed.
+ */
+const markInstallAvailable = (): void => {
+	const dialog = installDialog();
+	if (dialog === null) {
+		throw new Error('Install dialog element was not mounted');
+	}
+	dialog.isInstallAvailable = true;
+};
+
 const DENIED_LOCATION = { error: GEO_PERMISSION_DENIED } as const;
 
 describe('Inviting to install the app', () => {
@@ -67,6 +79,7 @@ describe('Inviting to install the app', () => {
 
 		stubMobileViewport();
 		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
+		markInstallAvailable();
 
 		await waitPastShowDelay();
 		const dialog = installDialog();
@@ -78,6 +91,23 @@ describe('Inviting to install the app', () => {
 
 		dispatchUserChoice(dialog, 'accepted');
 		expect(track).toHaveBeenCalledWith('install_prompt_accepted');
+	}, 15_000);
+
+	it('stays quiet when the platform never says the app can be installed', async () => {
+		const track = vi.fn();
+		(window as TrackerWindow).umami = { track };
+
+		stubMobileViewport();
+		await renderApp({ geolocation: DENIED_LOCATION });
+
+		stubMobileViewport();
+		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
+
+		await waitPastShowDelay();
+		// The component paints only while isInstallAvailable is true, so this is
+		// the real "nothing on screen" signal (isDialogHidden defaults to false).
+		expect(installDialog()?.isInstallAvailable).toBe(false);
+		expect(track).not.toHaveBeenCalledWith('install_prompt_shown');
 	}, 15_000);
 
 	it('never shows the install dialog while running in standalone display mode', async () => {
@@ -111,6 +141,7 @@ describe('Inviting to install the app', () => {
 
 		stubMobileViewport();
 		await renderApp({ reload: true, geolocation: DENIED_LOCATION });
+		markInstallAvailable();
 		await waitPastShowDelay();
 		const dialog = installDialog();
 		if (dialog === null) {
