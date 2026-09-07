@@ -7,14 +7,27 @@ export type FetchContext = ExtendableContext & {
 	readonly respondWith: (response: Promise<Response> | Response) => void;
 };
 
+export type MessageContext = { readonly data: unknown };
+
 export type ServiceWorkerHost = {
 	readonly addEventListener: {
 		(type: 'install', listener: (event: ExtendableContext) => void): void;
 		(type: 'activate', listener: (event: ExtendableContext) => void): void;
 		(type: 'fetch', listener: (event: FetchContext) => void): void;
+		(type: 'message', listener: (event: MessageContext) => void): void;
 	};
 	readonly clients: { readonly claim: () => Promise<void> };
 	readonly location: { readonly origin: string };
+	readonly skipWaiting: () => Promise<void>;
+};
+
+const SKIP_WAITING_MESSAGE_TYPE = 'SKIP_WAITING';
+
+const isSkipWaitingMessage = (data: unknown): boolean => {
+	if (typeof data !== 'object' || data === null) {
+		return false;
+	}
+	return (data as Record<string, unknown>).type === SKIP_WAITING_MESSAGE_TYPE;
 };
 
 export const installServiceWorker = (host: ServiceWorkerHost, runtime: OfflineRuntime): void => {
@@ -28,6 +41,11 @@ export const installServiceWorker = (host: ServiceWorkerHost, runtime: OfflineRu
 		const handled = runtime.fetch(event);
 		if (handled !== null) {
 			event.respondWith(handled);
+		}
+	});
+	host.addEventListener('message', (event) => {
+		if (isSkipWaitingMessage(event.data)) {
+			void host.skipWaiting();
 		}
 	});
 };

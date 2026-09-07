@@ -5,6 +5,10 @@ export const ZOOMED_OUT_MESSAGE = 'Zoom in to see water points and toilets';
 
 export const LOCATION_FALLBACK_MESSAGE = 'Could not detect your location. Showing Riga area.';
 
+export const UPDATE_READY_MESSAGE = 'A new version is ready.';
+
+export const UPDATE_RELOAD_ACTION_LABEL = 'Reload';
+
 export const OFFLINE_SHOWING_SAVED_MESSAGE = "Couldn't refresh map data. Showing saved points.";
 
 export const INITIALIZATION_FAILED_MESSAGE =
