@@ -256,6 +256,30 @@
                 color: #333;
             }
 
+            .notification-action {
+                flex-shrink: 0;
+                background: #0078ff;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 600;
+                min-width: 44px;
+                min-height: 44px;
+                padding: 8px 16px;
+                cursor: pointer;
+                transition: background 0.2s ease;
+            }
+
+            .notification-action:hover {
+                background: #0062d1;
+            }
+
+            .notification-action:focus {
+                outline: 3px solid rgba(0, 120, 255, 0.4);
+                outline-offset: 2px;
+            }
+
             .notification-close {
                 background: transparent;
                 border: none;

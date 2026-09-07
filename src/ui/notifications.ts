@@ -8,6 +8,11 @@
 
 export type NotificationType = 'info' | 'success' | 'error' | 'warning';
 
+export interface NotificationAction {
+	label: string;
+	onSelect: () => void;
+}
+
 interface Notification {
 	id: string;
 	message: string;
@@ -38,12 +43,14 @@ function initContainer(): HTMLDivElement {
  * @param message - Message to display
  * @param type - Notification type (info, success, error, warning)
  * @param duration - Auto-dismiss duration in ms (0 = no auto-dismiss)
+ * @param action - Optional action button (e.g. "Reload") rendered alongside the close button
  * @returns Notification ID for manual dismissal
  */
 export function showNotification(
 	message: string,
 	type: NotificationType = 'info',
-	duration: number = 3000
+	duration: number = 3000,
+	action?: NotificationAction
 ): string {
 	const container = initContainer();
 	const id = `notification-${Date.now()}-${Math.random()}`;
@@ -71,6 +78,17 @@ export function showNotification(
 
 	// Close button handler
 	const closeBtn = notification.querySelector('.notification-close') as HTMLButtonElement;
+
+	// Action button (e.g. "Reload"), inserted before the close button
+	if (action) {
+		const actionBtn = document.createElement('button');
+		actionBtn.type = 'button';
+		actionBtn.className = 'notification-action';
+		actionBtn.textContent = action.label;
+		actionBtn.addEventListener('click', () => action.onSelect());
+		notification.insertBefore(actionBtn, closeBtn);
+	}
+
 	closeBtn.addEventListener('click', () => dismissNotification(id));
 	closeBtn.addEventListener('keydown', (e) => {
 		if (e.key === 'Enter' || e.key === ' ') {

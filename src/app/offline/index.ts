@@ -1,4 +1,4 @@
-export type { ExtendableContext, FetchContext, ServiceWorkerHost } from './host';
+export type { ExtendableContext, FetchContext, MessageContext, ServiceWorkerHost } from './host';
 export { installServiceWorker } from './host';
 export type { OfflineConfig, OfflinePorts, TileFetchOutcome } from './ports';
 export { networkTileFetch } from './ports';
