@@ -70,11 +70,11 @@
 
 .nearest-hud {
 	position: absolute;
-	left: 16px;
-	right: 16px;
-	bottom: 16px;
+	left: calc(16px + var(--safe-left, 0px));
+	right: calc(16px + var(--safe-right, 0px));
+	bottom: calc(16px + var(--safe-bottom, 0px));
 	width: max-content;
-	max-width: calc(100% - 32px);
+	max-width: calc(100% - 32px - var(--safe-left, 0px) - var(--safe-right, 0px));
 	margin-inline: auto;
 	z-index: 1000;
 	display: inline-flex;
