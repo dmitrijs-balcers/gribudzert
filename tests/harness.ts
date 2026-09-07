@@ -644,8 +644,21 @@ const dispatchGesturePointer = (
 
 const TILE_ZOOM_PATTERN = /tile\.openstreetmap\.org\/(\d+)\//;
 
+/**
+ * Leaflet keeps already-loaded tiles of neighbouring zoom levels in the DOM until the current
+ * level has loaded (which fake tile images here never do), so the current level is read from
+ * the tile container Leaflet stacks on top: it gives the current level the highest z-index.
+ */
 const tileZoomOf = (container: HTMLElement): number | null => {
-	const image = container.querySelector<HTMLImageElement>('.leaflet-tile-pane img.leaflet-tile');
+	const levels = Array.from(
+		container.querySelectorAll<HTMLElement>('.leaflet-tile-pane .leaflet-tile-container')
+	);
+	const topLevel = levels.reduce<HTMLElement | null>(
+		(top, level) =>
+			top === null || Number(level.style.zIndex) > Number(top.style.zIndex) ? level : top,
+		null
+	);
+	const image = topLevel?.querySelector<HTMLImageElement>('img.leaflet-tile') ?? null;
 	const match = image === null ? null : TILE_ZOOM_PATTERN.exec(image.src);
 	return match?.[1] === undefined ? null : Number(match[1]);
 };

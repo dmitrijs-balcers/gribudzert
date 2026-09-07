@@ -77,12 +77,34 @@ Leaflet zoom call is clamped, rather than duplicating that logic.
 ### `src/features/zoom-gesture/handler.ts`
 
 `createOneHandZoomHandler(map, notifyUserMovedMap?)` returns `{ enable(), disable() }`.
-Binds `pointerdown` / `pointermove` (non-passive) / `pointerup` / `pointercancel` on
-`map.getContainer()`, tracks active pointer ids in a `Set` to compute `pointerCount`,
-converts client coordinates to container-relative ones, and feeds `reduce`. Running the
-three effect kinds: `begin` → `map.dragging.disable()`, add the `one-hand-zoom-active`
-class, call `notifyUserMovedMap()`; `zoomTo` → `map.setZoomAround(L.point(x, y), zoom, {
-animate: false })`; `end` → `map.dragging.enable()`, remove the class.
+Binds `pointerdown` on `map.getContainer()` and `pointermove` / `pointerup` / `pointercancel`
+on `window` (a finger that slides off or lifts outside the container must still end the
+gesture, otherwise `map.dragging` would stay disabled), tracks active pointer ids in a `Set`
+to compute `pointerCount`, converts client coordinates to container-relative ones, and feeds
+`reduce`. Running the three effect kinds: `begin(anchor)` → `map.dragging.disable()`, add the
+`one-hand-zoom-active` class, `continuousZoom.start(anchor)`, call `notifyUserMovedMap()`;
+`zoomTo(zoom)` → `continuousZoom.zoomTo(zoom)`; `end` → `continuousZoom.finish()`,
+`map.dragging.enable()`, remove the class.
+
+### `src/features/zoom-gesture/continuous-zoom.ts`
+
+The zoom is applied through the same Leaflet path pinch uses, not through `setZoomAround`.
+`setZoomAround({ animate: false })` is a full view reset: every call aborts each tile still
+loading, removes it and requests it again. Called once per pointer move (~60/s) no tile ever
+finishes, and the map stays grey for the whole slide. Pinch instead only scales the tiles
+already on screen with a CSS transform while the fingers move, and loads tiles once, on lift.
+
+`createContinuousZoom(map)` returns `{ start(anchor), zoomTo(zoom), finish() }` and mirrors
+`L.Map.TouchZoom` step for step: `start` records the anchor's container point and lat/lng and
+the container centre, and calls `map._stop()`; `zoomTo` clamps through `map._limitZoom`,
+computes the centre that keeps the anchor's lat/lng under the anchor point (the pinch formula:
+`unproject(project(anchorLatLng, zoom) - (anchor - centre), zoom)`) and schedules one
+`map._move(center, zoom, { pinch: true, round: false })` per animation frame, calling
+`map._moveStart(true, false)` once before the first; `finish` cancels a pending frame and
+commits like pinch's touch-end: `map._animateZoom(center, zoom, true, zoomSnap)` when
+`zoomAnimation` is on, else `map._resetView(center, zoom)`. These are private Leaflet 1.9.4
+methods, used exactly as Leaflet's own handler uses them; the dependency is pinned and no
+longer changes.
 
 ### `src/features/zoom-gesture/zoom-gesture.css`
 
@@ -141,16 +163,19 @@ Harness additions (`tests/harness.ts`), all additive:
   is used for gesture timing since a synchronous sequence of calls easily lands well inside
   the 300 ms tap window without needing fake timers.
 - `AppHandle.tileZoom()` reads the zoom level back out of a rendered
-  `.leaflet-tile-pane img.leaflet-tile` src (the tile URL template embeds `{z}`) — the
-  app exposes no map handle to tests, so this is the same black-box, DOM-only style the
-  rest of the harness already uses (compare `loading-map-tiles.test.ts`).
+  `img.leaflet-tile` src (the tile URL template embeds `{z}`) — the app exposes no map
+  handle to tests, so this is the same black-box, DOM-only style the rest of the harness
+  already uses (compare `loading-map-tiles.test.ts`). Leaflet keeps loaded tiles of
+  neighbouring levels in the DOM until the current level has loaded (fake tile images never
+  do), so the helper reads from the `.leaflet-tile-container` with the highest z-index,
+  which Leaflet gives to the current level.
 - `AppHandle.zoomControlVisible()` and `AppHandle.draggingEnabled()` (the latter via the
   `leaflet-grab` class Leaflet's own `Handler.Drag` toggles on enable/disable).
 
-Scenarios: zoom increases sliding down / decreases sliding up (asserted via `tileZoom()`,
-using exactly 150 px so the target zoom is already a whole number, sidestepping the fact
-that `zoomSnap: 0` only matters for `Browser.any3d`-detected environments and happy-dom is
-not one); a plain double tap with no slide leaves the zoom and `dragging` untouched;
+Scenarios: zoom increases sliding down / decreases sliding up (asserted via `tileZoom()`
+after one animation frame and the lift, using exactly 150 px so the target zoom is already a
+whole number, sidestepping the fact that `zoomSnap: 0` only matters for `Browser.any3d`-
+detected environments and happy-dom is not one); a plain double tap with no slide leaves the zoom and `dragging` untouched;
 zoom control hidden on coarse / shown on fine (two `it`s, not one — sharing one `renderApp`
 across assertions in a single test also shares its `indexedDB`, so a second `renderApp` in
 the same test serves the first render's facility cache and never calls Overpass); dragging

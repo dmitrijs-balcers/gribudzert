@@ -20,6 +20,9 @@ const doubleTapThenSlideTo = (app: AppHandle, target: { x: number; y: number }):
 	app.gesturePointer('pointermove', target);
 };
 
+const nextFrame = (): Promise<void> =>
+	new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
 const plainDoubleTap = (app: AppHandle): void => {
 	app.gesturePointer('pointerdown', TAP_POINT);
 	app.gesturePointer('pointerup', TAP_POINT);
@@ -33,10 +36,10 @@ describe('One-hand zoom on mobile', () => {
 		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM));
 
 		doubleTapThenSlideTo(app, { x: TAP_POINT.x, y: TAP_POINT.y + 150 });
+		await nextFrame();
+		app.gesturePointer('pointerup', TAP_POINT);
 
 		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM + 1));
-
-		app.gesturePointer('pointerup', TAP_POINT);
 		expect(app.draggingEnabled()).toBe(true);
 	});
 
@@ -45,10 +48,10 @@ describe('One-hand zoom on mobile', () => {
 		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM));
 
 		doubleTapThenSlideTo(app, { x: TAP_POINT.x, y: TAP_POINT.y - 150 });
+		await nextFrame();
+		app.gesturePointer('pointerup', TAP_POINT);
 
 		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM - 1));
-
-		app.gesturePointer('pointerup', TAP_POINT);
 		expect(app.draggingEnabled()).toBe(true);
 	});
 
