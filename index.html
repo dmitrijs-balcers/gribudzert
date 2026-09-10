@@ -419,9 +419,182 @@
                     transition: none;
                 }
             }
+
+            /*
+             * Splash: JS-free so it paints before any script arrives on a slow
+             * network. Animates only transform and opacity (compositor-only).
+             * src/ui/splash.ts fades it out via .splash-hidden and removes it.
+             */
+            #splash {
+                position: fixed;
+                inset: 0;
+                z-index: 2000; /* above Leaflet (<= 1000) */
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+                background:
+                    radial-gradient(circle at 50% 45%, rgba(0, 120, 255, 0.08), rgba(0, 120, 255, 0) 38vmax),
+                    #f7f7f7;
+                color: #1a1a1a;
+                text-align: center;
+                -webkit-user-select: none;
+                user-select: none;
+                transition: opacity 350ms ease-out;
+            }
+
+            .splash-content {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                transition: transform 350ms ease-out;
+            }
+
+            #splash.splash-hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
+            #splash.splash-hidden .splash-content {
+                transform: scale(1.04);
+            }
+
+            /* Drop and rings share one 3s loop: fall 0.18–0.78s, impact at 0.78s */
+            .splash-glyph {
+                --splash-loop: 3s;
+                --splash-impact: 0.78s;
+                position: relative;
+                width: 96px;
+                height: 96px;
+                margin-bottom: 22px;
+            }
+            .splash-glyph svg {
+                position: relative;
+                display: block;
+                width: 100%;
+                height: 100%;
+                opacity: 0;
+                transform-origin: 50% 95%;
+                animation: splash-drop var(--splash-loop) infinite;
+            }
+
+            /* Flattened rings at the contact point, staggered after impact */
+            .splash-ring {
+                position: absolute;
+                left: -12px;
+                bottom: -16px;
+                width: 120px;
+                height: 40px;
+                border-radius: 50%;
+                border: 2px solid rgba(0, 120, 255, 0.75);
+                opacity: 0;
+                transform: scale(0.2);
+                animation: splash-ripple var(--splash-loop) ease-out var(--splash-impact) infinite;
+            }
+            .splash-ring:nth-child(2) {
+                border-width: 1.5px;
+                border-color: rgba(0, 120, 255, 0.55);
+                animation-delay: calc(var(--splash-impact) + 0.18s);
+            }
+            .splash-ring:nth-child(3) {
+                border-width: 1px;
+                border-color: rgba(0, 120, 255, 0.4);
+                animation-delay: calc(var(--splash-impact) + 0.36s);
+            }
+
+            .splash-title {
+                margin: 0;
+                font-size: 22px;
+                font-weight: 600;
+                letter-spacing: 0.01em;
+            }
+            .splash-hint {
+                margin: 6px 0 0;
+                font-size: 14px;
+                color: #6b6b6b;
+            }
+            .splash-slow {
+                margin-top: 18px;
+                font-size: 13px;
+                color: #8a8a8a;
+                opacity: 0;
+                animation: splash-reveal 600ms ease-out 6s forwards;
+            }
+
+            /* Appear → gravity fall → squash → springy settle → rest → fade */
+            @keyframes splash-drop {
+                0% { transform: translateY(-44px) scale(0.92, 1.12); opacity: 0; animation-timing-function: ease-out; }
+                6% { transform: translateY(-40px) scale(0.92, 1.12); opacity: 1; animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+                26% { transform: translateY(0) scale(0.92, 1.12); animation-timing-function: ease-out; }
+                28% { transform: translateY(0) scale(1.18, 0.82); animation-timing-function: ease-in-out; }
+                31% { transform: translateY(0) scale(0.94, 1.06); animation-timing-function: ease-in-out; }
+                34% { transform: translateY(0) scale(1.03, 0.98); animation-timing-function: ease-out; }
+                36%, 82% { transform: translateY(0) scale(1); opacity: 1; }
+                92% { transform: translateY(0) scale(1); opacity: 0; }
+                100% { transform: translateY(-44px) scale(0.92, 1.12); opacity: 0; }
+            }
+            @keyframes splash-ripple {
+                0% { transform: scale(0.2); opacity: 1; }
+                20% { transform: scale(0.8); opacity: 0.7; }
+                40%, 100% { transform: scale(1.1); opacity: 0; }
+            }
+            @keyframes splash-reveal {
+                to { opacity: 1; }
+            }
+
+            /* Reduced motion: static drop at rest, no rings, opacity fades only */
+            @media (prefers-reduced-motion: reduce) {
+                .splash-glyph svg {
+                    animation: none;
+                    opacity: 1;
+                }
+                .splash-ring {
+                    animation: none;
+                }
+                .splash-content {
+                    transition: none;
+                }
+            }
         </style>
     </head>
     <body>
+        <div
+            id="splash"
+            role="status"
+            aria-live="polite"
+            aria-label="Loading Gribudzert"
+        >
+            <div class="splash-content">
+                <div class="splash-glyph">
+                    <span class="splash-ring" aria-hidden="true"></span>
+                    <span class="splash-ring" aria-hidden="true"></span>
+                    <span class="splash-ring" aria-hidden="true"></span>
+                    <!-- Drop from public/icons/icon.svg -->
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="136 99 240 272"
+                        aria-hidden="true"
+                        focusable="false"
+                    >
+                        <path
+                            d="M256 112c-44 62-88 106-88 158a88 88 0 0 0 176 0c0-52-44-96-88-158z"
+                            fill="#0078ff"
+                        />
+                        <path
+                            d="M220 278a36 36 0 0 0 36 36"
+                            fill="none"
+                            stroke="#ffffff"
+                            stroke-width="14"
+                            stroke-linecap="round"
+                            opacity="0.9"
+                        />
+                    </svg>
+                </div>
+                <p class="splash-title">Gribudzert</p>
+                <p class="splash-hint">Loading map…</p>
+                <p class="splash-slow">Slow connection… still loading</p>
+            </div>
+        </div>
+
         <div id="map" aria-label="Map centered on Riga"></div>
 
         <div class="info" aria-hidden="true">
