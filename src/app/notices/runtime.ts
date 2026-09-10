@@ -42,7 +42,9 @@ export const createNoticeCenter = (ports: NoticePorts): NoticeCenter => {
 	const runEffect = (effect: NoticeEffect): void => {
 		switch (effect.kind) {
 			case 'schedule-expiry':
-				ports.schedule(effect.id, effect.after, () => dispatch({ kind: 'dismissed', id: effect.id }));
+				ports.schedule(effect.id, effect.after, () =>
+					dispatch({ kind: 'dismissed', id: effect.id })
+				);
 				return;
 			case 'cancel-expiry':
 				ports.cancel(effect.id);
@@ -81,7 +83,11 @@ export const createNoticeCenter = (ports: NoticePorts): NoticeCenter => {
 		return id;
 	};
 
-	const card = (message: string, action: CardAction | null, tone: NoticeTone = 'neutral'): NoticeId => {
+	const card = (
+		message: string,
+		action: CardAction | null,
+		tone: NoticeTone = 'neutral'
+	): NoticeId => {
 		const request: CardRequest = {
 			kind: 'card',
 			message,

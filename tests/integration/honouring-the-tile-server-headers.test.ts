@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mapTileKey } from '../../src/domain';
 import { TILE_LIFETIME_FLOOR_MS } from '../../src/core/config';
+import { mapTileKey } from '../../src/domain';
 import { startWorker, tileUrl } from '../offline-harness';
 
 const assertResponded = (response: Response | null): Response => {

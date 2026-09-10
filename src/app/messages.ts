@@ -11,10 +11,14 @@ export const UPDATE_RELOAD_ACTION_LABEL = 'Reload';
 
 export const OFFLINE_SHOWING_SAVED_MESSAGE = "Couldn't refresh map data. Showing saved points.";
 
+export const OFFLINE_STATUS_MESSAGE = 'Offline · showing saved points';
+
 export const BACK_ONLINE_MESSAGE = 'Back online.';
 
 export const INITIALIZATION_FAILED_MESSAGE =
 	'An unexpected error occurred while initializing the map. Please refresh the page.';
+
+export const INITIALIZATION_REFRESH_ACTION_LABEL = 'Refresh';
 
 export const subjectOf = (kind: LayerKind): string => {
 	switch (kind) {

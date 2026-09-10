@@ -4,8 +4,8 @@
  * desktop, or who recently said no.
  */
 
-import { describe, expect, it, vi } from 'vitest';
 import type { PWAInstallElement } from '@khmyznikov/pwa-install';
+import { describe, expect, it, vi } from 'vitest';
 import { INSTALL_PROMPT_SHOW_DELAY_MS } from '../../src/core/config';
 import { GEO_PERMISSION_DENIED, renderApp } from '../harness';
 

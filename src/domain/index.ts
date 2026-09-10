@@ -69,6 +69,7 @@ export {
 export type { Located } from './located';
 export { findNearest, markNearest, nearestOf, withDistances } from './located';
 export type { MapTileKey } from './map-tile';
+export { mapTileKey, parseMapTileKey } from './map-tile';
 export type {
 	Card,
 	CardRequest,
@@ -93,7 +94,6 @@ export {
 	toastLifetime,
 	visibleNotices,
 } from './notice';
-export { mapTileKey, parseMapTileKey } from './map-tile';
 export type { OsmTags } from './osm';
 export { facilityFromTags, isToiletTags, waterSourceTypeOf } from './osm';
 export type { UserPosition } from './position';

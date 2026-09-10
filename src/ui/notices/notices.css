@@ -11,13 +11,18 @@
 	pointer-events: none;
 }
 
+/*
+ * The status chip sits top left, directly under the provenance pill (a Leaflet control at
+ * 10px from the corner, about 28px tall), so the two read as one status cluster and the
+ * chip never runs into the locate button or the layer picker on the right.
+ */
 .notice-status-region {
 	position: fixed;
-	top: calc(12px + var(--safe-top, 0px));
-	left: 0;
-	right: 0;
+	top: calc(48px + var(--safe-top, 0px));
+	left: calc(10px + var(--safe-left, 0px));
+	right: calc(10px + var(--safe-right, 0px));
 	display: flex;
-	justify-content: center;
+	justify-content: flex-start;
 	pointer-events: none;
 }
 

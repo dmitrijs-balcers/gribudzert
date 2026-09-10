@@ -1,6 +1,5 @@
-import { createOfflineRuntime, installServiceWorker } from './app/offline';
 import type { OfflineConfig, OfflinePorts, ServiceWorkerHost } from './app/offline';
-import { networkTileFetch } from './app/offline';
+import { createOfflineRuntime, installServiceWorker, networkTileFetch } from './app/offline';
 import {
 	SHELL_CACHE_PREFIX,
 	TILE_BUDGET,

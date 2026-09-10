@@ -1,13 +1,3 @@
-import {
-	TILE_BUDGET,
-	TILE_EVICTION_EVERY_N_PUTS,
-	TILE_HOSTS,
-	TILE_LIFETIME_FLOOR_MS,
-	TILE_MAX_AGE_MS,
-	TILE_TOUCH_INTERVAL_MS,
-} from '../src/core/config';
-import type { CacheHeaders, Timestamp } from '../src/domain';
-import { timestamp } from '../src/domain';
 import type {
 	ExtendableContext,
 	FetchContext,
@@ -18,6 +8,16 @@ import type {
 	ServiceWorkerHost,
 } from '../src/app/offline';
 import { createOfflineRuntime, installServiceWorker, networkTileFetch } from '../src/app/offline';
+import {
+	TILE_BUDGET,
+	TILE_EVICTION_EVERY_N_PUTS,
+	TILE_HOSTS,
+	TILE_LIFETIME_FLOOR_MS,
+	TILE_MAX_AGE_MS,
+	TILE_TOUCH_INTERVAL_MS,
+} from '../src/core/config';
+import type { CacheHeaders, Timestamp } from '../src/domain';
+import { timestamp } from '../src/domain';
 import type { MemoryShellStore, ShellManifest } from '../src/features/shell';
 import { memoryShellStore, parseShellManifest } from '../src/features/shell';
 import type { Connectivity, TileBudget, TileStore } from '../src/features/tiles';
