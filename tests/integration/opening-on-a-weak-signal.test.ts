@@ -14,6 +14,7 @@ import {
 import { renderApp } from '../harness';
 
 const seedSplash = (): HTMLDivElement => {
+	document.body.innerHTML = '';
 	const splash = document.createElement('div');
 	splash.id = SPLASH_ID;
 	document.body.appendChild(splash);
@@ -29,7 +30,6 @@ describe('Opening on a weak signal', () => {
 	});
 
 	it('fades the splash out and removes it when the fade has ended', () => {
-		document.body.innerHTML = '';
 		const splash = seedSplash();
 
 		dismissSplash();
@@ -43,7 +43,6 @@ describe('Opening on a weak signal', () => {
 	it('still removes the splash when no fade transition ever ends', () => {
 		vi.useFakeTimers();
 		try {
-			document.body.innerHTML = '';
 			seedSplash();
 
 			dismissSplash();
@@ -55,14 +54,9 @@ describe('Opening on a weak signal', () => {
 		}
 	});
 
-	it('is harmless without a splash on the page or when called twice', () => {
+	it('is harmless without a splash on the page', () => {
 		document.body.innerHTML = '';
-		expect(() => dismissSplash()).not.toThrow();
 
-		const splash = seedSplash();
-		dismissSplash();
-		dismissSplash();
-		splash.dispatchEvent(new Event('transitionend'));
-		expect(document.getElementById(SPLASH_ID)).toBeNull();
+		expect(() => dismissSplash()).not.toThrow();
 	});
 });

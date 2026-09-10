@@ -1,5 +1,6 @@
 import type { MapTileKey } from '../../domain';
 import { lifetimeFrom } from '../../domain';
+import type { BuildId, ShellAssetPath } from '../../features/shell';
 import { SHELL_ENTRY } from '../../features/shell';
 import type { RouteConfig, StoredTile } from '../../features/tiles';
 import { decide, evictionPlan, route } from '../../features/tiles';
@@ -177,6 +178,14 @@ export const createOfflineRuntime = (
 		await enforceBudget();
 	};
 
+	// Cache-first for the whole shell: a slow-but-alive connection never rejects a
+	// network-first fetch, so the user would wait on it with the app already on the device.
+	const shellCacheFirst = async (
+		build: BuildId,
+		path: ShellAssetPath,
+		request: Request
+	): Promise<Response> => (await ports.shell.match(build, path)) ?? ports.fetchShell(request);
+
 	const fetch = (context: TileFetchContext): Promise<Response> | null => {
 		const request = context.request;
 		const matchedRoute = route(
@@ -192,29 +201,16 @@ export const createOfflineRuntime = (
 				if (shell === null) {
 					return null;
 				}
-				// Cache-first: the precached shell paints instantly even on a slow-but-alive
-				// connection, where a network-first fetch would hang without ever rejecting.
-				// New builds still reach the user through the service worker update flow.
-				return (async () => {
-					const cached = await ports.shell.match(shell.buildId, SHELL_ENTRY);
-					if (cached !== null) {
-						return cached;
-					}
-					return ports.fetchShell(request).catch(() => new Response(null, { status: 503 }));
-				})();
+				return shellCacheFirst(shell.buildId, SHELL_ENTRY, request).catch(
+					() => new Response(null, { status: 503 })
+				);
 			}
 			case 'shell-asset': {
 				const shell = config.shell;
 				if (shell === null) {
 					return null;
 				}
-				return (async () => {
-					const cached = await ports.shell.match(shell.buildId, matchedRoute.path);
-					if (cached !== null) {
-						return cached;
-					}
-					return ports.fetchShell(request);
-				})();
+				return shellCacheFirst(shell.buildId, matchedRoute.path, request);
 			}
 			case 'map-tile':
 				return handleTile(matchedRoute.key, context);
