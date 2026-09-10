@@ -458,7 +458,10 @@
                 transform: scale(1.04);
             }
 
+            /* Drop and rings share one 3s loop: fall 0.18–0.78s, impact at 0.78s */
             .splash-glyph {
+                --splash-loop: 3s;
+                --splash-impact: 0.78s;
                 position: relative;
                 width: 96px;
                 height: 96px;
@@ -469,22 +472,33 @@
                 display: block;
                 width: 100%;
                 height: 100%;
-                animation: splash-breathe 2s ease-in-out infinite;
+                opacity: 0;
+                transform-origin: 50% 95%;
+                animation: splash-drop var(--splash-loop) infinite;
             }
 
-            /* Ripple rings, half a period apart */
-            .splash-glyph::before,
-            .splash-glyph::after {
-                content: "";
+            /* Flattened rings at the contact point, staggered after impact */
+            .splash-ring {
                 position: absolute;
-                inset: 0;
+                left: -12px;
+                bottom: -16px;
+                width: 120px;
+                height: 40px;
                 border-radius: 50%;
-                border: 1.5px solid rgba(0, 120, 255, 0.45);
+                border: 2px solid rgba(0, 120, 255, 0.75);
                 opacity: 0;
-                animation: splash-ripple 2.4s ease-out infinite;
+                transform: scale(0.2);
+                animation: splash-ripple var(--splash-loop) ease-out var(--splash-impact) infinite;
             }
-            .splash-glyph::after {
-                animation-delay: 1.2s;
+            .splash-ring:nth-child(2) {
+                border-width: 1.5px;
+                border-color: rgba(0, 120, 255, 0.55);
+                animation-delay: calc(var(--splash-impact) + 0.18s);
+            }
+            .splash-ring:nth-child(3) {
+                border-width: 1px;
+                border-color: rgba(0, 120, 255, 0.4);
+                animation-delay: calc(var(--splash-impact) + 0.36s);
             }
 
             .splash-title {
@@ -506,23 +520,34 @@
                 animation: splash-reveal 600ms ease-out 6s forwards;
             }
 
-            @keyframes splash-breathe {
-                0%, 100% { transform: translateY(0) scale(1); }
-                50% { transform: translateY(-3px) scale(1.04); }
+            /* Appear → gravity fall → squash → springy settle → rest → fade */
+            @keyframes splash-drop {
+                0% { transform: translateY(-44px) scale(0.92, 1.12); opacity: 0; animation-timing-function: ease-out; }
+                6% { transform: translateY(-40px) scale(0.92, 1.12); opacity: 1; animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+                26% { transform: translateY(0) scale(0.92, 1.12); animation-timing-function: ease-out; }
+                28% { transform: translateY(0) scale(1.18, 0.82); animation-timing-function: ease-in-out; }
+                31% { transform: translateY(0) scale(0.94, 1.06); animation-timing-function: ease-in-out; }
+                34% { transform: translateY(0) scale(1.03, 0.98); animation-timing-function: ease-out; }
+                36%, 82% { transform: translateY(0) scale(1); opacity: 1; }
+                92% { transform: translateY(0) scale(1); opacity: 0; }
+                100% { transform: translateY(-44px) scale(0.92, 1.12); opacity: 0; }
             }
             @keyframes splash-ripple {
-                0% { transform: scale(0.55); opacity: 0.6; }
-                100% { transform: scale(1.35); opacity: 0; }
+                0% { transform: scale(0.2); opacity: 1; }
+                20% { transform: scale(0.8); opacity: 0.7; }
+                40%, 100% { transform: scale(1.1); opacity: 0; }
             }
             @keyframes splash-reveal {
                 to { opacity: 1; }
             }
 
-            /* Reduced motion: keep only the opacity fades */
+            /* Reduced motion: static drop at rest, no rings, opacity fades only */
             @media (prefers-reduced-motion: reduce) {
-                .splash-glyph svg,
-                .splash-glyph::before,
-                .splash-glyph::after {
+                .splash-glyph svg {
+                    animation: none;
+                    opacity: 1;
+                }
+                .splash-ring {
                     animation: none;
                 }
                 .splash-content {
@@ -540,6 +565,9 @@
         >
             <div class="splash-content">
                 <div class="splash-glyph">
+                    <span class="splash-ring" aria-hidden="true"></span>
+                    <span class="splash-ring" aria-hidden="true"></span>
+                    <span class="splash-ring" aria-hidden="true"></span>
                     <!-- Drop from public/icons/icon.svg -->
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
