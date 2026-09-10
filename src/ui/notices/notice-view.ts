@@ -15,6 +15,9 @@ export type { NoticeView, NoticeViewHandlers } from './view';
 const LEAVE_FALLBACK_MS = 300;
 /** Must match the `@keyframes` name in notices.css. */
 const LEAVE_ANIMATION_NAME = 'notice-fade-out';
+/** Must match the pop-in `@keyframes` name in notices.css. */
+const ENTER_ANIMATION_NAME = 'notice-pop-in';
+const ENTER_FALLBACK_MS = 600;
 const SWIPE_DISMISS_DISTANCE_PX = 40;
 const SWIPE_DISMISS_VELOCITY_PX_PER_MS = 0.5;
 
@@ -54,6 +57,10 @@ type TrackedNotice = {
 	readonly kind: Notice['kind'];
 	leaving: boolean;
 	leaveTimeout: ReturnType<typeof setTimeout> | null;
+	enterTimeout: ReturnType<typeof setTimeout> | null;
+	/** Depth/expanded last written to `element`'s inline style, so unchanged renders skip the write. */
+	lastDepth: number | null;
+	lastExpanded: boolean | null;
 };
 
 const roleOf = (tone: NoticeTone): 'status' | 'alert' => (tone === 'error' ? 'alert' : 'status');
@@ -113,7 +120,14 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 	const nodes = new Map<NoticeId, TrackedNotice>();
 	let expanded = false;
 
-	const applyDepth = (element: HTMLElement, depth: number): void => {
+	/** Skips the inline-style write entirely when depth and expanded state already match. */
+	const applyDepth = (tracked: TrackedNotice, depth: number): void => {
+		if (tracked.lastDepth === depth && tracked.lastExpanded === expanded) {
+			return;
+		}
+		tracked.lastDepth = depth;
+		tracked.lastExpanded = expanded;
+		const element = tracked.element;
 		element.dataset.depth = String(depth);
 		const transform = stackTransform(depth);
 		if (expanded) {
@@ -126,7 +140,21 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 		element.style.zIndex = String(transform.zIndex);
 	};
 
+	/** Toasts currently on screen (not mid-exit); expanding a single toast has nothing to reveal. */
+	const visibleToastCount = (): number => {
+		let count = 0;
+		for (const tracked of nodes.values()) {
+			if (tracked.kind === 'toast' && !tracked.leaving) {
+				count += 1;
+			}
+		}
+		return count;
+	};
+
 	const setExpanded = (value: boolean): void => {
+		if (value && visibleToastCount() <= 1) {
+			return;
+		}
 		if (expanded === value) {
 			return;
 		}
@@ -134,7 +162,7 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 		stack.classList.toggle('notice-stack-expanded', expanded);
 		for (const tracked of nodes.values()) {
 			if (tracked.kind === 'toast' && !tracked.leaving) {
-				applyDepth(tracked.element, Number(tracked.element.dataset.depth ?? '0'));
+				applyDepth(tracked, Number(tracked.element.dataset.depth ?? '0'));
 			}
 		}
 	};
@@ -152,6 +180,9 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 		}
 		if (tracked.leaveTimeout !== null) {
 			clearTimeout(tracked.leaveTimeout);
+		}
+		if (tracked.enterTimeout !== null) {
+			clearTimeout(tracked.enterTimeout);
 		}
 		tracked.element.remove();
 		nodes.delete(id);
@@ -175,21 +206,80 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 		tracked.leaveTimeout = setTimeout(() => finishLeave(id), LEAVE_FALLBACK_MS);
 	};
 
+	/**
+	 * Drops `notice-enter` once the pop-in has actually played so a later legitimate
+	 * re-insertion of this same tracked node can never replay it, and reduced-motion (which
+	 * never fires the animation) still cleans up via the fallback timeout.
+	 */
+	const scheduleEnterCleanup = (tracked: TrackedNotice): void => {
+		const element = tracked.element;
+		const onAnimationEnd = (event: AnimationEvent): void => {
+			if (event.animationName === ENTER_ANIMATION_NAME) {
+				cleanup();
+			}
+		};
+		const cleanup = (): void => {
+			element.classList.remove('notice-enter');
+			element.removeEventListener('animationend', onAnimationEnd);
+			if (tracked.enterTimeout !== null) {
+				clearTimeout(tracked.enterTimeout);
+				tracked.enterTimeout = null;
+			}
+		};
+		element.addEventListener('animationend', onAnimationEnd);
+		tracked.enterTimeout = setTimeout(cleanup, ENTER_FALLBACK_MS);
+	};
+
 	const ensureNode = (
 		id: NoticeId,
 		kind: Notice['kind'],
 		create: () => HTMLElement
-	): HTMLElement => {
+	): TrackedNotice => {
 		const existing = nodes.get(id);
 		if (existing !== undefined && !existing.leaving) {
-			return existing.element;
+			return existing;
 		}
 		if (existing?.leaving) {
 			finishLeave(id);
 		}
 		const element = create();
-		nodes.set(id, { element, kind, leaving: false, leaveTimeout: null });
-		return element;
+		const tracked: TrackedNotice = {
+			element,
+			kind,
+			leaving: false,
+			leaveTimeout: null,
+			enterTimeout: null,
+			lastDepth: null,
+			lastExpanded: null,
+		};
+		nodes.set(id, tracked);
+		if (element.classList.contains('notice-enter')) {
+			scheduleEnterCleanup(tracked);
+		}
+		return tracked;
+	};
+
+	/**
+	 * Places `element` right after `previous` (or first, when `previous` is null) inside
+	 * `parent`, but only touches the DOM when it is not already there — re-appending an
+	 * already-correctly-placed node is a mutation that restarts its pop-in animation.
+	 */
+	const placeInOrder = (
+		parent: HTMLElement,
+		element: HTMLElement,
+		previous: HTMLElement | null
+	): void => {
+		if (element.parentElement !== parent) {
+			parent.insertBefore(element, previous === null ? parent.firstChild : previous.nextSibling);
+			return;
+		}
+		if (previous === null) {
+			if (parent.firstChild !== element) {
+				parent.insertBefore(element, parent.firstChild);
+			}
+		} else if (element.previousElementSibling !== previous) {
+			parent.insertBefore(element, previous.nextSibling);
+		}
 	};
 
 	/** Pointer-drag-to-dismiss, shared by toasts and the card. */
@@ -324,21 +414,23 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 	};
 
 	const upsertStatus = (status: Status): void => {
-		const element = ensureNode(status.id, 'status', () => createStatus(status));
-		statusRegion.appendChild(element);
+		const tracked = ensureNode(status.id, 'status', () => createStatus(status));
+		placeInOrder(statusRegion, tracked.element, null);
 	};
 
 	const upsertToasts = (toasts: readonly Toast[]): void => {
+		let previous: HTMLElement | null = null;
 		toasts.forEach((toast, depth) => {
-			const element = ensureNode(toast.id, 'toast', () => createToast(toast));
-			stack.appendChild(element);
-			applyDepth(element, depth);
+			const tracked = ensureNode(toast.id, 'toast', () => createToast(toast));
+			placeInOrder(stack, tracked.element, previous);
+			applyDepth(tracked, depth);
+			previous = tracked.element;
 		});
 	};
 
 	const upsertCard = (card: Card): void => {
-		const element = ensureNode(card.id, 'card', () => createCard(card));
-		bottomRegion.appendChild(element);
+		const tracked = ensureNode(card.id, 'card', () => createCard(card));
+		placeInOrder(bottomRegion, tracked.element, stack);
 	};
 
 	const render = (state: NoticeState): void => {
@@ -359,9 +451,13 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 		}
 	};
 
-	stack.addEventListener('pointerenter', () => {
+	stack.addEventListener('pointerenter', (event: PointerEvent) => {
 		handlers.onHold();
-		setExpanded(true);
+		// Touch has no real hover: `pointerenter` fires on tap, right alongside the explicit
+		// tap-on-a-back-toast path below, so only a mouse hover should expand the stack here.
+		if (event.pointerType === 'mouse') {
+			setExpanded(true);
+		}
 	});
 	stack.addEventListener('pointerleave', () => {
 		handlers.onRelease();
@@ -384,6 +480,9 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 			for (const tracked of nodes.values()) {
 				if (tracked.leaveTimeout !== null) {
 					clearTimeout(tracked.leaveTimeout);
+				}
+				if (tracked.enterTimeout !== null) {
+					clearTimeout(tracked.enterTimeout);
 				}
 			}
 			nodes.clear();

@@ -83,6 +83,9 @@
 
 .notice-dragging {
 	transition: none;
+	/* Only while a finger is actually dragging the toast, so we are not holding an extra
+	   compositor layer for every idle toast. */
+	will-change: transform;
 }
 
 .notice-toast {

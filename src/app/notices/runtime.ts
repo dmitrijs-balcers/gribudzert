@@ -65,14 +65,21 @@ export const createNoticeCenter = (ports: NoticePorts): NoticeCenter => {
 	};
 
 	const dispatch = (event: NoticeEvent): void => {
+		const previous = state;
 		const [nextState, effects] = applyNotice(state, event, ports.now());
-		const changed = nextState !== state;
 		state = nextState;
 		for (const effect of effects) {
 			runEffect(effect);
 		}
 		forgetDroppedActions();
-		if (changed) {
+		// `hold`/`release` (and an unknown dismiss id) can change `state` without changing
+		// anything the view actually draws (`heldSince` has no visual representation), so
+		// compare the visible projection rather than object identity to skip the render.
+		const visibleChanged =
+			nextState.toasts !== previous.toasts ||
+			nextState.status !== previous.status ||
+			nextState.card !== previous.card;
+		if (visibleChanged) {
 			ports.render(state);
 		}
 	};

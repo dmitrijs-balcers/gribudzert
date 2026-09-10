@@ -322,7 +322,23 @@ const bootstrapOrThrow = async (
 		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
 	const coarsePointer = isCoarsePointer();
 	const map = createMap(center, coarsePointer);
-	onTeardown(() => map.remove());
+	// Leaflet keeps a private fallback timer alive across a zoom animation and `remove()`
+	// does not clear it, so a map removed mid-zoom is written to after its panes are gone.
+	// Wait for the zoom to land before pulling the map down.
+	let zoomAnimating = false;
+	map.on('zoomanim', () => {
+		zoomAnimating = true;
+	});
+	map.on('zoomend', () => {
+		zoomAnimating = false;
+	});
+	onTeardown(() => {
+		if (zoomAnimating) {
+			map.once('zoomend', () => map.remove());
+			return;
+		}
+		map.remove();
+	});
 	registerServiceWorker(notices);
 	initInstallPrompt(localStorage);
 
@@ -572,15 +588,21 @@ const bootstrapOrThrow = async (
 			debounceTimer = null;
 		}
 	};
-	onTeardown(cancelPendingViewportDispatch);
-	map.on('movestart', cancelPendingViewportDispatch);
-	map.on('dragstart', cancelPendingViewportDispatch);
-	map.on('moveend', () => {
+	const onMoveEnd = (): void => {
 		cancelPendingViewportDispatch();
 		debounceTimer = setTimeout(() => {
 			debounceTimer = null;
 			dispatchWhileMounted({ kind: 'viewport-settled', viewport: viewportOf(map) });
 		}, VIEWPORT_DEBOUNCE_MS);
+	};
+	map.on('movestart', cancelPendingViewportDispatch);
+	map.on('dragstart', cancelPendingViewportDispatch);
+	map.on('moveend', onMoveEnd);
+	// Stop listening before the map is removed: removing it ends any pan still in flight,
+	// which fires one last `moveend` that must not re-arm the debounce on a dead map.
+	onTeardown(() => {
+		map.off('moveend', onMoveEnd);
+		cancelPendingViewportDispatch();
 	});
 
 	dispatchWhileMounted({ kind: 'viewport-settled', viewport: viewportOf(map) });
