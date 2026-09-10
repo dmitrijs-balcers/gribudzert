@@ -9,6 +9,9 @@ const assertResponded = (response: Response | null): Response => {
 	return response;
 };
 
+/** A network that is alive but never answers, like one bar of 3G on a trail */
+const neverResolves = (): void => undefined;
+
 const ORIGIN = 'https://gribudzert.test';
 const DEFAULT_BUILD_ID = 'abcdef0123456789';
 const DEFAULT_ASSETS = [
@@ -36,14 +39,46 @@ describe('Opening the app after a deploy', () => {
 		}
 	});
 
-	it('sends an online navigation to the network and returns the network HTML', async () => {
+	it('serves the precached index.html for an online navigation without waiting on the network', async () => {
 		const worker = startWorker();
 		await worker.install();
+		worker.replyToShell(() => new Promise<Response>(neverResolves));
+
+		const response = assertResponded(await worker.request(`${ORIGIN}/`, { mode: 'navigate' }));
+
+		expect(response.status).toBe(200);
+		expect(await response.text()).toBe('');
+		expect(worker.shellFetches).toHaveLength(0);
+	});
+
+	it('serves the precached index.html for a navigation when the server answers with an error', async () => {
+		const worker = startWorker();
+		await worker.install();
+		worker.replyToShell(() => new Response('bad gateway', { status: 502 }));
+
+		const response = assertResponded(await worker.request(`${ORIGIN}/`, { mode: 'navigate' }));
+
+		expect(response.status).toBe(200);
+		expect(worker.shellFetches).toHaveLength(0);
+	});
+
+	it('falls back to the network for a navigation when the shell was never precached', async () => {
+		const worker = startWorker();
 
 		const response = assertResponded(await worker.request(`${ORIGIN}/`, { mode: 'navigate' }));
 
 		expect(await response.text()).toBe('network:/');
 		expect(worker.shellFetches).toEqual([`${ORIGIN}/`]);
+	});
+
+	it('responds 503 for a navigation when nothing is cached and the network is down', async () => {
+		const worker = startWorker();
+		worker.goOffline();
+		worker.replyToShell(() => 'network-error');
+
+		const response = assertResponded(await worker.request(`${ORIGIN}/`, { mode: 'navigate' }));
+
+		expect(response.status).toBe(503);
 	});
 
 	it('returns the precached index.html for an offline navigation', async () => {

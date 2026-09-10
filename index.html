@@ -419,9 +419,161 @@
                     transition: none;
                 }
             }
+
+            /*
+             * Splash screen (inline, JS-free). Paints from the HTML alone so
+             * slow networks never show a blank page. src/ui/splash.ts adds
+             * .splash-hidden once the map is ready and removes the node after
+             * the fade. Only transform + opacity are animated (compositor-only,
+             * no layout/paint work) so it stays at 60fps on old phones.
+             */
+            #splash {
+                position: fixed;
+                inset: 0;
+                z-index: 2000; /* above every Leaflet pane (<= 1000) */
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+                /* Opaque page colour (no map flash-through) + faint brand glow */
+                background:
+                    radial-gradient(circle at 50% 45%, rgba(0, 120, 255, 0.08), rgba(0, 120, 255, 0) 38vmax),
+                    #f7f7f7;
+                color: #1a1a1a;
+                text-align: center;
+                -webkit-user-select: none;
+                user-select: none;
+                transition: opacity 350ms ease-out;
+            }
+
+            .splash-content {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                transition: transform 350ms ease-out;
+            }
+
+            /* Fade-out state, set by the app JS when the map is ready */
+            #splash.splash-hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
+            #splash.splash-hidden .splash-content {
+                transform: scale(1.04);
+            }
+
+            /* Drop glyph and its ripple rings share one box, centred together */
+            .splash-glyph {
+                position: relative;
+                width: 96px;
+                height: 96px;
+                margin-bottom: 22px;
+            }
+            .splash-glyph svg {
+                position: relative; /* paints above the rings */
+                display: block;
+                width: 100%;
+                height: 100%;
+                animation: splash-breathe 2s ease-in-out infinite;
+            }
+
+            /* Two rings, half a period apart, expanding + fading like ripples */
+            .splash-glyph::before,
+            .splash-glyph::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: 50%;
+                border: 1.5px solid rgba(0, 120, 255, 0.45);
+                opacity: 0;
+                animation: splash-ripple 2.4s ease-out infinite;
+            }
+            .splash-glyph::after {
+                animation-delay: 1.2s;
+            }
+
+            .splash-title {
+                margin: 0;
+                font-size: 22px;
+                font-weight: 600;
+                letter-spacing: 0.01em;
+            }
+            .splash-hint {
+                margin: 6px 0 0;
+                font-size: 14px;
+                color: #6b6b6b;
+            }
+            /* Slow-network hint: pure-CSS delayed reveal after ~6s */
+            .splash-slow {
+                margin-top: 18px;
+                font-size: 13px;
+                color: #8a8a8a;
+                opacity: 0;
+                animation: splash-reveal 600ms ease-out 6s forwards;
+            }
+
+            @keyframes splash-breathe {
+                0%, 100% { transform: translateY(0) scale(1); }
+                50% { transform: translateY(-3px) scale(1.04); }
+            }
+            @keyframes splash-ripple {
+                0% { transform: scale(0.55); opacity: 0.6; }
+                100% { transform: scale(1.35); opacity: 0; }
+            }
+            @keyframes splash-reveal {
+                to { opacity: 1; }
+            }
+
+            /* Reduced motion: static glyph, no rings; keep opacity-only fades */
+            @media (prefers-reduced-motion: reduce) {
+                .splash-glyph svg,
+                .splash-glyph::before,
+                .splash-glyph::after {
+                    animation: none;
+                }
+                .splash-content {
+                    transition: none;
+                }
+            }
         </style>
     </head>
     <body>
+        <!-- Inline splash: shown until src/ui/splash.ts adds .splash-hidden and removes it -->
+        <div
+            id="splash"
+            role="status"
+            aria-live="polite"
+            aria-label="Loading Gribudzert"
+        >
+            <div class="splash-content">
+                <div class="splash-glyph">
+                    <!-- Water drop from public/icons/icon.svg, viewBox cropped to the drop -->
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="136 99 240 272"
+                        aria-hidden="true"
+                        focusable="false"
+                    >
+                        <path
+                            d="M256 112c-44 62-88 106-88 158a88 88 0 0 0 176 0c0-52-44-96-88-158z"
+                            fill="#0078ff"
+                        />
+                        <path
+                            d="M220 278a36 36 0 0 0 36 36"
+                            fill="none"
+                            stroke="#ffffff"
+                            stroke-width="14"
+                            stroke-linecap="round"
+                            opacity="0.9"
+                        />
+                    </svg>
+                </div>
+                <p class="splash-title">Gribudzert</p>
+                <p class="splash-hint">Loading map…</p>
+                <p class="splash-slow">Slow connection… still loading</p>
+            </div>
+        </div>
+
         <div id="map" aria-label="Map centered on Riga"></div>
 
         <div class="info" aria-hidden="true">

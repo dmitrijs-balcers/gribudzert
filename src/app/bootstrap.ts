@@ -69,6 +69,7 @@ import { createLocateControl } from '../ui/locate-control';
 import { initInstallPrompt } from '../ui/install-prompt';
 import { createNearestHud } from '../ui/nearest-hud';
 import { showNotification } from '../ui/notifications';
+import { dismissSplash } from '../ui/splash';
 import { createProvenanceIndicator } from '../ui/provenance-indicator';
 import { isCoarsePointer } from '../utils/dom';
 import * as logger from '../utils/logger';
@@ -533,5 +534,7 @@ export async function bootstrap(): Promise<void> {
 		resetLoading();
 		showNotification(INITIALIZATION_FAILED_MESSAGE, 'error', 0);
 		logger.error('App initialization error:', error instanceof Error ? error.message : error);
+	} finally {
+		dismissSplash();
 	}
 }

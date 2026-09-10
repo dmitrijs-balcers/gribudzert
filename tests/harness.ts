@@ -614,6 +614,8 @@ export type RenderOptions = {
 	readonly connectivity?: Connectivity;
 	readonly pointer?: PointerKind;
 	readonly displayMode?: DisplayMode;
+	/** Seed the inline `#splash` overlay from index.html so its dismissal can be observed */
+	readonly splash?: boolean;
 };
 
 const clickOn = (element: Element | null, what: string): void => {
@@ -703,6 +705,11 @@ const tileZoomOf = (container: HTMLElement): number | null => {
 export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
 	blurFocusedElement();
 	document.body.innerHTML = '';
+	if (options.splash === true) {
+		const splash = document.createElement('div');
+		splash.id = 'splash';
+		document.body.appendChild(splash);
+	}
 	const container = document.createElement('div');
 	container.id = 'map';
 	document.body.appendChild(container);

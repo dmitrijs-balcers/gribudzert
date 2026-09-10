@@ -315,9 +315,11 @@ Behaviour:
 - `activate`: `shell.dropOtherBuilds(buildId)` when shell present, then `enforceBudget()`.
 - `fetch`: compute `route({ method, mode, url: new URL(request.url) }, ...)`.
   - `passthrough` → return `null`.
-  - `navigation` (shell present, else null) → network-first: `fetchShell(request)`; on
-    rejection `shell.match(buildId, SHELL_ENTRY)`; if that is null too, `new Response(null,
-    { status: 503 })`.
+  - `navigation` (shell present, else null) → cache-first: `shell.match(buildId, SHELL_ENTRY)`;
+    on a miss `fetchShell(request)`; on rejection `new Response(null, { status: 503 })`.
+    Cache-first because a slow-but-alive connection never rejects a network-first fetch, so
+    the user would stare at a white screen although the shell is already on the device.
+    New builds reach the page through the service worker update flow instead.
   - `shell-asset` (shell present, else null) → cache-first: `shell.match(buildId, path)`;
     miss → `fetchShell(request)` (let a rejection propagate).
   - `map-tile` → `handleTile(key, request, waitUntil)`.

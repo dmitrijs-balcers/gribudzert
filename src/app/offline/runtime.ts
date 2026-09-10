@@ -192,10 +192,16 @@ export const createOfflineRuntime = (
 				if (shell === null) {
 					return null;
 				}
-				return ports.fetchShell(request).catch(async () => {
+				// Cache-first: the precached shell paints instantly even on a slow-but-alive
+				// connection, where a network-first fetch would hang without ever rejecting.
+				// New builds still reach the user through the service worker update flow.
+				return (async () => {
 					const cached = await ports.shell.match(shell.buildId, SHELL_ENTRY);
-					return cached ?? new Response(null, { status: 503 });
-				});
+					if (cached !== null) {
+						return cached;
+					}
+					return ports.fetchShell(request).catch(() => new Response(null, { status: 503 }));
+				})();
 			}
 			case 'shell-asset': {
 				const shell = config.shell;
