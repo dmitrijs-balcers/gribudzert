@@ -70,11 +70,10 @@ const releasePending = (
 	if (fetch === null) {
 		return { coverage, effects: [] };
 	}
-	const effects: SyncEffect[] = [{ kind: 'abort-fetch', request: fetch.id }];
-	if (fetch.loadingShown) {
-		effects.push({ kind: 'hide-loading' });
-	}
-	return { coverage: clearMany(coverage, fetch.tiles, fetch.kinds), effects };
+	return {
+		coverage: clearMany(coverage, fetch.tiles, fetch.kinds),
+		effects: [{ kind: 'abort-fetch', request: fetch.id }],
+	};
 };
 
 const settleZoomedOut = (
@@ -293,11 +292,7 @@ const settleFetchable = (
 					coverage = markLoading(coverage, tile, kind, request);
 				}
 			}
-			const loadingShown = !kinds.some((kind) => isKnown(state.snapshot, neededTiles, kind));
-			if (loadingShown) {
-				effects.push({ kind: 'show-loading' });
-			}
-			pending = { id: request, tiles, kinds, loadingShown };
+			pending = { id: request, tiles, kinds };
 			effects.push({ kind: 'start-fetch', request, tiles, kinds, bounds });
 		}
 	}
@@ -366,11 +361,7 @@ const handleFetchSucceeded = (
 		{ ...state, snapshot: evicted, coverage, pending: null },
 		now
 	);
-	const effects: SyncEffect[] = [{ kind: 'persist', snapshot: evicted }, ...settleEffects];
-	if (fetch.loadingShown) {
-		effects.push({ kind: 'hide-loading' });
-	}
-	return [settled, effects];
+	return [settled, [{ kind: 'persist', snapshot: evicted }, ...settleEffects]];
 };
 
 const handleFetchFailed = (
@@ -421,12 +412,7 @@ const handleFetchFailed = (
 	}
 
 	const [settled, settleEffects] = settle({ ...state, coverage, pending: null }, now);
-	const effects: SyncEffect[] = [];
-	if (fetch.loadingShown) {
-		effects.push({ kind: 'hide-loading' });
-	}
-	effects.push(...notifyEffects, ...settleEffects);
-	return [settled, effects];
+	return [settled, [...notifyEffects, ...settleEffects]];
 };
 
 const connectivityNotices = (connectivity: Connectivity): readonly SyncEffect[] => {

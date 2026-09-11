@@ -57,7 +57,6 @@ describe('Coming back later', () => {
 		});
 
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
-		expect(app.loadingVisible()).toBe(false);
 	});
 
 	it('does not ask Overpass again for an area saved recently', async () => {

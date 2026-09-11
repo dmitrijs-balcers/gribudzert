@@ -575,7 +575,6 @@ export type AppHandle = {
 	readonly toastHistory: () => readonly string[];
 	readonly status: () => string | null;
 	readonly card: () => { readonly message: string; readonly action: string | null } | null;
-	readonly loadingVisible: () => boolean;
 	readonly settled: () => Promise<void>;
 	readonly layerSwitch: (label: string) => HTMLButtonElement;
 	readonly isLayerOn: (label: string) => boolean;
@@ -839,7 +838,6 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 			const action = element.querySelector('.notice-action')?.textContent?.trim() ?? null;
 			return { message, action };
 		},
-		loadingVisible: () => document.querySelector('.loading-overlay.loading-visible') !== null,
 		settled,
 		layerSwitch,
 		isLayerOn,

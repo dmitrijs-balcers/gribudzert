@@ -79,7 +79,6 @@ import publicToilets from '../oql/public_toilets.overpassql?raw';
 import viewpoints from '../oql/viewpoints.overpassql?raw';
 import { toLocationFailureCategory } from '../types/errors';
 import { initInstallPrompt } from '../ui/install-prompt';
-import { hideLoading, resetLoading, showLoading } from '../ui/loading';
 import type { LayerPicker } from '../ui/layer-picker';
 import { createLayerPicker } from '../ui/layer-picker';
 import type { LocateButtonView, LocateControl } from '../ui/locate-control';
@@ -546,8 +545,6 @@ const bootstrapOrThrow = async (
 			clearRender: markerRenderer.clearAll,
 			notify: notices.announce,
 			clearStatus: notices.clearStatus,
-			showLoading,
-			hideLoading,
 			persist,
 			reportNearest,
 			trackAreaExplored,
@@ -716,7 +713,6 @@ const runBootstrap = async (
 	try {
 		await bootstrapOrThrow(notices, onTeardown);
 	} catch (error) {
-		resetLoading();
 		notices.card(
 			INITIALIZATION_FAILED_MESSAGE,
 			{ label: INITIALIZATION_REFRESH_ACTION_LABEL, onSelect: () => location.reload() },
