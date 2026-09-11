@@ -10,7 +10,7 @@ Interactive map application using Leaflet and OpenStreetMap to display points of
 - 📍 **Location-Based**: Automatic location detection with nearest point highlighting
 - 🗺️ **Interactive Map**: Pan and zoom to explore different areas
 - 🗺️ **Directions**: Walking directions to any point in your maps app (Apple Maps on iPhone, or any installed maps app on Android)
-- 🧭 **Guide Me**: In-app compass guidance to a chosen point, with distance and bearing, that works offline
+- 🧭 **Compass Guidance**: Tap any point and the compass HUD and beeline guide you to it, with distance and bearing, offline
 
 ## 🛰️ Offline
 

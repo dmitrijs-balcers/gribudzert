@@ -22,7 +22,7 @@ import {
 } from './presentation';
 
 export type PopupHandlers = {
-	readonly onGuide: (facility: Facility) => void;
+	readonly onSelect: (facility: Facility) => void;
 };
 
 export type PopupContext = PopupHandlers & {
@@ -30,7 +30,6 @@ export type PopupContext = PopupHandlers & {
 };
 
 const DIRECTIONS_LINK_CLASS = 'navigate-btn';
-const GUIDE_BUTTON_CLASS = 'guide-btn';
 const OSM_LINK_CLASS = 'popup-secondary';
 
 const facilityTitle = (facility: Facility): string =>
@@ -86,12 +85,6 @@ const directionsHtml = (facility: Facility, platform: DirectionsPlatform): strin
 	);
 };
 
-const guideHtml = (facility: Facility): string =>
-	`<button type="button" class="${GUIDE_BUTTON_CLASS}" aria-label="Guide me to ${escapeHtml(facilityTitle(facility))}">` +
-	`<span class="icon" aria-hidden="true">🧭</span>` +
-	`<span class="label">Guide me</span>` +
-	`</button>`;
-
 const osmLinkHtml = (facility: Facility): string =>
 	`<a class="${OSM_LINK_CLASS}" target="_blank" rel="noreferrer" href="${osmUrl(facility.osm)}">` +
 	`Open on OpenStreetMap` +
@@ -100,7 +93,6 @@ const osmLinkHtml = (facility: Facility): string =>
 const actionsHtml = (facility: Facility, platform: DirectionsPlatform): string =>
 	`<div class="popup-actions">` +
 	directionsHtml(facility, platform) +
-	guideHtml(facility) +
 	osmLinkHtml(facility) +
 	`</div>`;
 
@@ -253,17 +245,10 @@ export function createPopupContent(item: Located<Facility>, platform: Directions
 	}
 }
 
-const wireActions = (
-	popupElement: HTMLElement,
-	facility: Facility,
-	handlers: PopupHandlers
-): void => {
+const wireActions = (popupElement: HTMLElement, facility: Facility): void => {
 	popupElement
 		.querySelector(`.${DIRECTIONS_LINK_CLASS}`)
 		?.addEventListener('click', () => trackNavigationStarted(facility.kind));
-	popupElement
-		.querySelector(`.${GUIDE_BUTTON_CLASS}`)
-		?.addEventListener('click', () => handlers.onGuide(facility));
 };
 
 export function attachPopupHandlers(
@@ -273,12 +258,13 @@ export function attachPopupHandlers(
 ): void {
 	marker.on('popupopen', (event: L.PopupEvent) => {
 		trackMarkerClicked(facility.kind);
+		handlers.onSelect(facility);
 		try {
 			const popupElement = event.popup.getElement();
 			if (popupElement === undefined) {
 				return;
 			}
-			wireActions(popupElement, facility, handlers);
+			wireActions(popupElement, facility);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown error';
 			logger.info('Failed to attach popup action handlers:', message);

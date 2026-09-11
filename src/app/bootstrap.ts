@@ -40,6 +40,7 @@ import {
 	guidanceCourse,
 	guidanceTargetOf,
 	initialGuidanceState,
+	isGuidedTo,
 	isWaterFacility,
 	sameLocatedList,
 	timestampNow,
@@ -99,7 +100,6 @@ import {
 	LAYER_KINDS,
 } from './layers';
 import {
-	GUIDANCE_WAITING_FOR_LOCATION_MESSAGE,
 	INITIALIZATION_FAILED_MESSAGE,
 	INITIALIZATION_REFRESH_ACTION_LABEL,
 	LOCATION_FALLBACK_MESSAGE,
@@ -505,24 +505,14 @@ const bootstrapOrThrow = async (
 		onDismiss: () => dispatchGuidance({ kind: 'guidance-dismissed' }),
 	});
 
-	const locateForGuidance = (): void => {
-		notices.toast(GUIDANCE_WAITING_FOR_LOCATION_MESSAGE);
-		const state = tracker.state();
-		if (state.kind === 'idle' || state.kind === 'failed') {
-			reportPressOutcome(tracker, notices);
-			tracker.start();
-		}
-	};
-
 	const popupContext: PopupContext = {
 		platform: directionsPlatformOf(navigator.userAgent),
-		onGuide: (facility) => {
+		onSelect: (facility) => {
+			if (isGuidedTo(guidance, facility)) {
+				return;
+			}
 			trackGuidanceStarted(facility.kind);
 			dispatchGuidance({ kind: 'facility-chosen', facility });
-			map.closePopup();
-			if (lastPosition === null) {
-				locateForGuidance();
-			}
 		},
 	};
 

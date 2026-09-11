@@ -143,8 +143,7 @@
                 flex-wrap: wrap;
             }
 
-            .navigate-btn,
-            .guide-btn {
+            .navigate-btn {
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
@@ -171,13 +170,7 @@
                 color: white;
             }
 
-            .guide-btn {
-                background: linear-gradient(180deg, var(--color-success), #1b5e20);
-                box-shadow: 0 3px 8px rgba(46, 125, 50, 0.2);
-            }
-
-            .navigate-btn:active,
-            .guide-btn:active {
+            .navigate-btn:active {
                 transform: translateY(1px) scale(0.995);
             }
 
@@ -186,13 +179,7 @@
                 outline-offset: 2px;
             }
 
-            .guide-btn:focus {
-                outline: 3px solid rgba(46, 125, 50, 0.3);
-                outline-offset: 2px;
-            }
-
-            .navigate-btn .icon,
-            .guide-btn .icon {
+            .navigate-btn .icon {
                 display: inline-block;
                 width: 18px;
                 height: 18px;
@@ -214,8 +201,7 @@
 
             /* Make popups more comfortable on small screens */
             @media (max-width: 420px) {
-                .navigate-btn,
-                .guide-btn {
+                .navigate-btn {
                     width: 100%;
                     justify-content: center;
                 }

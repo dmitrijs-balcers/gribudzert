@@ -593,7 +593,6 @@ export type AppHandle = {
 	readonly hud: () => string | null;
 	readonly clickHud: () => void;
 	readonly stopGuiding: () => void;
-	readonly guideFromPopup: () => void;
 	readonly beelineVisible: () => boolean;
 	readonly snapshot: () => Promise<unknown>;
 	readonly provenance: () => string | null;
@@ -863,7 +862,6 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 			clickOn(hudRoot()?.querySelector('.guidance-hud-target') ?? null, 'Guidance HUD'),
 		stopGuiding: () =>
 			clickOn(hudRoot()?.querySelector('.guidance-hud-dismiss') ?? null, 'Stop guiding button'),
-		guideFromPopup: () => clickOn(popup()?.querySelector('.guide-btn') ?? null, 'Guide me button'),
 		beelineVisible: () => container.querySelector('.leaflet-overlay-pane path.beeline') !== null,
 		snapshot: () => readCacheRecord(),
 		provenance: () => {

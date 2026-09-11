@@ -42,6 +42,6 @@ export function addMarkers(
 		const marker = createFacilityMarker(item);
 		marker.addTo(layer);
 		marker.bindPopup(createPopupContent(item, popupContext.platform));
-		attachPopupHandlers(marker, item.facility, { onGuide: popupContext.onGuide });
+		attachPopupHandlers(marker, item.facility, { onSelect: popupContext.onSelect });
 	}
 }
