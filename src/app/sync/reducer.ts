@@ -35,6 +35,7 @@ import {
 	emptyAreaMessage,
 	fetchErrorMessage,
 	OFFLINE_SHOWING_SAVED_MESSAGE,
+	OFFLINE_STATUS_MESSAGE,
 	ZOOMED_OUT_MESSAGE,
 } from '../messages';
 import type { LayerRender, SyncEffect } from './effects';
@@ -89,9 +90,7 @@ const settleZoomedOut = (
 	if (!state.zoomedOutNoticeShown) {
 		effects.push({
 			kind: 'notify',
-			message: ZOOMED_OUT_MESSAGE,
-			notificationType: 'info',
-			duration: 5000,
+			request: { kind: 'toast', message: ZOOMED_OUT_MESSAGE, tone: 'neutral' },
 		});
 	}
 	const nextState: SyncState = {
@@ -272,9 +271,7 @@ const settleFetchable = (
 			if (canNotifyEmptyArea(emptyAreaNotifiedAt, render.kind, now)) {
 				effects.push({
 					kind: 'notify',
-					message: emptyAreaMessage(render.kind),
-					notificationType: 'info',
-					duration: 5000,
+					request: { kind: 'toast', message: emptyAreaMessage(render.kind), tone: 'neutral' },
 				});
 				emptyAreaNotifiedAt = { ...emptyAreaNotifiedAt, [render.kind]: now };
 			}
@@ -406,18 +403,18 @@ const handleFetchFailed = (
 		if (somethingKnown) {
 			notifyEffects.push({
 				kind: 'notify',
-				message: OFFLINE_SHOWING_SAVED_MESSAGE,
-				notificationType: 'info',
-				duration: 5000,
+				request: { kind: 'toast', message: OFFLINE_SHOWING_SAVED_MESSAGE, tone: 'warning' },
 			});
 		} else {
 			const [firstFailedKind] = fetch.kinds;
 			if (firstFailedKind !== undefined) {
 				notifyEffects.push({
 					kind: 'notify',
-					message: fetchErrorMessage(firstFailedKind, event.error),
-					notificationType: 'error',
-					duration: 5000,
+					request: {
+						kind: 'toast',
+						message: fetchErrorMessage(firstFailedKind, event.error),
+						tone: 'error',
+					},
 				});
 			}
 		}
@@ -430,6 +427,31 @@ const handleFetchFailed = (
 	}
 	effects.push(...notifyEffects, ...settleEffects);
 	return [settled, effects];
+};
+
+/** The notices a connectivity transition shows: a status chip going offline, a toast coming back. */
+const connectivityNotices = (connectivity: Connectivity): readonly SyncEffect[] => {
+	switch (connectivity) {
+		case 'offline':
+			return [
+				{
+					kind: 'notify',
+					request: { kind: 'status', message: OFFLINE_STATUS_MESSAGE, tone: 'warning' },
+				},
+			];
+		case 'online':
+			return [
+				{ kind: 'clear-status' },
+				{
+					kind: 'notify',
+					request: { kind: 'toast', message: BACK_ONLINE_MESSAGE, tone: 'success' },
+				},
+			];
+		default: {
+			const exhaustive: never = connectivity;
+			return exhaustive;
+		}
+	}
 };
 
 const handleConnectivityChanged = (
@@ -447,14 +469,11 @@ const handleConnectivityChanged = (
 			{ ...state, connectivity: 'offline', coverage: released.coverage, pending: null },
 			now
 		);
-		return [settled, [...released.effects, ...settleEffects]];
+		return [settled, [...released.effects, ...connectivityNotices('offline'), ...settleEffects]];
 	}
 
 	const [settled, settleEffects] = settle({ ...state, connectivity: 'online' }, now);
-	const effects: SyncEffect[] = [
-		{ kind: 'notify', message: BACK_ONLINE_MESSAGE, notificationType: 'info', duration: 3000 },
-		...settleEffects,
-	];
+	const effects: SyncEffect[] = [...connectivityNotices('online'), ...settleEffects];
 	return [settled, effects];
 };
 

@@ -1,3 +1,4 @@
+export type { AppHandle } from './bootstrap';
 export { bootstrap, MAP_CONTAINER_ID } from './bootstrap';
 export type {
 	FacilityLayer,
@@ -27,6 +28,7 @@ export {
 	INITIALIZATION_FAILED_MESSAGE,
 	LOCATION_FALLBACK_MESSAGE,
 	OFFLINE_SHOWING_SAVED_MESSAGE,
+	OFFLINE_STATUS_MESSAGE,
 	subjectOf,
 	ZOOMED_OUT_MESSAGE,
 } from './messages';

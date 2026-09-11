@@ -38,6 +38,7 @@ import {
 } from '../domain';
 import { defaultSnapshotStore, snapshotFrom } from '../features/cache';
 import type { Snapshot } from '../features/cache/snapshot';
+import { currentConnectivity, observeConnectivity } from '../features/connectivity';
 import { composeQuery, fetchFacilities, overpassSelector } from '../features/data';
 import type {
 	BeelineLayer,
@@ -55,7 +56,6 @@ import {
 } from '../features/location';
 import type { FollowMode } from '../features/location/follow';
 import type { TrackingState } from '../features/location/tracker';
-import { currentConnectivity, observeConnectivity } from '../features/connectivity';
 import { addMarkers } from '../features/markers/markers';
 import { toTileBounds } from '../features/navigation/bounds';
 import { createUserInteractionSource } from '../features/navigation/user-interaction';
@@ -63,14 +63,13 @@ import { createOneHandZoomHandler } from '../features/zoom-gesture';
 import drinkingWater from '../oql/drinking_water.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
 import { toLocationFailureCategory } from '../types/errors';
+import { initInstallPrompt } from '../ui/install-prompt';
 import { hideLoading, resetLoading, showLoading } from '../ui/loading';
 import type { LocateButtonView, LocateControl } from '../ui/locate-control';
 import { createLocateControl } from '../ui/locate-control';
-import { initInstallPrompt } from '../ui/install-prompt';
 import { createNearestHud } from '../ui/nearest-hud';
-import { showNotification } from '../ui/notifications';
-import { dismissSplash } from '../ui/splash';
 import { createProvenanceIndicator } from '../ui/provenance-indicator';
+import { dismissSplash } from '../ui/splash';
 import { isCoarsePointer } from '../utils/dom';
 import * as logger from '../utils/logger';
 import type { FacilityLayer, FacilityLayers, LayerKind } from './layers';
@@ -84,9 +83,13 @@ import {
 } from './layers';
 import {
 	INITIALIZATION_FAILED_MESSAGE,
+	INITIALIZATION_REFRESH_ACTION_LABEL,
 	LOCATION_FALLBACK_MESSAGE,
 	locationErrorMessage,
+	OFFLINE_STATUS_MESSAGE,
 } from './messages';
+import type { InstalledNoticeCenter, NoticeCenter } from './notices';
+import { installNoticeCenter } from './notices';
 import { registerServiceWorker } from './service-worker-client';
 import type { LayerRender, SyncRuntime } from './sync';
 import { createSyncRuntime, initialSyncState } from './sync';
@@ -210,24 +213,28 @@ const onceSettled = (
 	});
 };
 
-const reportPressOutcome = (tracker: LocationTracker): void => {
+const reportPressOutcome = (tracker: LocationTracker, notices: NoticeCenter): void => {
 	onceSettled(tracker, (state) => {
 		if (state.kind === 'tracking') {
 			trackLocateSuccess();
 			return;
 		}
 		trackLocateFailed(toLocationFailureCategory(state.error));
-		showNotification(locationErrorMessage(state.error), 'error', 5000);
+		notices.toast(locationErrorMessage(state.error), 'error');
 	});
 };
 
-const onLocateActivate = (tracker: LocationTracker, followController: FollowController): void => {
+const onLocateActivate = (
+	tracker: LocationTracker,
+	followController: FollowController,
+	notices: NoticeCenter
+): void => {
 	trackLocateRequested();
 	const state = tracker.state();
 	switch (state.kind) {
 		case 'idle':
 		case 'failed':
-			reportPressOutcome(tracker);
+			reportPressOutcome(tracker, notices);
 			tracker.start();
 			followController.follow('flyTo');
 			return;
@@ -264,15 +271,80 @@ const needsReranking = (
 	return distanceBetween(rankedFrom, position) >= RERANK_MIN_MOVE_M;
 };
 
-const bootstrapOrThrow = async (): Promise<void> => {
+type Teardown = () => void;
+
+/**
+ * Collects everything the app must undo when it goes away: map, timers, subscriptions.
+ * Runs them in reverse order of registration; a teardown added after disposal runs at once,
+ * so a bootstrap that is still in flight when the app is disposed cannot leak.
+ */
+const createTeardowns = (): {
+	readonly add: (teardown: Teardown) => void;
+	readonly run: Teardown;
+} => {
+	const teardowns: Teardown[] = [];
+	let disposed = false;
+	const runSafely = (teardown: Teardown): void => {
+		try {
+			teardown();
+		} catch (error) {
+			logger.error('App teardown failed:', error instanceof Error ? error.message : error);
+		}
+	};
+	return {
+		add: (teardown) => {
+			if (disposed) {
+				runSafely(teardown);
+				return;
+			}
+			teardowns.push(teardown);
+		},
+		run: () => {
+			if (disposed) {
+				return;
+			}
+			disposed = true;
+			for (const teardown of teardowns.reverse()) {
+				runSafely(teardown);
+			}
+			teardowns.length = 0;
+		},
+	};
+};
+
+const bootstrapOrThrow = async (
+	notices: NoticeCenter,
+	onTeardown: (teardown: Teardown) => void
+): Promise<void> => {
 	const remembered = loadLastKnownPosition(localStorage, timestampNow());
 
 	const center: L.LatLngTuple =
 		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
 	const coarsePointer = isCoarsePointer();
 	const map = createMap(center, coarsePointer);
-	registerServiceWorker();
+	// Leaflet keeps a private fallback timer alive across a zoom animation and `remove()`
+	// does not clear it, so a map removed mid-zoom is written to after its panes are gone.
+	// Wait for the zoom to land before pulling the map down.
+	let zoomAnimating = false;
+	map.on('zoomanim', () => {
+		zoomAnimating = true;
+	});
+	map.on('zoomend', () => {
+		zoomAnimating = false;
+	});
+	onTeardown(() => {
+		if (zoomAnimating) {
+			map.once('zoomend', () => map.remove());
+			return;
+		}
+		map.remove();
+	});
+	registerServiceWorker(notices);
 	initInstallPrompt(localStorage);
+
+	if (currentConnectivity(navigator) === 'offline') {
+		notices.status(OFFLINE_STATUS_MESSAGE, 'warning');
+	}
 
 	const userInteraction = createUserInteractionSource(map);
 	if (coarsePointer) {
@@ -371,7 +443,8 @@ const bootstrapOrThrow = async (): Promise<void> => {
 			fetchFacilities,
 			render,
 			clearRender: clearRenderAll,
-			notify: showNotification,
+			notify: notices.announce,
+			clearStatus: notices.clearStatus,
 			showLoading,
 			hideLoading,
 			persist,
@@ -390,9 +463,11 @@ const bootstrapOrThrow = async (): Promise<void> => {
 		}
 	};
 
-	observeConnectivity(window, navigator, (connectivity) => {
-		dispatchWhileMounted({ kind: 'connectivity-changed', connectivity });
-	});
+	onTeardown(
+		observeConnectivity(window, navigator, (connectivity) => {
+			dispatchWhileMounted({ kind: 'connectivity-changed', connectivity });
+		})
+	);
 
 	const cacheLoad = store.load().then(snapshotFrom);
 	let cacheReadyDispatched = false;
@@ -414,6 +489,7 @@ const bootstrapOrThrow = async (): Promise<void> => {
 	};
 
 	const tracker = createLocationTracker();
+	onTeardown(() => tracker.stop());
 
 	const renderLocateButton = (): void => {
 		locateControl.render(locateButtonViewOf(tracker.state(), followController.mode()));
@@ -424,7 +500,7 @@ const bootstrapOrThrow = async (): Promise<void> => {
 	});
 
 	const locateControl: LocateControl = createLocateControl(() =>
-		onLocateActivate(tracker, followController)
+		onLocateActivate(tracker, followController, notices)
 	);
 	locateControl.control.addTo(map);
 	followController.follow('setView');
@@ -435,7 +511,7 @@ const bootstrapOrThrow = async (): Promise<void> => {
 		onceSettled(tracker, (state) => {
 			trackMapLoaded(state.kind === 'tracking' ? 'user' : 'default');
 			if (state.kind === 'failed') {
-				showNotification(LOCATION_FALLBACK_MESSAGE, 'info', 5000);
+				notices.toast(LOCATION_FALLBACK_MESSAGE);
 			}
 		});
 	}
@@ -512,14 +588,21 @@ const bootstrapOrThrow = async (): Promise<void> => {
 			debounceTimer = null;
 		}
 	};
-	map.on('movestart', cancelPendingViewportDispatch);
-	map.on('dragstart', cancelPendingViewportDispatch);
-	map.on('moveend', () => {
+	const onMoveEnd = (): void => {
 		cancelPendingViewportDispatch();
 		debounceTimer = setTimeout(() => {
 			debounceTimer = null;
 			dispatchWhileMounted({ kind: 'viewport-settled', viewport: viewportOf(map) });
 		}, VIEWPORT_DEBOUNCE_MS);
+	};
+	map.on('movestart', cancelPendingViewportDispatch);
+	map.on('dragstart', cancelPendingViewportDispatch);
+	map.on('moveend', onMoveEnd);
+	// Stop listening before the map is removed: removing it ends any pan still in flight,
+	// which fires one last `moveend` that must not re-arm the debounce on a dead map.
+	onTeardown(() => {
+		map.off('moveend', onMoveEnd);
+		cancelPendingViewportDispatch();
 	});
 
 	dispatchWhileMounted({ kind: 'viewport-settled', viewport: viewportOf(map) });
@@ -527,14 +610,39 @@ const bootstrapOrThrow = async (): Promise<void> => {
 	logger.info('App initialization complete');
 };
 
-export async function bootstrap(): Promise<void> {
+/**
+ * A running app. `ready` settles once initialisation has finished (it never rejects: a
+ * failure is shown to the user instead). `dispose` tears the app down: the map, its
+ * timers and subscriptions, and the notice centre. Safe to call more than once.
+ */
+export type AppHandle = {
+	readonly ready: Promise<void>;
+	readonly dispose: () => void;
+};
+
+const runBootstrap = async (
+	notices: NoticeCenter,
+	onTeardown: (t: Teardown) => void
+): Promise<void> => {
 	try {
-		await bootstrapOrThrow();
+		await bootstrapOrThrow(notices, onTeardown);
 	} catch (error) {
 		resetLoading();
-		showNotification(INITIALIZATION_FAILED_MESSAGE, 'error', 0);
+		notices.card(
+			INITIALIZATION_FAILED_MESSAGE,
+			{ label: INITIALIZATION_REFRESH_ACTION_LABEL, onSelect: () => location.reload() },
+			'error'
+		);
 		logger.error('App initialization error:', error instanceof Error ? error.message : error);
 	} finally {
 		dismissSplash();
 	}
+};
+
+export function bootstrap(): AppHandle {
+	const teardowns = createTeardowns();
+	const installed: InstalledNoticeCenter = installNoticeCenter(document.body, timestampNow);
+	teardowns.add(installed.destroy);
+	const ready = runBootstrap(installed.center, teardowns.add);
+	return { ready, dispose: teardowns.run };
 }

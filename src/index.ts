@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { bootstrap } from './app';
 
 const start = (): void => {
-	void bootstrap();
+	bootstrap();
 };
 
 if (document.readyState === 'loading') {

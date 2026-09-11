@@ -1,4 +1,5 @@
 import { SERVICE_WORKER_PATH } from '../core/config';
+import type { UpdateContainer, UpdateRegistration, VisibilityDocument } from '../features/update';
 import {
 	activateWaiting,
 	checkForUpdateOnVisible,
@@ -6,16 +7,15 @@ import {
 	onControllerChange,
 	watchForUpdate,
 } from '../features/update';
-import type { UpdateContainer, UpdateRegistration, VisibilityDocument } from '../features/update';
-import { showNotification } from '../ui/notifications';
 import * as logger from '../utils/logger';
 import { UPDATE_READY_MESSAGE, UPDATE_RELOAD_ACTION_LABEL } from './messages';
-import { createAppUpdateRuntime } from './update';
+import type { NoticeCenter } from './notices';
 import type { AppUpdateRuntime } from './update';
+import { createAppUpdateRuntime } from './update';
 
 /**
  * Wires the "new version ready" flow onto a service worker registration: shows a sticky
- * toast the first time an update is waiting, activates it on request, and reloads once
+ * card the first time an update is waiting, activates it on request, and reloads once
  * (and only once) that activation actually takes over the page. Kept separate from
  * `registerServiceWorker` so tests can drive it with fakes.
  */
@@ -23,11 +23,12 @@ export const wireAppUpdates = (
 	registration: UpdateRegistration,
 	container: UpdateContainer,
 	doc: VisibilityDocument,
-	reload: () => void
+	reload: () => void,
+	notices: Pick<NoticeCenter, 'card'>
 ): AppUpdateRuntime => {
 	const runtime = createAppUpdateRuntime({
 		showUpdateReady: () =>
-			showNotification(UPDATE_READY_MESSAGE, 'info', 0, {
+			notices.card(UPDATE_READY_MESSAGE, {
 				label: UPDATE_RELOAD_ACTION_LABEL,
 				onSelect: () => runtime.dispatch({ kind: 'reload-requested' }),
 			}),
@@ -45,14 +46,20 @@ export const wireAppUpdates = (
 	return runtime;
 };
 
-export const registerServiceWorker = (): void => {
+export const registerServiceWorker = (notices: Pick<NoticeCenter, 'card'>): void => {
 	if (!import.meta.env.PROD || !('serviceWorker' in navigator)) {
 		return;
 	}
 	navigator.serviceWorker
 		.register(SERVICE_WORKER_PATH)
 		.then((registration) => {
-			wireAppUpdates(registration, navigator.serviceWorker, document, () => location.reload());
+			wireAppUpdates(
+				registration,
+				navigator.serviceWorker,
+				document,
+				() => location.reload(),
+				notices
+			);
 		})
 		.catch((error: unknown) => {
 			logger.error('Service worker registration failed', error);

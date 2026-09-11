@@ -4,7 +4,10 @@
  * on its own just because the very first install claims the page.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { InstalledNoticeCenter } from '../../src/app/notices';
+import { installNoticeCenter } from '../../src/app/notices';
+import { timestampNow } from '../../src/domain';
 import type {
 	UpdateContainer,
 	UpdateRegistration,
@@ -137,20 +140,30 @@ const importServiceWorkerClient = async () => {
 const UPDATE_READY_MESSAGE = 'A new version is ready.';
 
 const toastMessages = (): readonly string[] =>
-	Array.from(document.querySelectorAll('.notification-message')).map(
+	Array.from(document.querySelectorAll('.notice-message')).map(
 		(element) => element.textContent?.trim() ?? ''
 	);
 
 const reloadButton = (): HTMLButtonElement | null =>
-	document.querySelector<HTMLButtonElement>('.notification-action');
+	document.querySelector<HTMLButtonElement>('.notice-action');
 
 describe('Getting the latest version', () => {
+	let notices: InstalledNoticeCenter;
+
+	beforeEach(() => {
+		notices = installNoticeCenter(document.body, timestampNow);
+	});
+
+	afterEach(() => {
+		notices.destroy();
+	});
+
 	it('shows a sticky "new version ready" toast when a worker is already waiting', async () => {
 		const { wireAppUpdates } = await importServiceWorkerClient();
 		const registration = fakeRegistration(fakeWorker('installed'));
 		const container = fakeContainer('current-controller');
 
-		wireAppUpdates(registration, container, fakeDocument('visible'), vi.fn());
+		wireAppUpdates(registration, container, fakeDocument('visible'), vi.fn(), notices.center);
 
 		expect(toastMessages()).toEqual([UPDATE_READY_MESSAGE]);
 		expect(reloadButton()).not.toBeNull();
@@ -161,7 +174,7 @@ describe('Getting the latest version', () => {
 		const registration = fakeRegistration(null);
 		const container = fakeContainer('current-controller');
 
-		wireAppUpdates(registration, container, fakeDocument('visible'), vi.fn());
+		wireAppUpdates(registration, container, fakeDocument('visible'), vi.fn(), notices.center);
 		expect(toastMessages()).toEqual([]);
 
 		const installing = fakeWorker('installing');
@@ -176,7 +189,7 @@ describe('Getting the latest version', () => {
 		const registration = fakeRegistration(fakeWorker('installed'));
 		const container = fakeContainer('current-controller');
 
-		wireAppUpdates(registration, container, fakeDocument('visible'), vi.fn());
+		wireAppUpdates(registration, container, fakeDocument('visible'), vi.fn(), notices.center);
 
 		const installing = fakeWorker('installing');
 		registration.triggerUpdateFound(installing);
@@ -191,7 +204,7 @@ describe('Getting the latest version', () => {
 		const container = fakeContainer(null);
 		const reload = vi.fn();
 
-		wireAppUpdates(registration, container, fakeDocument('visible'), reload);
+		wireAppUpdates(registration, container, fakeDocument('visible'), reload, notices.center);
 
 		container.setController('first-controller');
 		container.fireControllerChange();
@@ -207,7 +220,7 @@ describe('Getting the latest version', () => {
 		const container = fakeContainer('current-controller');
 		const reload = vi.fn();
 
-		wireAppUpdates(registration, container, fakeDocument('visible'), reload);
+		wireAppUpdates(registration, container, fakeDocument('visible'), reload, notices.center);
 
 		const button = reloadButton();
 		if (button === null) {
@@ -230,7 +243,7 @@ describe('Getting the latest version', () => {
 		const container = fakeContainer('current-controller');
 		const doc = fakeDocument('hidden');
 
-		wireAppUpdates(registration, container, doc, vi.fn());
+		wireAppUpdates(registration, container, doc, vi.fn(), notices.center);
 		expect(registration.updateCallCount()).toBe(0);
 
 		doc.setVisibility('visible');

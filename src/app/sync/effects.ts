@@ -1,6 +1,5 @@
-import type { Facility, Located, RequestId, TileBounds, TileId } from '../../domain';
+import type { Facility, Located, NoticeRequest, RequestId, TileBounds, TileId } from '../../domain';
 import type { Snapshot } from '../../features/cache/snapshot';
-import type { NotificationType } from '../../ui/notifications';
 import type { LayerKind } from '../layers';
 import type { DataProvenance } from './provenance';
 
@@ -20,12 +19,8 @@ export type SyncEffect =
 	| { readonly kind: 'abort-fetch'; readonly request: RequestId }
 	| { readonly kind: 'render'; readonly layers: readonly LayerRender[] }
 	| { readonly kind: 'clear-render' }
-	| {
-			readonly kind: 'notify';
-			readonly message: string;
-			readonly notificationType: NotificationType;
-			readonly duration: number;
-	  }
+	| { readonly kind: 'notify'; readonly request: NoticeRequest }
+	| { readonly kind: 'clear-status' }
 	| { readonly kind: 'show-loading' }
 	| { readonly kind: 'hide-loading' }
 	| { readonly kind: 'persist'; readonly snapshot: Snapshot }

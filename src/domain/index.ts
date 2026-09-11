@@ -70,6 +70,30 @@ export type { Located } from './located';
 export { findNearest, markNearest, nearestOf, withDistances } from './located';
 export type { MapTileKey } from './map-tile';
 export { mapTileKey, parseMapTileKey } from './map-tile';
+export type {
+	Card,
+	CardRequest,
+	Notice,
+	NoticeAction,
+	NoticeEffect,
+	NoticeEvent,
+	NoticeId,
+	NoticeRequest,
+	NoticeState,
+	NoticeTone,
+	Status,
+	StatusRequest,
+	Toast,
+	ToastRequest,
+} from './notice';
+export {
+	applyNotice,
+	initialNoticeState,
+	MAX_VISIBLE_TOASTS,
+	noticeId,
+	toastLifetime,
+	visibleNotices,
+} from './notice';
 export type { OsmTags } from './osm';
 export { facilityFromTags, isToiletTags, waterSourceTypeOf } from './osm';
 export type { UserPosition } from './position';

@@ -573,6 +573,8 @@ export type AppHandle = {
 	readonly userLocation: () => { markers: number; circles: number };
 	readonly toasts: () => readonly string[];
 	readonly toastHistory: () => readonly string[];
+	readonly status: () => string | null;
+	readonly card: () => { readonly message: string; readonly action: string | null } | null;
 	readonly loadingVisible: () => boolean;
 	readonly settled: () => Promise<void>;
 	readonly layerCheckbox: (label: string) => HTMLInputElement;
@@ -637,18 +639,16 @@ const blurFocusedElement = (): void => {
 	}
 };
 
-const NOTIFICATION_CLASS = 'notification';
-const NOTIFICATION_MESSAGE_SELECTOR = '.notification-message';
+const NOTICE_CLASS = 'notice';
+const NOTICE_MESSAGE_SELECTOR = '.notice-message';
 
 const observeToastHistory = (): readonly string[] => {
 	const history: string[] = [];
 	const observer = new MutationObserver((mutations) => {
 		for (const mutation of mutations) {
 			for (const node of Array.from(mutation.addedNodes)) {
-				if (node instanceof HTMLElement && node.classList.contains(NOTIFICATION_CLASS)) {
-					history.push(
-						node.querySelector(NOTIFICATION_MESSAGE_SELECTOR)?.textContent?.trim() ?? ''
-					);
+				if (node instanceof HTMLElement && node.classList.contains(NOTICE_CLASS)) {
+					history.push(node.querySelector(NOTICE_MESSAGE_SELECTOR)?.textContent?.trim() ?? '');
 				}
 			}
 		}
@@ -702,7 +702,20 @@ const tileZoomOf = (container: HTMLElement): number | null => {
 	return match?.[1] === undefined ? null : Number(match[1]);
 };
 
+/**
+ * The app started by the most recent `renderApp`, kept so the next render (or the suite's
+ * `afterEach`) can dispose it. A map left behind by an earlier test keeps its timers and
+ * animations running against a detached container; disposing stops that.
+ */
+let renderedApp: { readonly dispose: () => void } | null = null;
+
+export const disposeRenderedApp = (): void => {
+	renderedApp?.dispose();
+	renderedApp = null;
+};
+
 export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
+	disposeRenderedApp();
 	blurFocusedElement();
 	document.body.innerHTML = '';
 	if (options.splash === true) {
@@ -727,7 +740,8 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 	}
 
 	vi.resetModules();
-	await import('../src/index');
+	const { bootstrap } = await import('../src/app');
+	renderedApp = bootstrap();
 
 	await waitFor(() => expect(container.classList.contains('leaflet-container')).toBe(true));
 	const isReload = options.reload === true;
@@ -795,10 +809,23 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 			).length,
 		}),
 		toasts: () =>
-			Array.from(
-				document.querySelectorAll('.notification:not(.notification-exit) .notification-message')
-			).map((element) => element.textContent?.trim() ?? ''),
+			Array.from(document.querySelectorAll('.notice:not(.notice-leaving) .notice-message')).map(
+				(element) => element.textContent?.trim() ?? ''
+			),
 		toastHistory: () => toastHistory,
+		status: () =>
+			document
+				.querySelector('.notice-status:not(.notice-leaving) .notice-message')
+				?.textContent?.trim() ?? null,
+		card: () => {
+			const element = document.querySelector('.notice-card:not(.notice-leaving)');
+			if (element === null) {
+				return null;
+			}
+			const message = element.querySelector('.notice-message')?.textContent?.trim() ?? '';
+			const action = element.querySelector('.notice-action')?.textContent?.trim() ?? null;
+			return { message, action };
+		},
 		loadingVisible: () => document.querySelector('.loading-overlay.loading-visible') !== null,
 		settled,
 		layerCheckbox,

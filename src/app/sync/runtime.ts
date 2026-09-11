@@ -1,12 +1,11 @@
 import type * as L from 'leaflet';
-import type { Facility, Located, RequestId, Timestamp } from '../../domain';
+import type { Facility, Located, NoticeRequest, RequestId, Timestamp } from '../../domain';
 import type { Snapshot } from '../../features/cache/snapshot';
 import type { OverpassQuery } from '../../features/data';
 import { toLatLngBounds } from '../../features/navigation/bounds';
 import type { FetchError } from '../../types/errors';
 import type { Result } from '../../types/result';
 import { isErr } from '../../types/result';
-import type { NotificationType } from '../../ui/notifications';
 import type { LayerKind } from '../layers';
 import type { LayerRender, SyncEffect } from './effects';
 import type { SyncEvent } from './events';
@@ -24,7 +23,8 @@ export type SyncPorts = {
 	) => Promise<Result<readonly Facility[], FetchError>>;
 	readonly render: (layers: readonly LayerRender[]) => void;
 	readonly clearRender: () => void;
-	readonly notify: (message: string, type: NotificationType, duration: number) => void;
+	readonly notify: (request: NoticeRequest) => void;
+	readonly clearStatus: () => void;
 	readonly showLoading: () => void;
 	readonly hideLoading: () => void;
 	readonly persist: (snapshot: Snapshot) => void;
@@ -92,7 +92,10 @@ export const createSyncRuntime = (ports: SyncPorts, initial: SyncState): SyncRun
 				ports.clearRender();
 				return;
 			case 'notify':
-				ports.notify(effect.message, effect.notificationType, effect.duration);
+				ports.notify(effect.request);
+				return;
+			case 'clear-status':
+				ports.clearStatus();
 				return;
 			case 'show-loading':
 				ports.showLoading();
