@@ -37,17 +37,6 @@ export const labelOf = (kind: LayerKind): LayerName => {
 	}
 };
 
-const KIND_BY_LABEL: Readonly<Record<LayerName, LayerKind>> = {
-	[LAYER_NAMES.WATER]: 'water',
-	[LAYER_NAMES.TOILET]: 'toilet',
-	[LAYER_NAMES.VIEWPOINT]: 'viewpoint',
-};
-
-export const isLayerName = (name: string): name is LayerName => Object.hasOwn(KIND_BY_LABEL, name);
-
-export const layerKindOf = (name: string): LayerKind | null =>
-	isLayerName(name) ? KIND_BY_LABEL[name] : null;
-
 export const createFacilityLayer = (
 	kind: LayerKind,
 	selector: OverpassSelector,

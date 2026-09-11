@@ -66,6 +66,8 @@ import viewpoints from '../oql/viewpoints.overpassql?raw';
 import { toLocationFailureCategory } from '../types/errors';
 import { initInstallPrompt } from '../ui/install-prompt';
 import { hideLoading, resetLoading, showLoading } from '../ui/loading';
+import type { LayerPicker } from '../ui/layer-picker';
+import { createLayerPicker } from '../ui/layer-picker';
 import type { LocateButtonView, LocateControl } from '../ui/locate-control';
 import { createLocateControl } from '../ui/locate-control';
 import { createNearestHud } from '../ui/nearest-hud';
@@ -73,14 +75,13 @@ import { createProvenanceIndicator } from '../ui/provenance-indicator';
 import { dismissSplash } from '../ui/splash';
 import { isCoarsePointer } from '../utils/dom';
 import * as logger from '../utils/logger';
-import type { FacilityLayer, FacilityLayers, LayerKind } from './layers';
+import type { LayerKind } from './layers';
 import {
 	activeLayerCount,
 	createFacilityLayers,
 	disableLayer,
 	enableLayer,
 	LAYER_KINDS,
-	layerKindOf,
 } from './layers';
 import {
 	INITIALIZATION_FAILED_MESSAGE,
@@ -151,20 +152,6 @@ const createMap = (center: L.LatLngTuple, coarsePointer: boolean): L.Map => {
 	}).addTo(map);
 	L.control.scale({ metric: true, imperial: false }).addTo(map);
 	return map;
-};
-
-const addLayerControl = (map: L.Map, layers: FacilityLayers): void => {
-	L.control
-		.layers(
-			undefined,
-			{
-				[layers.water.label]: layers.water.group,
-				[layers.toilet.label]: layers.toilet.group,
-				[layers.viewpoint.label]: layers.viewpoint.group,
-			},
-			{ collapsed: false }
-		)
-		.addTo(map);
 };
 
 const toLocatedWater = (item: Located<Facility>): Located<WaterFacility> | null =>
@@ -552,37 +539,35 @@ const bootstrapOrThrow = async (
 		beelineLayer.clear();
 	};
 
-	const layerFor = (
-		event: L.LayersControlEvent
-	): { readonly kind: LayerKind; readonly layer: FacilityLayer } | null => {
-		const kind = layerKindOf(event.name);
-		return kind === null ? null : { kind, layer: layers[kind] };
-	};
+	const layerActiveState = (): Readonly<Record<LayerKind, boolean>> => ({
+		water: layers.water.active,
+		toilet: layers.toilet.active,
+		viewpoint: layers.viewpoint.active,
+	});
 
-	map.on('overlayadd', (event: L.LayersControlEvent) => {
-		const target = layerFor(event);
-		if (target === null) {
-			return;
-		}
-		enableLayer(target.layer, map);
-		trackLayerEnabled(target.layer.label, activeLayerCount(layers));
-		dispatchWhileMounted({ kind: 'layer-toggled', layer: target.kind, active: true });
+	const layerPicker: LayerPicker = createLayerPicker({
+		layers: LAYER_KINDS.map((kind) => ({ kind, label: layers[kind].label })),
+		onToggle: (kind, active) => {
+			const layer = layers[kind];
+			if (active) {
+				enableLayer(layer, map);
+				trackLayerEnabled(layer.label, activeLayerCount(layers));
+				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: true });
+			} else {
+				disableLayer(layer, map);
+				trackLayerDisabled(layer.label, activeLayerCount(layers));
+				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: false });
+				if (kind === 'water') {
+					onWaterLayerDisabled();
+				}
+			}
+			layerPicker.render(layerActiveState());
+		},
 	});
-	map.on('overlayremove', (event: L.LayersControlEvent) => {
-		const target = layerFor(event);
-		if (target === null) {
-			return;
-		}
-		disableLayer(target.layer, map);
-		trackLayerDisabled(target.layer.label, activeLayerCount(layers));
-		dispatchWhileMounted({ kind: 'layer-toggled', layer: target.kind, active: false });
-		if (target.kind === 'water') {
-			onWaterLayerDisabled();
-		}
-	});
+	layerPicker.control.addTo(map);
 
 	enableLayer(layers.water, map);
-	addLayerControl(map, layers);
+	layerPicker.render(layerActiveState());
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	const cancelPendingViewportDispatch = (): void => {

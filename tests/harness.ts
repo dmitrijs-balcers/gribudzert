@@ -577,7 +577,8 @@ export type AppHandle = {
 	readonly card: () => { readonly message: string; readonly action: string | null } | null;
 	readonly loadingVisible: () => boolean;
 	readonly settled: () => Promise<void>;
-	readonly layerCheckbox: (label: string) => HTMLInputElement;
+	readonly layerSwitch: (label: string) => HTMLButtonElement;
+	readonly isLayerOn: (label: string) => boolean;
 	readonly toggleLayer: (label: string) => void;
 	readonly locateButton: () => HTMLButtonElement;
 	readonly clickLocate: () => void;
@@ -759,15 +760,38 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 	const popup = (): HTMLElement | null =>
 		container.querySelector<HTMLElement>('.leaflet-popup-pane .leaflet-popup-content');
 
-	const layerCheckbox = (label: string): HTMLInputElement => {
-		const labels = Array.from(container.querySelectorAll('.leaflet-control-layers-overlays label'));
-		const match = labels.find((element) => element.textContent?.trim() === label);
-		const input = match?.querySelector('input');
-		if (!(input instanceof HTMLInputElement)) {
-			throw new Error(`No "${label}" layer in the layer control`);
+	const layerPickerButton = (): HTMLButtonElement => {
+		const button = container.querySelector('.layer-picker-button');
+		if (!(button instanceof HTMLButtonElement)) {
+			throw new Error('Layer picker button is not on the page');
 		}
-		return input;
+		return button;
 	};
+
+	const layerPickerPopover = (): HTMLElement | null =>
+		container.querySelector<HTMLElement>('.layer-picker-popover');
+
+	const openLayerPicker = (): void => {
+		const popover = layerPickerPopover();
+		if (popover === null || popover.hidden) {
+			clickOn(layerPickerButton(), 'Layer picker button');
+		}
+	};
+
+	const layerSwitch = (label: string): HTMLButtonElement => {
+		openLayerPicker();
+		const tiles = Array.from(container.querySelectorAll<HTMLButtonElement>('.layer-picker-tile'));
+		const match = tiles.find(
+			(tile) => tile.querySelector('.layer-picker-tile-label')?.textContent?.trim() === label
+		);
+		if (match === undefined) {
+			throw new Error(`No "${label}" layer in the layer picker`);
+		}
+		return match;
+	};
+
+	const isLayerOn = (label: string): boolean =>
+		layerSwitch(label).getAttribute('aria-checked') === 'true';
 
 	const locateButton = (): HTMLButtonElement => {
 		const button = container.querySelector('.locate-control button');
@@ -828,8 +852,9 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		},
 		loadingVisible: () => document.querySelector('.loading-overlay.loading-visible') !== null,
 		settled,
-		layerCheckbox,
-		toggleLayer: (label) => clickOn(layerCheckbox(label), `"${label}" checkbox`),
+		layerSwitch,
+		isLayerOn,
+		toggleLayer: (label) => clickOn(layerSwitch(label), `"${label}" tile`),
 		locateButton,
 		clickLocate: () => clickOn(locateButton(), 'Locate button'),
 		zoomIn: () => clickOn(container.querySelector('.leaflet-control-zoom-in'), 'Zoom in button'),

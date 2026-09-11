@@ -22,7 +22,7 @@ describe('Finding viewpoints', () => {
 	it('starts with the viewpoint layer off', async () => {
 		const app = await renderApp();
 
-		expect(app.layerCheckbox('Viewpoints').checked).toBe(false);
+		expect(app.isLayerOn('Viewpoints')).toBe(false);
 		expect(app.overpass.requests.map((request) => isViewpointQuery(request.query))).toEqual([
 			false,
 		]);

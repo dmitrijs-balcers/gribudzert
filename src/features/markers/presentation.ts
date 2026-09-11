@@ -30,8 +30,15 @@ export const TOILET_PRESENTATION: FacilityPresentation = {
 	badgeColor: '#795548',
 };
 
-const VIEWPOINT_GLYPH_MARKUP =
-	'<svg class="facility-marker-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2 L14 10 L12 12 L10 10 Z M22 12 L14 14 L12 12 L14 10 Z M12 22 L10 14 L12 12 L14 14 Z M2 12 L10 10 L12 12 L10 14 Z"/><path fill="currentColor" d="M19 5 L14 11 L12 12 L13 10 Z M19 19 L13 14 L12 12 L14 13 Z M5 19 L10 13 L12 12 L11 14 Z M5 5 L11 10 L12 12 L10 11 Z"/></svg>';
+/**
+ * The viewpoint starburst's paths, shared by the facility marker badge (16-22px, forced
+ * white via `.facility-marker-svg`) and the layer picker tile (26px, tinted by the tile's
+ * own colour) so the two never drift apart.
+ */
+export const VIEWPOINT_STARBURST_PATHS =
+	'<path fill="currentColor" d="M12 2 L14 10 L12 12 L10 10 Z M22 12 L14 14 L12 12 L14 10 Z M12 22 L10 14 L12 12 L14 14 Z M2 12 L10 10 L12 12 L10 14 Z"/><path fill="currentColor" d="M19 5 L14 11 L12 12 L13 10 Z M19 19 L13 14 L12 12 L14 13 Z M5 19 L10 13 L12 12 L11 14 Z M5 5 L11 10 L12 12 L10 11 Z"/>';
+
+const VIEWPOINT_GLYPH_MARKUP = `<svg class="facility-marker-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${VIEWPOINT_STARBURST_PATHS}</svg>`;
 
 export const VIEWPOINT_PRESENTATION: FacilityPresentation = {
 	glyph: { kind: 'svg', markup: VIEWPOINT_GLYPH_MARKUP },
