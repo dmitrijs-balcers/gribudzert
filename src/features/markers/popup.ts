@@ -34,7 +34,6 @@ const navigationLabel = (facility: Facility): string => {
 	}
 };
 
-/** Render a glyph inline at 1em, for use next to popup title text */
 const glyphHtml = (glyph: Glyph): string => {
 	switch (glyph.kind) {
 		case 'emoji':
@@ -125,7 +124,7 @@ function createToiletPopupContent(item: Located<ToiletFacility>): string {
 		parts.push(`<div style="color: #666;">🕒 Hours: 24/7 (assumed)</div>`);
 	}
 
-	if (facility.unisex === true) {
+	if (facility.unisex === 'yes') {
 		parts.push(`<div>Gender-neutral facility</div>`);
 	}
 

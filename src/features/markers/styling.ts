@@ -29,7 +29,6 @@ export type MarkerAppearance = {
 	readonly facilityKind: FacilityKind;
 	readonly facilityType: WaterSourceType | 'toilet' | 'viewpoint';
 	readonly distanceLabel: string | null;
-	/** Viewpoint prominence tier, driving marker size; null for non-viewpoint facilities */
 	readonly prominence: ViewpointProminence | null;
 };
 

@@ -13,12 +13,6 @@ import type { NoticeCenter } from './notices';
 import type { AppUpdateRuntime } from './update';
 import { createAppUpdateRuntime } from './update';
 
-/**
- * Wires the "new version ready" flow onto a service worker registration: shows a sticky
- * card the first time an update is waiting, activates it on request, and reloads once
- * (and only once) that activation actually takes over the page. Kept separate from
- * `registerServiceWorker` so tests can drive it with fakes.
- */
 export const wireAppUpdates = (
 	registration: UpdateRegistration,
 	container: UpdateContainer,

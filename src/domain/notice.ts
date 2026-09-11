@@ -1,17 +1,3 @@
-/**
- * Notice centre: the pure model behind every message the map shows the user.
- *
- * Three kinds of notice exist, and each looks like what it is:
- * - a **toast** is passing news ("Back online.") that expires on its own;
- * - a **status** is an ongoing condition ("Offline") that stays until the condition ends;
- * - a **card** needs a decision ("A new version is ready." + Reload) and never expires.
- *
- * The reducer owns every rule about *what* is visible: at most `MAX_VISIBLE_TOASTS` toasts
- * (newest first), the same toast text never shows twice at once, a toast that is held
- * (finger on it, tab hidden) stops ageing, and expiry is scheduled through effects so the
- * model never touches a timer itself.
- */
-
 import type { DurationMs, Timestamp } from './units';
 
 export type NoticeId = string & { readonly __brand: 'NoticeId' };
@@ -43,7 +29,6 @@ export type CardRequest = {
 	readonly action: NoticeAction | null;
 };
 
-/** What a caller asks for. Identity and timing are assigned by the reducer. */
 export type NoticeRequest = ToastRequest | StatusRequest | CardRequest;
 
 export type Toast = ToastRequest & {
@@ -62,11 +47,9 @@ export type Card = CardRequest & {
 export type Notice = Toast | Status | Card;
 
 export type NoticeState = {
-	/** Newest first. Never longer than `MAX_VISIBLE_TOASTS`. */
 	readonly toasts: readonly Toast[];
 	readonly status: Status | null;
 	readonly card: Card | null;
-	/** When the toasts stopped ageing, or `null` while they age normally. */
 	readonly heldSince: Timestamp | null;
 };
 
@@ -95,10 +78,6 @@ export const initialNoticeState: NoticeState = {
 	heldSince: null,
 };
 
-/**
- * How long a toast stays: four seconds for a short line, up to seven for a long one, so
- * reading time grows with the text instead of every caller guessing a number.
- */
 export const toastLifetime = (message: string): DurationMs => {
 	const extra = Math.max(0, message.trim().length - COMFORTABLE_TOAST_LENGTH);
 	const lifetime = Math.min(
@@ -116,16 +95,28 @@ const cancelExpiryOf = (toasts: readonly Toast[]): readonly NoticeEffect[] =>
 
 type Transition = readonly [NoticeState, readonly NoticeEffect[]];
 
+const duplicatesOf = (toasts: readonly Toast[], message: string): readonly Toast[] =>
+	toasts.filter((toast) => toast.message === message);
+
+const dropDuplicateToasts = (toasts: readonly Toast[], message: string): readonly Toast[] =>
+	toasts.filter((toast) => toast.message !== message);
+
+const overflowBeyondVisibleCap = (toasts: readonly Toast[]): readonly Toast[] =>
+	toasts.slice(MAX_VISIBLE_TOASTS - 1);
+
+const dropOverflowToasts = (toasts: readonly Toast[]): readonly Toast[] =>
+	toasts.slice(0, MAX_VISIBLE_TOASTS - 1);
+
 const announceToast = (
 	state: NoticeState,
 	id: NoticeId,
 	request: ToastRequest,
 	now: Timestamp
 ): Transition => {
-	const duplicates = state.toasts.filter((toast) => toast.message === request.message);
-	const kept = state.toasts.filter((toast) => toast.message !== request.message);
-	const overflow = kept.slice(MAX_VISIBLE_TOASTS - 1);
-	const survivors = kept.slice(0, MAX_VISIBLE_TOASTS - 1);
+	const duplicates = duplicatesOf(state.toasts, request.message);
+	const kept = dropDuplicateToasts(state.toasts, request.message);
+	const overflow = overflowBeyondVisibleCap(kept);
+	const survivors = dropOverflowToasts(kept);
 
 	const lifetime = toastLifetime(request.message);
 	const toast: Toast = { ...request, id, expiresAt: (now + lifetime) as Timestamp };
@@ -229,7 +220,6 @@ export const applyNotice = (state: NoticeState, event: NoticeEvent, now: Timesta
 	}
 };
 
-/** Every notice currently on screen, in reading order: status, toasts (newest first), card. */
 export const visibleNotices = (state: NoticeState): readonly Notice[] => [
 	...(state.status === null ? [] : [state.status]),
 	...state.toasts,

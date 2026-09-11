@@ -73,7 +73,7 @@ import { createLocateControl } from '../ui/locate-control';
 import { createNearestHud } from '../ui/nearest-hud';
 import { createProvenanceIndicator } from '../ui/provenance-indicator';
 import { dismissSplash } from '../ui/splash';
-import { isCoarsePointer } from '../utils/dom';
+import { isCoarsePointer } from '../ui/pointer';
 import * as logger from '../utils/logger';
 import type { LayerKind } from './layers';
 import {
@@ -262,11 +262,6 @@ const needsReranking = (
 
 type Teardown = () => void;
 
-/**
- * Collects everything the app must undo when it goes away: map, timers, subscriptions.
- * Runs them in reverse order of registration; a teardown added after disposal runs at once,
- * so a bootstrap that is still in flight when the app is disposed cannot leak.
- */
 const createTeardowns = (): {
 	readonly add: (teardown: Teardown) => void;
 	readonly run: Teardown;
@@ -301,6 +296,25 @@ const createTeardowns = (): {
 	};
 };
 
+const zoomAnimationTracker = (map: L.Map): { readonly whenSettled: (fn: Teardown) => void } => {
+	let zoomAnimating = false;
+	map.on('zoomanim', () => {
+		zoomAnimating = true;
+	});
+	map.on('zoomend', () => {
+		zoomAnimating = false;
+	});
+	return {
+		whenSettled: (fn) => {
+			if (zoomAnimating) {
+				map.once('zoomend', fn);
+				return;
+			}
+			fn();
+		},
+	};
+};
+
 const bootstrapOrThrow = async (
 	notices: NoticeCenter,
 	onTeardown: (teardown: Teardown) => void
@@ -311,23 +325,8 @@ const bootstrapOrThrow = async (
 		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
 	const coarsePointer = isCoarsePointer();
 	const map = createMap(center, coarsePointer);
-	// Leaflet keeps a private fallback timer alive across a zoom animation and `remove()`
-	// does not clear it, so a map removed mid-zoom is written to after its panes are gone.
-	// Wait for the zoom to land before pulling the map down.
-	let zoomAnimating = false;
-	map.on('zoomanim', () => {
-		zoomAnimating = true;
-	});
-	map.on('zoomend', () => {
-		zoomAnimating = false;
-	});
-	onTeardown(() => {
-		if (zoomAnimating) {
-			map.once('zoomend', () => map.remove());
-			return;
-		}
-		map.remove();
-	});
+	const zoomTracker = zoomAnimationTracker(map);
+	onTeardown(() => zoomTracker.whenSettled(() => map.remove()));
 	registerServiceWorker(notices);
 	initInstallPrompt(localStorage);
 
@@ -586,23 +585,17 @@ const bootstrapOrThrow = async (
 	map.on('movestart', cancelPendingViewportDispatch);
 	map.on('dragstart', cancelPendingViewportDispatch);
 	map.on('moveend', onMoveEnd);
-	// Stop listening before the map is removed: removing it ends any pan still in flight,
-	// which fires one last `moveend` that must not re-arm the debounce on a dead map.
-	onTeardown(() => {
+	const stopViewportTracking = (): void => {
 		map.off('moveend', onMoveEnd);
 		cancelPendingViewportDispatch();
-	});
+	};
+	onTeardown(stopViewportTracking);
 
 	dispatchWhileMounted({ kind: 'viewport-settled', viewport: viewportOf(map) });
 
 	logger.info('App initialization complete');
 };
 
-/**
- * A running app. `ready` settles once initialisation has finished (it never rejects: a
- * failure is shown to the user instead). `dispose` tears the app down: the map, its
- * timers and subscriptions, and the notice centre. Safe to call more than once.
- */
 export type AppHandle = {
 	readonly ready: Promise<void>;
 	readonly dispose: () => void;

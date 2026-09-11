@@ -1,6 +1,5 @@
 import type { NoticeId, NoticeState } from '../../domain';
 
-/** What the DOM layer reports back; the runtime decides what it means. */
 export type NoticeViewHandlers = {
 	readonly onDismiss: (id: NoticeId) => void;
 	readonly onSelect: (id: NoticeId) => void;

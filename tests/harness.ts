@@ -617,7 +617,6 @@ export type RenderOptions = {
 	readonly connectivity?: Connectivity;
 	readonly pointer?: PointerKind;
 	readonly displayMode?: DisplayMode;
-	/** Seed the inline `#splash` overlay from index.html so its dismissal can be observed */
 	readonly splash?: boolean;
 };
 
@@ -684,12 +683,7 @@ const dispatchGesturePointer = (
 
 const TILE_ZOOM_PATTERN = /tile\.openstreetmap\.org\/(\d+)\//;
 
-/**
- * Leaflet keeps already-loaded tiles of neighbouring zoom levels in the DOM until the current
- * level has loaded (which fake tile images here never do), so the current level is read from
- * the tile container Leaflet stacks on top: it gives the current level the highest z-index.
- */
-const tileZoomOf = (container: HTMLElement): number | null => {
+const zoomOfTopmostTileLevel = (container: HTMLElement): number | null => {
 	const levels = Array.from(
 		container.querySelectorAll<HTMLElement>('.leaflet-tile-pane .leaflet-tile-container')
 	);
@@ -703,20 +697,15 @@ const tileZoomOf = (container: HTMLElement): number | null => {
 	return match?.[1] === undefined ? null : Number(match[1]);
 };
 
-/**
- * The app started by the most recent `renderApp`, kept so the next render (or the suite's
- * `afterEach`) can dispose it. A map left behind by an earlier test keeps its timers and
- * animations running against a detached container; disposing stops that.
- */
-let renderedApp: { readonly dispose: () => void } | null = null;
+let mostRecentlyRenderedApp: { readonly dispose: () => void } | null = null;
 
-export const disposeRenderedApp = (): void => {
-	renderedApp?.dispose();
-	renderedApp = null;
+export const disposePreviousApp = (): void => {
+	mostRecentlyRenderedApp?.dispose();
+	mostRecentlyRenderedApp = null;
 };
 
 export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
-	disposeRenderedApp();
+	disposePreviousApp();
 	blurFocusedElement();
 	document.body.innerHTML = '';
 	if (options.splash === true) {
@@ -742,7 +731,7 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 
 	vi.resetModules();
 	const { bootstrap } = await import('../src/app');
-	renderedApp = bootstrap();
+	mostRecentlyRenderedApp = bootstrap();
 
 	await waitFor(() => expect(container.classList.contains('leaflet-container')).toBe(true));
 	const isReload = options.reload === true;
@@ -887,7 +876,7 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		goOffline: onLineFake.goOffline,
 		goOnline: onLineFake.goOnline,
 		zoomControlVisible: () => container.querySelector('.leaflet-control-zoom-in') !== null,
-		tileZoom: () => tileZoomOf(container),
+		tileZoom: () => zoomOfTopmostTileLevel(container),
 		draggingEnabled: () => container.classList.contains('leaflet-grab'),
 		gesturePointer: (type, point, pointerId = 1) =>
 			dispatchGesturePointer(container, type, point, pointerId),

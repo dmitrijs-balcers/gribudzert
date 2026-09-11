@@ -1,9 +1,3 @@
-/**
- * On a phone, one hand can hold the phone or slide a finger, but not both hands pinch.
- * A quick double tap that keeps the second finger down and slides turns into a zoom:
- * down zooms in, up zooms out, anchored on the second tap.
- */
-
 import { waitFor } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_ZOOM } from '../../src/core/config';

@@ -1,8 +1,3 @@
-/**
- * A runner keeps the map open mid-run: the dot follows every fix, the nearest tap and the
- * HUD stay current, and tracking behaves while the runner looks away or taps the screen.
- */
-
 import { waitFor } from '@testing-library/dom';
 import { describe, expect, it, vi } from 'vitest';
 import { RIGA, USER } from '../fixtures';
@@ -18,7 +13,7 @@ const nearestFacilityType = (app: AppHandle): string | null =>
 		.find((marker) => marker.classList.contains('nearest-marker'))
 		?.getAttribute('data-facility-type') ?? null;
 
-describe('Following my run', () => {
+describe('Following my run while the map stays open', () => {
 	it('moves the dot in place as fixes arrive and shows the heading cone while moving', async () => {
 		const app = await renderApp({ geolocation: { position: USER } });
 		await waitFor(() => expect(app.userLocation()).toEqual({ markers: 1, circles: 1 }));

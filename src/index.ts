@@ -1,7 +1,3 @@
-/**
- * Entry point: load styles and start the application once the DOM is ready
- */
-
 import 'leaflet/dist/leaflet.css';
 import './ui/theme.css';
 import { bootstrap } from './app';

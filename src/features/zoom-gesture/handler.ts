@@ -68,8 +68,6 @@ export const createOneHandZoomHandler = (
 		});
 	};
 
-	// Move, up and cancel are heard on the window: a finger that slides off the map container
-	// (or lifts there) must still finish the gesture, otherwise dragging stays disabled.
 	const onPointerMove = (event: PointerEvent): void => {
 		if (!activePointerIds.has(event.pointerId)) {
 			return;
@@ -90,6 +88,20 @@ export const createOneHandZoomHandler = (
 		dispatch({ kind: 'cancel' });
 	};
 
+	const gestureTarget = window;
+
+	const listenForGestureEndAnywhere = (): void => {
+		gestureTarget.addEventListener('pointermove', onPointerMove);
+		gestureTarget.addEventListener('pointerup', onPointerUp);
+		gestureTarget.addEventListener('pointercancel', onPointerCancel);
+	};
+
+	const stopListeningForGestureEndAnywhere = (): void => {
+		gestureTarget.removeEventListener('pointermove', onPointerMove);
+		gestureTarget.removeEventListener('pointerup', onPointerUp);
+		gestureTarget.removeEventListener('pointercancel', onPointerCancel);
+	};
+
 	return {
 		enable: () => {
 			if (enabled) {
@@ -97,9 +109,7 @@ export const createOneHandZoomHandler = (
 			}
 			enabled = true;
 			map.getContainer().addEventListener('pointerdown', onPointerDown);
-			window.addEventListener('pointermove', onPointerMove);
-			window.addEventListener('pointerup', onPointerUp);
-			window.addEventListener('pointercancel', onPointerCancel);
+			listenForGestureEndAnywhere();
 		},
 		disable: () => {
 			if (!enabled) {
@@ -107,9 +117,7 @@ export const createOneHandZoomHandler = (
 			}
 			enabled = false;
 			map.getContainer().removeEventListener('pointerdown', onPointerDown);
-			window.removeEventListener('pointermove', onPointerMove);
-			window.removeEventListener('pointerup', onPointerUp);
-			window.removeEventListener('pointercancel', onPointerCancel);
+			stopListeningForGestureEndAnywhere();
 			activePointerIds.clear();
 			dispatch({ kind: 'cancel' });
 		},
