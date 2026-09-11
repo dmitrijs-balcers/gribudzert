@@ -62,24 +62,26 @@ import { createUserInteractionSource } from '../features/navigation/user-interac
 import { createOneHandZoomHandler } from '../features/zoom-gesture';
 import drinkingWater from '../oql/drinking_water.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
+import viewpoints from '../oql/viewpoints.overpassql?raw';
 import { toLocationFailureCategory } from '../types/errors';
 import { initInstallPrompt } from '../ui/install-prompt';
 import { hideLoading, resetLoading, showLoading } from '../ui/loading';
+import type { LayerPicker } from '../ui/layer-picker';
+import { createLayerPicker } from '../ui/layer-picker';
 import type { LocateButtonView, LocateControl } from '../ui/locate-control';
 import { createLocateControl } from '../ui/locate-control';
 import { createNearestHud } from '../ui/nearest-hud';
 import { createProvenanceIndicator } from '../ui/provenance-indicator';
 import { dismissSplash } from '../ui/splash';
-import { isCoarsePointer } from '../utils/dom';
+import { isCoarsePointer } from '../ui/pointer';
 import * as logger from '../utils/logger';
-import type { FacilityLayer, FacilityLayers, LayerKind } from './layers';
+import type { LayerKind } from './layers';
 import {
 	activeLayerCount,
 	createFacilityLayers,
 	disableLayer,
 	enableLayer,
 	LAYER_KINDS,
-	layerKindOf,
 } from './layers';
 import {
 	INITIALIZATION_FAILED_MESSAGE,
@@ -150,19 +152,6 @@ const createMap = (center: L.LatLngTuple, coarsePointer: boolean): L.Map => {
 	}).addTo(map);
 	L.control.scale({ metric: true, imperial: false }).addTo(map);
 	return map;
-};
-
-const addLayerControl = (map: L.Map, layers: FacilityLayers): void => {
-	L.control
-		.layers(
-			undefined,
-			{
-				[layers.water.label]: layers.water.group,
-				[layers.toilet.label]: layers.toilet.group,
-			},
-			{ collapsed: false }
-		)
-		.addTo(map);
 };
 
 const toLocatedWater = (item: Located<Facility>): Located<WaterFacility> | null =>
@@ -273,11 +262,6 @@ const needsReranking = (
 
 type Teardown = () => void;
 
-/**
- * Collects everything the app must undo when it goes away: map, timers, subscriptions.
- * Runs them in reverse order of registration; a teardown added after disposal runs at once,
- * so a bootstrap that is still in flight when the app is disposed cannot leak.
- */
 const createTeardowns = (): {
 	readonly add: (teardown: Teardown) => void;
 	readonly run: Teardown;
@@ -312,6 +296,25 @@ const createTeardowns = (): {
 	};
 };
 
+const zoomAnimationTracker = (map: L.Map): { readonly whenSettled: (fn: Teardown) => void } => {
+	let zoomAnimating = false;
+	map.on('zoomanim', () => {
+		zoomAnimating = true;
+	});
+	map.on('zoomend', () => {
+		zoomAnimating = false;
+	});
+	return {
+		whenSettled: (fn) => {
+			if (zoomAnimating) {
+				map.once('zoomend', fn);
+				return;
+			}
+			fn();
+		},
+	};
+};
+
 const bootstrapOrThrow = async (
 	notices: NoticeCenter,
 	onTeardown: (teardown: Teardown) => void
@@ -322,23 +325,8 @@ const bootstrapOrThrow = async (
 		remembered === null ? RIGA_CENTER : [remembered.lat, remembered.lon];
 	const coarsePointer = isCoarsePointer();
 	const map = createMap(center, coarsePointer);
-	// Leaflet keeps a private fallback timer alive across a zoom animation and `remove()`
-	// does not clear it, so a map removed mid-zoom is written to after its panes are gone.
-	// Wait for the zoom to land before pulling the map down.
-	let zoomAnimating = false;
-	map.on('zoomanim', () => {
-		zoomAnimating = true;
-	});
-	map.on('zoomend', () => {
-		zoomAnimating = false;
-	});
-	onTeardown(() => {
-		if (zoomAnimating) {
-			map.once('zoomend', () => map.remove());
-			return;
-		}
-		map.remove();
-	});
+	const zoomTracker = zoomAnimationTracker(map);
+	onTeardown(() => zoomTracker.whenSettled(() => map.remove()));
 	registerServiceWorker(notices);
 	initInstallPrompt(localStorage);
 
@@ -357,6 +345,7 @@ const bootstrapOrThrow = async (
 	const layers = createFacilityLayers({
 		water: overpassSelector(drinkingWater),
 		toilet: overpassSelector(publicToilets),
+		viewpoint: overpassSelector(viewpoints),
 	});
 
 	const userLayer: UserLocationLayer = createUserLocationLayer(map);
@@ -549,37 +538,35 @@ const bootstrapOrThrow = async (
 		beelineLayer.clear();
 	};
 
-	const layerFor = (
-		event: L.LayersControlEvent
-	): { readonly kind: LayerKind; readonly layer: FacilityLayer } | null => {
-		const kind = layerKindOf(event.name);
-		return kind === null ? null : { kind, layer: layers[kind] };
-	};
+	const layerActiveState = (): Readonly<Record<LayerKind, boolean>> => ({
+		water: layers.water.active,
+		toilet: layers.toilet.active,
+		viewpoint: layers.viewpoint.active,
+	});
 
-	map.on('overlayadd', (event: L.LayersControlEvent) => {
-		const target = layerFor(event);
-		if (target === null) {
-			return;
-		}
-		enableLayer(target.layer, map);
-		trackLayerEnabled(target.layer.label, activeLayerCount(layers));
-		dispatchWhileMounted({ kind: 'layer-toggled', layer: target.kind, active: true });
+	const layerPicker: LayerPicker = createLayerPicker({
+		layers: LAYER_KINDS.map((kind) => ({ kind, label: layers[kind].label })),
+		onToggle: (kind, active) => {
+			const layer = layers[kind];
+			if (active) {
+				enableLayer(layer, map);
+				trackLayerEnabled(layer.label, activeLayerCount(layers));
+				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: true });
+			} else {
+				disableLayer(layer, map);
+				trackLayerDisabled(layer.label, activeLayerCount(layers));
+				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: false });
+				if (kind === 'water') {
+					onWaterLayerDisabled();
+				}
+			}
+			layerPicker.render(layerActiveState());
+		},
 	});
-	map.on('overlayremove', (event: L.LayersControlEvent) => {
-		const target = layerFor(event);
-		if (target === null) {
-			return;
-		}
-		disableLayer(target.layer, map);
-		trackLayerDisabled(target.layer.label, activeLayerCount(layers));
-		dispatchWhileMounted({ kind: 'layer-toggled', layer: target.kind, active: false });
-		if (target.kind === 'water') {
-			onWaterLayerDisabled();
-		}
-	});
+	layerPicker.control.addTo(map);
 
 	enableLayer(layers.water, map);
-	addLayerControl(map, layers);
+	layerPicker.render(layerActiveState());
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	const cancelPendingViewportDispatch = (): void => {
@@ -598,23 +585,17 @@ const bootstrapOrThrow = async (
 	map.on('movestart', cancelPendingViewportDispatch);
 	map.on('dragstart', cancelPendingViewportDispatch);
 	map.on('moveend', onMoveEnd);
-	// Stop listening before the map is removed: removing it ends any pan still in flight,
-	// which fires one last `moveend` that must not re-arm the debounce on a dead map.
-	onTeardown(() => {
+	const stopViewportTracking = (): void => {
 		map.off('moveend', onMoveEnd);
 		cancelPendingViewportDispatch();
-	});
+	};
+	onTeardown(stopViewportTracking);
 
 	dispatchWhileMounted({ kind: 'viewport-settled', viewport: viewportOf(map) });
 
 	logger.info('App initialization complete');
 };
 
-/**
- * A running app. `ready` settles once initialisation has finished (it never rejects: a
- * failure is shown to the user instead). `dispose` tears the app down: the map, its
- * timers and subscriptions, and the notice centre. Safe to call more than once.
- */
 export type AppHandle = {
 	readonly ready: Promise<void>;
 	readonly dispose: () => void;

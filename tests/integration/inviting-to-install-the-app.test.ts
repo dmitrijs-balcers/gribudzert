@@ -1,9 +1,3 @@
-/**
- * The mobile "install this app" nudge: quiet on a first visit, offered from the second
- * visit onward, and never pushy — it steps aside for anyone already installed, on
- * desktop, or who recently said no.
- */
-
 import type { PWAInstallElement } from '@khmyznikov/pwa-install';
 import { describe, expect, it, vi } from 'vitest';
 import { INSTALL_PROMPT_SHOW_DELAY_MS } from '../../src/core/config';
@@ -39,7 +33,7 @@ const MOBILE = { pointer: 'coarse', geolocation: DENIED_LOCATION } as const;
 const DESKTOP = { pointer: 'fine', geolocation: DENIED_LOCATION } as const;
 const STANDALONE = { displayMode: 'standalone', geolocation: DENIED_LOCATION } as const;
 
-describe('Inviting to install the app', () => {
+describe('Inviting to install the app without being pushy', () => {
 	it('does not show the install dialog on a first mobile visit', async () => {
 		await renderApp(MOBILE);
 

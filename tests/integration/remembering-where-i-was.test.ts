@@ -1,8 +1,3 @@
-/**
- * The map remembers where the runner last stood, so the next visit is useful before any
- * fix arrives — as long as that memory isn't too old.
- */
-
 import { waitFor } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
 import { CACHE_TILE_ZOOM } from '../../src/core/config';
@@ -18,7 +13,7 @@ const maxCenterDriftFromTileRounding = (point: {
 	return { lat: bounds.north - bounds.south, lon: bounds.east - bounds.west };
 };
 
-describe('Remembering where I was', () => {
+describe('Remembering where I was before the next fix arrives', () => {
 	it('centres on a remembered position immediately, with no fallback toast even when the live fix then fails', async () => {
 		const app = await renderApp({
 			rememberedPosition: { lat: USER.lat, lon: USER.lon, accuracy: 20 },

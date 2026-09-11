@@ -1,13 +1,9 @@
-/**
- * OpenStreetMap tag interpretation
- * The single place where raw OSM tags are turned into Facility values.
- * Every tag-reading rule (drinkability, accessibility, fees, ...) lives here.
- */
-
 import type {
 	Facility,
 	OsmRef,
 	ToiletFacility,
+	ViewpointFacility,
+	ViewpointProminence,
 	WaterFacility,
 	WaterSourceType,
 	WheelchairAccess,
@@ -16,33 +12,18 @@ import type {
 import { facilityId } from './facility';
 import type { Coordinates } from './geo';
 
-/**
- * Raw OSM tags as returned by the API
- */
 export type OsmTags = Readonly<Record<string, string>>;
 
-/**
- * Lower-cased tag value, or undefined when the tag is absent
- */
 const tagValue = (tags: OsmTags, key: string): string | undefined => tags[key]?.toLowerCase();
 
-/**
- * Whether a tag is present with the value `yes`
- */
 const isYes = (tags: OsmTags, key: string): boolean => tagValue(tags, key) === 'yes';
 
-/**
- * Parse a yes/no tag, defaulting to `unknown`
- */
 const parseYesNo = (value: string | undefined): YesNoUnknown => {
 	if (value === 'yes') return 'yes';
 	if (value === 'no') return 'no';
 	return 'unknown';
 };
 
-/**
- * Parse a `wheelchair=*` tag, defaulting to `unknown`
- */
 const parseWheelchair = (value: string | undefined): WheelchairAccess => {
 	if (value === 'yes') return 'yes';
 	if (value === 'no') return 'no';
@@ -50,39 +31,59 @@ const parseWheelchair = (value: string | undefined): WheelchairAccess => {
 	return 'unknown';
 };
 
-/**
- * Parse a `unisex=*` tag; null when absent
- */
-const parseUnisex = (value: string | undefined): boolean | null => {
-	if (value === undefined) return null;
-	return value === 'yes';
+type WaterSourceTag = {
+	readonly sourceType: WaterSourceType;
+	readonly key: string;
+	readonly value: string;
 };
 
-/**
- * Determine the water source type, or null when the tags do not describe a water source
- */
-export const waterSourceTypeOf = (tags: OsmTags): WaterSourceType | null => {
-	if (tags.amenity === 'drinking_water') return 'drinking_water';
-	if (tags.natural === 'spring') return 'spring';
-	if (tags.man_made === 'water_well') return 'water_well';
-	if (tags.man_made === 'water_tap') return 'water_tap';
-	if (tags.waterway === 'water_point') return 'water_point';
-	return null;
-};
+const WATER_SOURCE_TAGS: readonly WaterSourceTag[] = [
+	{ sourceType: 'drinking_water', key: 'amenity', value: 'drinking_water' },
+	{ sourceType: 'spring', key: 'natural', value: 'spring' },
+	{ sourceType: 'water_well', key: 'man_made', value: 'water_well' },
+	{ sourceType: 'water_tap', key: 'man_made', value: 'water_tap' },
+	{ sourceType: 'water_point', key: 'waterway', value: 'water_point' },
+];
 
-/**
- * Whether the tags describe a public toilet
- */
+export const waterSourceTypeOf = (tags: OsmTags): WaterSourceType | null =>
+	WATER_SOURCE_TAGS.find(({ key, value }) => tags[key] === value)?.sourceType ?? null;
+
 export const isToiletTags = (tags: OsmTags): boolean => tags.amenity === 'toilets';
 
-/**
- * Water is assumed drinkable unless explicitly tagged `drinking_water=no`
- */
-const isDrinkable = (tags: OsmTags): boolean => tagValue(tags, 'drinking_water') !== 'no';
+export const isViewpointTags = (tags: OsmTags): boolean => tags.tourism === 'viewpoint';
 
-/**
- * Fields shared by all facilities. Optional fields are only present when the tag exists.
- */
+const hasPhotoOrArticle = (tags: OsmTags): boolean =>
+	tags.image !== undefined ||
+	tags.wikimedia_commons !== undefined ||
+	tags.wikipedia !== undefined ||
+	tags.wikidata !== undefined;
+
+const hasNameOrDescription = (tags: OsmTags): boolean =>
+	tags.name !== undefined || tags.description !== undefined;
+
+export const viewpointProminenceOf = (tags: OsmTags): ViewpointProminence => {
+	if (hasPhotoOrArticle(tags)) {
+		return 'notable';
+	}
+	if (hasNameOrDescription(tags)) {
+		return 'named';
+	}
+	return 'bare';
+};
+
+const UNDRINKABLE_TAG_VALUE = 'no';
+
+const isDrinkable = (tags: OsmTags): boolean =>
+	tagValue(tags, 'drinking_water') !== UNDRINKABLE_TAG_VALUE;
+
+const parseElevation = (value: string | undefined): number | undefined => {
+	if (value === undefined) {
+		return undefined;
+	}
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 const baseFields = (osm: OsmRef, coordinates: Coordinates, tags: OsmTags) => ({
 	id: facilityId(osm),
 	osm,
@@ -93,9 +94,6 @@ const baseFields = (osm: OsmRef, coordinates: Coordinates, tags: OsmTags) => ({
 	...(tags.opening_hours !== undefined ? { openingHours: tags.opening_hours } : {}),
 });
 
-/**
- * Build a WaterFacility from OSM tags
- */
 const waterFacilityFromTags = (
 	osm: OsmRef,
 	coordinates: Coordinates,
@@ -111,9 +109,6 @@ const waterFacilityFromTags = (
 	wheelchair: parseWheelchair(tagValue(tags, 'wheelchair')),
 });
 
-/**
- * Build a ToiletFacility from OSM tags
- */
 const toiletFacilityFromTags = (
 	osm: OsmRef,
 	coordinates: Coordinates,
@@ -126,13 +121,24 @@ const toiletFacilityFromTags = (
 		changingTable: parseYesNo(tagValue(tags, 'changing_table')),
 	},
 	fee: parseYesNo(tagValue(tags, 'fee')),
-	unisex: parseUnisex(tagValue(tags, 'unisex')),
+	unisex: parseYesNo(tagValue(tags, 'unisex')),
 });
 
-/**
- * Classify OSM tags into a Facility
- * @returns A toilet for `amenity=toilets`, a water facility for any known water tag, otherwise null
- */
+const viewpointFacilityFromTags = (
+	osm: OsmRef,
+	coordinates: Coordinates,
+	tags: OsmTags
+): ViewpointFacility => {
+	const elevation = parseElevation(tags.ele);
+	return {
+		...baseFields(osm, coordinates, tags),
+		kind: 'viewpoint',
+		prominence: viewpointProminenceOf(tags),
+		...(tags.description !== undefined ? { description: tags.description } : {}),
+		...(elevation !== undefined ? { elevation } : {}),
+	};
+};
+
 export const facilityFromTags = (
 	osm: OsmRef,
 	coordinates: Coordinates,
@@ -140,6 +146,10 @@ export const facilityFromTags = (
 ): Facility | null => {
 	if (isToiletTags(tags)) {
 		return toiletFacilityFromTags(osm, coordinates, tags);
+	}
+
+	if (isViewpointTags(tags)) {
+		return viewpointFacilityFromTags(osm, coordinates, tags);
 	}
 
 	const sourceType = waterSourceTypeOf(tags);

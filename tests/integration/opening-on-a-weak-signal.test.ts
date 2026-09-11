@@ -1,8 +1,3 @@
-/**
- * Opening the app on a trail with one bar of 3G: the inline splash from index.html paints
- * before any script runs, and the app takes it down only once the map is on screen.
- */
-
 import { waitFor } from '@testing-library/dom';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -21,7 +16,7 @@ const seedSplash = (): HTMLDivElement => {
 	return splash;
 };
 
-describe('Opening on a weak signal', () => {
+describe('Opening on a weak signal keeps the inline splash up until the map is on screen', () => {
 	it('takes the splash down once the map is on screen', async () => {
 		const app = await renderApp({ splash: true, geolocation: { pending: true } });
 

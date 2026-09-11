@@ -1,9 +1,3 @@
-/**
- * DOM renderer for the notice centre: toasts + a card sit bottom centre above the
- * nearest-water HUD, a status chip sits top centre. Keyed by notice id so a notice that
- * is still present keeps its DOM node across renders — see src/domain/notice.ts for the
- * model this renders and ./view.ts for the contract implemented here.
- */
 import type { Card, Notice, NoticeId, NoticeState, NoticeTone, Status, Toast } from '../../domain';
 import { visibleNotices } from '../../domain';
 import { toneIcon } from './icons';
@@ -13,21 +7,14 @@ import './notices.css';
 export type { NoticeView, NoticeViewHandlers } from './view';
 
 const LEAVE_FALLBACK_MS = 300;
-/** Must match the `@keyframes` name in notices.css. */
-const LEAVE_ANIMATION_NAME = 'notice-fade-out';
-/** Must match the pop-in `@keyframes` name in notices.css. */
-const ENTER_ANIMATION_NAME = 'notice-pop-in';
+const NOTICES_CSS_LEAVE_KEYFRAMES = 'notice-fade-out';
+const NOTICES_CSS_ENTER_KEYFRAMES = 'notice-pop-in';
 const ENTER_FALLBACK_MS = 600;
 const SWIPE_DISMISS_DISTANCE_PX = 40;
 const SWIPE_DISMISS_VELOCITY_PX_PER_MS = 0.5;
 
 export type SwipeOutcome = 'dismiss' | 'keep';
 
-/**
- * A swipe far enough downward, or fast enough downward, dismisses the notice; anything
- * else (including an upward drag) springs back. Pure so the threshold is unit-testable
- * without simulating real pointer events.
- */
 export const swipeOutcome = (deltaY: number, velocity: number): SwipeOutcome => {
 	if (deltaY <= 0) {
 		return 'keep';
@@ -44,7 +31,6 @@ export type StackTransform = {
 	readonly zIndex: number;
 };
 
-/** How far back a toast at `depth` (0 = front, at the bottom of the stack) peeks. */
 export const stackTransform = (depth: number): StackTransform => ({
 	translateY: -8 * depth,
 	scale: 1 - 0.06 * depth,
@@ -58,10 +44,18 @@ type TrackedNotice = {
 	leaving: boolean;
 	leaveTimeout: ReturnType<typeof setTimeout> | null;
 	enterTimeout: ReturnType<typeof setTimeout> | null;
-	/** Depth/expanded last written to `element`'s inline style, so unchanged renders skip the write. */
 	lastDepth: number | null;
 	lastExpanded: boolean | null;
 };
+
+const hasSameDepth = (tracked: TrackedNotice, depth: number, expanded: boolean): boolean =>
+	tracked.lastDepth === depth && tracked.lastExpanded === expanded;
+
+const isLeaveAnimation = (event: AnimationEvent): boolean =>
+	event.animationName === NOTICES_CSS_LEAVE_KEYFRAMES;
+const isEnterAnimation = (event: AnimationEvent): boolean =>
+	event.animationName === NOTICES_CSS_ENTER_KEYFRAMES;
+const isHoverCapable = (event: PointerEvent): boolean => event.pointerType === 'mouse';
 
 const roleOf = (tone: NoticeTone): 'status' | 'alert' => (tone === 'error' ? 'alert' : 'status');
 const ariaLiveOf = (tone: NoticeTone): 'polite' | 'assertive' =>
@@ -120,9 +114,8 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 	const nodes = new Map<NoticeId, TrackedNotice>();
 	let expanded = false;
 
-	/** Skips the inline-style write entirely when depth and expanded state already match. */
 	const applyDepth = (tracked: TrackedNotice, depth: number): void => {
-		if (tracked.lastDepth === depth && tracked.lastExpanded === expanded) {
+		if (hasSameDepth(tracked, depth, expanded)) {
 			return;
 		}
 		tracked.lastDepth = depth;
@@ -140,7 +133,6 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 		element.style.zIndex = String(transform.zIndex);
 	};
 
-	/** Toasts currently on screen (not mid-exit); expanding a single toast has nothing to reveal. */
 	const visibleToastCount = (): number => {
 		let count = 0;
 		for (const tracked of nodes.values()) {
@@ -196,9 +188,7 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 		tracked.leaving = true;
 		tracked.element.classList.add('notice-leaving');
 		const onAnimationEnd = (event: AnimationEvent): void => {
-			// The pop-in may still be running when a notice is dismissed; only its own exit
-			// animation ending means the node can go (the timeout covers reduced motion).
-			if (event.animationName === LEAVE_ANIMATION_NAME) {
+			if (isLeaveAnimation(event)) {
 				finishLeave(id);
 			}
 		};
@@ -206,15 +196,10 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 		tracked.leaveTimeout = setTimeout(() => finishLeave(id), LEAVE_FALLBACK_MS);
 	};
 
-	/**
-	 * Drops `notice-enter` once the pop-in has actually played so a later legitimate
-	 * re-insertion of this same tracked node can never replay it, and reduced-motion (which
-	 * never fires the animation) still cleans up via the fallback timeout.
-	 */
 	const scheduleEnterCleanup = (tracked: TrackedNotice): void => {
 		const element = tracked.element;
 		const onAnimationEnd = (event: AnimationEvent): void => {
-			if (event.animationName === ENTER_ANIMATION_NAME) {
+			if (isEnterAnimation(event)) {
 				cleanup();
 			}
 		};
@@ -259,30 +244,30 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 		return tracked;
 	};
 
-	/**
-	 * Places `element` right after `previous` (or first, when `previous` is null) inside
-	 * `parent`, but only touches the DOM when it is not already there — re-appending an
-	 * already-correctly-placed node is a mutation that restarts its pop-in animation.
-	 */
+	const isAlreadyPlaced = (
+		parent: HTMLElement,
+		element: HTMLElement,
+		previous: HTMLElement | null
+	): boolean => {
+		if (element.parentElement !== parent) {
+			return false;
+		}
+		return previous === null
+			? parent.firstChild === element
+			: element.previousElementSibling === previous;
+	};
+
 	const placeInOrder = (
 		parent: HTMLElement,
 		element: HTMLElement,
 		previous: HTMLElement | null
 	): void => {
-		if (element.parentElement !== parent) {
-			parent.insertBefore(element, previous === null ? parent.firstChild : previous.nextSibling);
+		if (isAlreadyPlaced(parent, element, previous)) {
 			return;
 		}
-		if (previous === null) {
-			if (parent.firstChild !== element) {
-				parent.insertBefore(element, parent.firstChild);
-			}
-		} else if (element.previousElementSibling !== previous) {
-			parent.insertBefore(element, previous.nextSibling);
-		}
+		parent.insertBefore(element, previous === null ? parent.firstChild : previous.nextSibling);
 	};
 
-	/** Pointer-drag-to-dismiss, shared by toasts and the card. */
 	const attachSwipe = (element: HTMLElement, id: NoticeId): void => {
 		let dragging = false;
 		let startY = 0;
@@ -453,9 +438,7 @@ export const createNoticeView = (host: HTMLElement, handlers: NoticeViewHandlers
 
 	stack.addEventListener('pointerenter', (event: PointerEvent) => {
 		handlers.onHold();
-		// Touch has no real hover: `pointerenter` fires on tap, right alongside the explicit
-		// tap-on-a-back-toast path below, so only a mouse hover should expand the stack here.
-		if (event.pointerType === 'mouse') {
+		if (isHoverCapable(event)) {
 			setExpanded(true);
 		}
 	});

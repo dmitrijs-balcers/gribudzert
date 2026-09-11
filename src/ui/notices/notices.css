@@ -7,7 +7,7 @@
 .notice-center {
 	position: fixed;
 	inset: 0;
-	z-index: 10000;
+	z-index: var(--z-notice);
 	pointer-events: none;
 }
 
@@ -68,11 +68,11 @@
 	align-items: center;
 	gap: 10px;
 	max-width: min(420px, calc(100vw - 32px - var(--safe-left, 0px) - var(--safe-right, 0px)));
-	background: rgba(22, 32, 43, 0.86);
-	color: #f3f6f9;
-	-webkit-backdrop-filter: blur(12px);
-	backdrop-filter: blur(12px);
-	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+	background: var(--surface-glass-dark);
+	color: var(--color-text-inverse);
+	-webkit-backdrop-filter: var(--blur-glass);
+	backdrop-filter: var(--blur-glass);
+	box-shadow: var(--shadow-float);
 	font-family: inherit;
 	pointer-events: auto;
 	transition:
@@ -107,7 +107,7 @@
 	position: relative;
 	min-height: 44px;
 	padding: 10px 18px 10px 16px;
-	border-radius: 999px;
+	border-radius: var(--radius-pill);
 	font-size: 14px;
 	line-height: 1.35;
 }
@@ -119,14 +119,14 @@
 	transform: translateX(-50%);
 	width: 22px;
 	height: 3px;
-	border-radius: 999px;
+	border-radius: var(--radius-pill);
 	background: rgba(243, 246, 249, 0.35);
 }
 
 .notice-status {
 	padding: 6px 14px;
-	border-radius: 999px;
-	font-size: 12px;
+	border-radius: var(--radius-pill);
+	font-size: var(--font-size-sm);
 	font-weight: 600;
 	cursor: default;
 	touch-action: auto;
@@ -137,7 +137,7 @@
 	align-items: stretch;
 	gap: 8px;
 	padding: 14px 16px;
-	border-radius: 16px;
+	border-radius: var(--radius-tile);
 	font-size: 14px;
 	line-height: 1.4;
 }
@@ -170,11 +170,11 @@
 	width: 7px;
 	height: 7px;
 	border-radius: 50%;
-	background: #9ab0c4;
+	background: var(--color-text-inverse-muted);
 }
 
 .notice-neutral .notice-dot {
-	background: #9ab0c4;
+	background: var(--color-text-inverse-muted);
 }
 
 .notice-success .notice-dot {
@@ -194,7 +194,7 @@
 	min-height: 44px;
 	padding: 0 20px;
 	border: 0;
-	border-radius: 999px;
+	border-radius: var(--radius-pill);
 	background: #8cc4ff;
 	color: #0b2038;
 	font-family: inherit;

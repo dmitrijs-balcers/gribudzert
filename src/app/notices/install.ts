@@ -8,12 +8,6 @@ export type InstalledNoticeCenter = {
 	readonly destroy: () => void;
 };
 
-/**
- * Composition root: wires the DOM notice view to the pure notice centre with real timers
- * and sequential ids, and connects the view's dismiss/select/hold/release callbacks back
- * into the centre. This is the one place the rest of the app needs to know about to get
- * a working `NoticeCenter`.
- */
 export const installNoticeCenter = (
 	host: HTMLElement,
 	now: () => Timestamp

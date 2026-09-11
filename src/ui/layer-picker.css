@@ -1,0 +1,171 @@
+/*
+ * Layer picker: a 44px glass button in the top-right control stack, directly under the
+ * locate button, that opens a popover of icon tiles — one per facility layer. The popover
+ * is appended to the map container (not the leaflet-bar) so it can float above every pane.
+ */
+
+.layer-picker-button {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	min-width: 44px;
+	min-height: 44px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--color-text-secondary);
+	cursor: pointer;
+}
+
+.layer-picker-button[aria-expanded='true'] {
+	box-shadow: inset 0 0 0 2px var(--color-accent);
+	border-radius: var(--radius-control);
+}
+
+.layer-picker-button-icon {
+	width: 22px;
+	height: 22px;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	fill: none;
+}
+
+/*
+ * Positioned below the control stack: two leaflet-bar controls (44px button plus the 2px
+ * touch border on each side) with Leaflet's 10px margins, then an 8px gap.
+ */
+.layer-picker-popover {
+	position: absolute;
+	top: calc(var(--safe-top, 0px) + 10px + 48px + 10px + 48px + 8px);
+	right: calc(10px + var(--safe-right, 0px));
+	z-index: var(--z-popover);
+	padding: 14px;
+	background: var(--surface-glass);
+	-webkit-backdrop-filter: var(--blur-glass-strong);
+	backdrop-filter: var(--blur-glass-strong);
+	border-radius: var(--radius-card);
+	box-shadow: var(--shadow-popover);
+	animation: layer-picker-popover-in var(--duration-fast) var(--ease-out);
+	transform-origin: top right;
+}
+
+@keyframes layer-picker-popover-in {
+	0% {
+		opacity: 0;
+		transform: scale(0.9);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.layer-picker-popover {
+		animation: none;
+	}
+}
+
+.layer-picker-tiles {
+	display: flex;
+	gap: 10px;
+}
+
+.layer-picker-tile {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	width: 72px;
+	min-height: 44px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	font-family: inherit;
+	color: var(--color-text);
+	cursor: pointer;
+}
+
+.layer-picker-tile:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+.layer-picker-tile-icon {
+	position: relative;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--tile-size);
+	height: var(--tile-size);
+	border-radius: var(--radius-tile);
+	background: var(--surface-tile);
+	color: var(--color-text-muted);
+}
+
+.layer-picker-tile[aria-checked='true'] .layer-picker-tile-icon {
+	background: var(--color-accent-soft);
+	box-shadow: inset 0 0 0 2px var(--color-accent);
+	color: var(--color-accent);
+}
+
+.layer-picker-tile-svg {
+	width: 26px;
+	height: 26px;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	fill: none;
+}
+
+.layer-picker-tile-svg--fill {
+	stroke: none;
+}
+
+.layer-picker-tile-badge {
+	position: absolute;
+	top: -6px;
+	right: -6px;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--color-accent);
+	box-shadow: 0 0 0 2px var(--surface-glass);
+}
+
+.layer-picker-tile-badge svg {
+	width: 12px;
+	height: 12px;
+	stroke: var(--color-on-accent);
+	stroke-width: 3;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	fill: none;
+}
+
+.layer-picker-tile[aria-checked='true'] .layer-picker-tile-badge {
+	display: flex;
+}
+
+.layer-picker-tile-label {
+	font-size: var(--font-size-sm);
+	font-weight: var(--font-weight-medium);
+	text-align: center;
+	line-height: 1.2;
+	white-space: normal;
+}
+
+.layer-picker-tile[aria-checked='true'] .layer-picker-tile-label {
+	font-weight: var(--font-weight-semibold);
+}

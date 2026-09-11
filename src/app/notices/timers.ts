@@ -1,9 +1,6 @@
 import type { DurationMs, NoticeId } from '../../domain';
 import type { NoticePorts } from './ports';
 
-/**
- * Real-clock timers keyed by notice id, so a rescheduled notice never fires twice.
- */
 export const createNoticeTimers = (): Pick<NoticePorts, 'schedule' | 'cancel'> => {
 	const timers = new Map<NoticeId, ReturnType<typeof setTimeout>>();
 	const cancel = (id: NoticeId): void => {

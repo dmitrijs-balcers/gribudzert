@@ -11,15 +11,10 @@ import type {
 import { applyNotice, initialNoticeState } from '../../domain';
 import type { NoticePorts } from './ports';
 
-/** A card action as callers see it: a label plus what to do when it is chosen. */
 export type CardAction = NoticeAction & {
 	readonly onSelect: () => void;
 };
 
-/**
- * The one door through which the rest of the app talks to the user. Callers say what kind
- * of notice they need and never think about timing, stacking, or the DOM.
- */
 export type NoticeCenter = {
 	readonly toast: (message: string, tone?: NoticeTone) => NoticeId;
 	readonly status: (message: string, tone?: NoticeTone) => NoticeId;
@@ -27,13 +22,14 @@ export type NoticeCenter = {
 	readonly card: (message: string, action: CardAction | null, tone?: NoticeTone) => NoticeId;
 	readonly announce: (request: NoticeRequest) => NoticeId;
 	readonly dismiss: (id: NoticeId) => void;
-	/** The user chose the card's action. Runs the handler, then dismisses the card. */
 	readonly select: (id: NoticeId) => void;
-	/** Stop toasts from ageing (finger on the stack, tab hidden). */
 	readonly hold: () => void;
 	readonly release: () => void;
 	readonly state: () => NoticeState;
 };
+
+const visibleProjectionChanged = (previous: NoticeState, next: NoticeState): boolean =>
+	next.toasts !== previous.toasts || next.status !== previous.status || next.card !== previous.card;
 
 export const createNoticeCenter = (ports: NoticePorts): NoticeCenter => {
 	let state: NoticeState = initialNoticeState;
@@ -72,14 +68,7 @@ export const createNoticeCenter = (ports: NoticePorts): NoticeCenter => {
 			runEffect(effect);
 		}
 		forgetDroppedActions();
-		// `hold`/`release` (and an unknown dismiss id) can change `state` without changing
-		// anything the view actually draws (`heldSince` has no visual representation), so
-		// compare the visible projection rather than object identity to skip the render.
-		const visibleChanged =
-			nextState.toasts !== previous.toasts ||
-			nextState.status !== previous.status ||
-			nextState.card !== previous.card;
-		if (visibleChanged) {
+		if (visibleProjectionChanged(previous, nextState)) {
 			ports.render(state);
 		}
 	};

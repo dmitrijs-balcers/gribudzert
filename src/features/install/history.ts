@@ -31,13 +31,19 @@ export const loadInstallHistory = (storage: Pick<Storage, 'getItem'>): InstallHi
 	}
 };
 
+const ignoringStorageFailure = (attempt: () => void): void => {
+	try {
+		attempt();
+	} catch {
+		return;
+	}
+};
+
 export const saveInstallHistory = (
 	storage: Pick<Storage, 'setItem'>,
 	history: InstallHistory
 ): void => {
-	try {
+	ignoringStorageFailure(() => {
 		storage.setItem(INSTALL_PROMPT_STORAGE_KEY, JSON.stringify(history));
-	} catch {
-		// Storage unavailable (private mode, quota): the invitation simply is not remembered.
-	}
+	});
 };

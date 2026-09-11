@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { CACHE_TILE_ZOOM, DEFAULT_ZOOM } from '../../src/core/config';
 import { tileBounds, tileOf } from '../../src/domain';
 import {
-	NEAREST_TO_USER,
+	NEAREST_TAP_TO_USER,
 	NON_DRINKABLE,
 	RIGA,
-	SEASONAL_TAP,
+	SEASONAL_TAP_NEAR_RIGA_CENTRE,
 	USER,
 	WATER_MARKER_COUNT,
 } from '../fixtures';
@@ -36,14 +36,16 @@ describe('Arriving at the map', () => {
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		expect(app.userLocation()).toEqual({ markers: 0, circles: 0 });
 		app.openPopupOf(nearestIndex(app.markers()));
-		await waitFor(() => expect(app.popupText()).toContain(`ID: ${SEASONAL_TAP.id}`));
+		await waitFor(() =>
+			expect(app.popupText()).toContain(`ID: ${SEASONAL_TAP_NEAR_RIGA_CENTRE.id}`)
+		);
 
 		app.geolocation.respondWith({ position: USER });
 
 		await waitFor(() => expect(app.userLocation()).toEqual({ markers: 1, circles: 1 }));
 		await waitFor(() => {
 			app.openPopupOf(nearestIndex(app.markers()));
-			expect(app.popupText()).toContain(`ID: ${NEAREST_TO_USER.id}`);
+			expect(app.popupText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`);
 		});
 	});
 
@@ -102,12 +104,12 @@ describe('Arriving at the map', () => {
 		const popup = app.popup() as HTMLElement;
 
 		expect(app.popupText()).toContain('Drinking Water');
-		expect(app.popupText()).toContain(`ID: ${NEAREST_TO_USER.id}`);
+		expect(app.popupText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`);
 		expect(app.popupText()).toMatch(/Distance: \d+m/);
 		expect(app.popupText()).toContain('Nearest water point');
 		expect(within(popup).getByRole('link', { name: 'Open on OpenStreetMap' })).toHaveProperty(
 			'href',
-			expect.stringContaining(`/node/${NEAREST_TO_USER.id}`)
+			expect.stringContaining(`/node/${NEAREST_TAP_TO_USER.id}`)
 		);
 	});
 
@@ -138,7 +140,9 @@ describe('Arriving at the map', () => {
 		expect(app.userLocation()).toEqual({ markers: 0, circles: 0 });
 
 		app.openPopupOf(nearestIndex(app.markers()));
-		await waitFor(() => expect(app.popupText()).toContain(`ID: ${SEASONAL_TAP.id}`));
+		await waitFor(() =>
+			expect(app.popupText()).toContain(`ID: ${SEASONAL_TAP_NEAR_RIGA_CENTRE.id}`)
+		);
 		expect(app.popupText()).toContain('Water Tap');
 		expect(app.popupText()).toContain('Seasonal: yes');
 	});

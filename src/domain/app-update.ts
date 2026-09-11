@@ -1,12 +1,3 @@
-/**
- * State machine for the "new version ready" flow.
- *
- * A service worker install is only ever an *update* once a previous worker has already
- * claimed the page — `controllerchange` also fires on the very first install (the worker
- * calls `clients.claim()`), and that must never trigger a reload. Reload only ever
- * follows a `reload-requested` event the user caused by pressing the toast's action.
- */
-
 export type AppUpdatePhase = 'current' | 'update-ready' | 'activating';
 
 export type AppUpdateState = {

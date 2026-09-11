@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it, vi } from 'vitest';
 import { FACILITY_CACHE_TTL_MS } from '../../src/core/config';
 import { boundsOfTiles, tilesCovering } from '../../src/domain';
-import { NEAREST_TO_USER, NON_DRINKABLE, WATER_MARKER_COUNT, waterNodesAt } from '../fixtures';
+import { NEAREST_TAP_TO_USER, NON_DRINKABLE, WATER_MARKER_COUNT, waterNodesAt } from '../fixtures';
 import type { AppHandle, Bbox, OverpassReply } from '../harness';
 import {
 	bboxCenter,
@@ -79,7 +79,7 @@ describe('Coming back later', () => {
 			await waitFor(() => expect(first.markers()).toHaveLength(WATER_MARKER_COUNT));
 
 			advanceSystemClockPastCacheTtl();
-			const survivingElements = [NEAREST_TO_USER, NON_DRINKABLE];
+			const survivingElements = [NEAREST_TAP_TO_USER, NON_DRINKABLE];
 			const app = await renderApp({
 				reload: true,
 				settle: false,

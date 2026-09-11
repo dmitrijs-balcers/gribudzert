@@ -45,10 +45,10 @@ export const initialSyncState = (
 	pending: null,
 	nextRequest: initialRequestSequence,
 	viewport: null,
-	layers: { water: true, toilet: false },
+	layers: { water: true, toilet: false, viewpoint: false },
 	userOrigin: null,
 	zoomedOutNoticeShown: false,
-	emptyAreaNotifiedAt: { water: null, toilet: null },
+	emptyAreaNotifiedAt: { water: null, toilet: null, viewpoint: null },
 	sessionStartedAt,
 	connectivity,
 });

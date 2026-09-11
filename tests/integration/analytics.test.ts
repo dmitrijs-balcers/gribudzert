@@ -1,14 +1,9 @@
-/**
- * Usage analytics: recorded when the site's tracker is present, never when the visitor
- * asked not to be tracked.
- */
-
 import { describe, expect, it, vi } from 'vitest';
 import { renderApp } from '../harness';
 
 type TrackerWindow = Window & { umami?: { track: (...args: unknown[]) => void } };
 
-describe('Analytics', () => {
+describe('Analytics respects Do Not Track', () => {
 	it('records that the map loaded', async () => {
 		const track = vi.fn();
 		(window as TrackerWindow).umami = { track };

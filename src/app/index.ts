@@ -16,10 +16,8 @@ export {
 	createFacilityLayers,
 	disableLayer,
 	enableLayer,
-	isLayerName,
 	LAYER_KINDS,
 	labelOf,
-	layerKindOf,
 	locateFacilities,
 } from './layers';
 export {

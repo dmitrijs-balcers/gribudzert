@@ -34,8 +34,8 @@ describe('Finding public toilets', () => {
 	it('starts with only the water layer enabled', async () => {
 		const app = await renderApp();
 
-		expect(app.layerCheckbox('Drinking Points').checked).toBe(true);
-		expect(app.layerCheckbox('Public Toilets').checked).toBe(false);
+		expect(app.isLayerOn('Drinking Points')).toBe(true);
+		expect(app.isLayerOn('Public Toilets')).toBe(false);
 		expect(app.overpass.requests.map((request) => isToiletQuery(request.query))).toEqual([false]);
 		expect(app.overpass.lastRequest().query).toContain('amenity"="drinking_water');
 	});
@@ -104,7 +104,7 @@ describe('Finding public toilets', () => {
 		await waitFor(() => expect(first.markers()).toHaveLength(WATER_MARKER_COUNT + 1));
 
 		const app = await renderApp({ reload: true, geolocation: { error: GEO_PERMISSION_DENIED } });
-		await waitFor(() => app.layerCheckbox('Public Toilets'));
+		await waitFor(() => app.layerSwitch('Public Toilets'));
 		app.toggleLayer('Public Toilets');
 		await new Promise((resolve) => setTimeout(resolve, 600));
 

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, vi } from 'vitest';
-import { disposeRenderedApp } from './harness';
+import { disposePreviousApp } from './harness';
 
 export const MAP_WIDTH = 600;
 export const MAP_HEIGHT = 400;
@@ -106,7 +106,7 @@ const clearScenarioInstalledBrowserFakes = (): void => {
 };
 
 afterEach(async () => {
-	disposeRenderedApp();
+	disposePreviousApp();
 	vi.useRealTimers();
 	vi.restoreAllMocks();
 	blurFocusedElement();

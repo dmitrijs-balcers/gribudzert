@@ -178,8 +178,6 @@ export const createOfflineRuntime = (
 		await enforceBudget();
 	};
 
-	// Cache-first for the whole shell: a slow-but-alive connection never rejects a
-	// network-first fetch, so the user would wait on it with the app already on the device.
 	const shellCacheFirst = async (
 		build: BuildId,
 		path: ShellAssetPath,

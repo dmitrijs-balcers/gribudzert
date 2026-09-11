@@ -1,9 +1,3 @@
-/**
- * The "new version ready" flow: a sticky toast appears once a new service worker has
- * installed, reload only happens once the user asks for it, and the page never reloads
- * on its own just because the very first install claims the page.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InstalledNoticeCenter } from '../../src/app/notices';
 import { installNoticeCenter } from '../../src/app/notices';
@@ -147,7 +141,7 @@ const toastMessages = (): readonly string[] =>
 const reloadButton = (): HTMLButtonElement | null =>
 	document.querySelector<HTMLButtonElement>('.notice-action');
 
-describe('Getting the latest version', () => {
+describe('Getting the latest version via a sticky update toast', () => {
 	let notices: InstalledNoticeCenter;
 
 	beforeEach(() => {

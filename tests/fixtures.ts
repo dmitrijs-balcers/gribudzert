@@ -1,11 +1,3 @@
-/**
- * Overpass wire-format fixtures and the places the scenarios happen at.
- * Shapes follow the Overpass JSON output, not any application type.
- */
-
-/**
- * Overpass element as returned by the API (`out center` for ways/relations)
- */
 export type OverpassElement =
 	| {
 			readonly type: 'node';
@@ -21,20 +13,11 @@ export type OverpassElement =
 			readonly tags?: Readonly<Record<string, string>>;
 	  };
 
-/**
- * Where the viewer is standing in the scenarios (north-east of the Riga default centre)
- */
 export const USER = { lat: 56.955, lon: 24.12, accuracy: 25 } as const;
 
-/**
- * Where the app centres the map when the viewer's position is unknown (Riga)
- */
 export const RIGA = { lat: 56.9496, lon: 24.1052 } as const;
 
-/**
- * A tap right next to the viewer: nearest water point when location is granted
- */
-export const NEAREST_TO_USER = {
+export const NEAREST_TAP_TO_USER = {
 	type: 'node',
 	id: 101,
 	lat: 56.954,
@@ -42,9 +25,6 @@ export const NEAREST_TO_USER = {
 	tags: { amenity: 'drinking_water' },
 } as const satisfies OverpassElement;
 
-/**
- * A source explicitly tagged as not drinkable
- */
 export const NON_DRINKABLE = {
 	type: 'node',
 	id: 102,
@@ -53,10 +33,7 @@ export const NON_DRINKABLE = {
 	tags: { amenity: 'drinking_water', drinking_water: 'no' },
 } as const satisfies OverpassElement;
 
-/**
- * A seasonal tap by the Riga centre: nearest water point when location is denied
- */
-export const SEASONAL_TAP = {
+export const SEASONAL_TAP_NEAR_RIGA_CENTRE = {
 	type: 'node',
 	id: 103,
 	lat: 56.9505,
@@ -64,34 +41,24 @@ export const SEASONAL_TAP = {
 	tags: { man_made: 'water_tap', seasonal: 'yes' },
 } as const satisfies OverpassElement;
 
-/**
- * A node without tags, as Overpass returns for members of ways; must be ignored
- */
-export const TAGLESS_NODE = {
+export const TAGLESS_WAY_MEMBER_NODE = {
 	type: 'node',
 	id: 104,
 	lat: 56.951,
 	lon: 24.11,
 } as const satisfies OverpassElement;
 
-/**
- * Everything the water query returns around Riga
- */
 export const WATER_ELEMENTS: readonly OverpassElement[] = [
-	NEAREST_TO_USER,
+	NEAREST_TAP_TO_USER,
 	NON_DRINKABLE,
-	SEASONAL_TAP,
-	TAGLESS_NODE,
+	SEASONAL_TAP_NEAR_RIGA_CENTRE,
+	TAGLESS_WAY_MEMBER_NODE,
 ];
 
-/**
- * Number of water markers the viewer sees for WATER_ELEMENTS (the tag-less node is skipped)
- */
-export const WATER_MARKER_COUNT = 3;
+const hasTags = (element: OverpassElement): boolean => element.tags !== undefined;
 
-/**
- * A wheelchair-accessible toilet building (a way with a centre point)
- */
+export const WATER_MARKER_COUNT = WATER_ELEMENTS.filter(hasTags).length;
+
 export const ACCESSIBLE_TOILET = {
 	type: 'way',
 	id: 201,
@@ -101,14 +68,46 @@ export const ACCESSIBLE_TOILET = {
 
 export const TOILET_ELEMENTS: readonly OverpassElement[] = [ACCESSIBLE_TOILET];
 
-/**
- * Whether an Overpass query asks for toilets rather than water
- */
 export const isToiletQuery = (query: string): boolean => query.includes('"amenity"="toilets"');
 
-/**
- * Water nodes placed at the centre of a bounding box, for areas the viewer pans to
- */
+export const isViewpointQuery = (query: string): boolean => query.includes('"tourism"="viewpoint"');
+
+export const BARE_VIEWPOINT = {
+	type: 'node',
+	id: 301,
+	lat: 56.953,
+	lon: 24.108,
+	tags: { tourism: 'viewpoint' },
+} as const satisfies OverpassElement;
+
+export const NAMED_VIEWPOINT = {
+	type: 'node',
+	id: 302,
+	lat: 56.9535,
+	lon: 24.1085,
+	tags: { tourism: 'viewpoint', name: 'Riverside Overlook' },
+} as const satisfies OverpassElement;
+
+export const NOTABLE_VIEWPOINT = {
+	type: 'node',
+	id: 303,
+	lat: 56.954,
+	lon: 24.109,
+	tags: {
+		tourism: 'viewpoint',
+		name: 'Cathedral Hill',
+		description: 'Panoramic view over the old town',
+		wikipedia: 'en:Cathedral Hill',
+		ele: '42',
+	},
+} as const satisfies OverpassElement;
+
+export const VIEWPOINT_ELEMENTS: readonly OverpassElement[] = [
+	BARE_VIEWPOINT,
+	NAMED_VIEWPOINT,
+	NOTABLE_VIEWPOINT,
+];
+
 export const waterNodesAt = (
 	center: { readonly lat: number; readonly lon: number },
 	ids: readonly number[]

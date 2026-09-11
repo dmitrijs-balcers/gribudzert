@@ -14,8 +14,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-	border: 2px solid rgba(255, 255, 255, 0.9);
+	box-shadow: var(--shadow-marker);
+	border: var(--marker-border);
 }
 
 .facility-marker--toilet .facility-marker-badge {
@@ -23,7 +23,7 @@
 }
 
 .facility-marker-glyph {
-	font-size: 17px;
+	font-size: var(--font-size-xl);
 	line-height: 1;
 	user-select: none;
 	pointer-events: none;
@@ -35,7 +35,7 @@
 	left: 10%;
 	width: 80%;
 	height: 3px;
-	background: #d32f2f;
+	background: var(--color-danger);
 	transform: translateY(-50%) rotate(-45deg);
 	border-radius: 2px;
 	pointer-events: none;
@@ -48,7 +48,7 @@
 	height: 0;
 	border-left: 5px solid transparent;
 	border-right: 5px solid transparent;
-	border-top: 7px solid rgba(255, 255, 255, 0.9);
+	border-top: 7px solid var(--marker-tail);
 }
 
 .facility-marker-tail-fill {
@@ -66,12 +66,12 @@
 .facility-marker-distance {
 	flex-shrink: 0;
 	margin-top: 4px;
-	background: #ffffff;
+	background: var(--surface-control);
 	color: #222222;
-	font-size: 11px;
+	font-size: var(--font-size-xs);
 	line-height: 1.4;
 	padding: 1px 6px;
-	border-radius: 999px;
+	border-radius: var(--radius-pill);
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 	white-space: nowrap;
 	pointer-events: none;
@@ -79,16 +79,38 @@
 
 .nearest-marker .facility-marker-badge {
 	box-shadow:
-		0 0 0 3px #ffd700,
-		0 2px 6px rgba(0, 0, 0, 0.45);
+		0 0 0 3px var(--color-nearest),
+		var(--shadow-marker-raised);
 }
 
 .nearest-marker .facility-marker-tail {
-	border-top-color: #ffd700;
+	border-top-color: var(--color-nearest);
 }
 
 .seasonal-marker .facility-marker-badge {
 	opacity: 0.6;
-	outline: 2px dashed rgba(255, 255, 255, 0.9);
+	outline: 2px dashed var(--marker-tail);
 	outline-offset: 2px;
+}
+
+.facility-marker-svg {
+	width: 16px;
+	height: 16px;
+	color: var(--color-on-accent);
+	display: block;
+}
+
+.notable-marker .facility-marker-svg {
+	width: 22px;
+	height: 22px;
+}
+
+.notable-marker .facility-marker-badge {
+	box-shadow:
+		0 0 0 3px var(--color-nearest),
+		var(--shadow-marker-raised);
+}
+
+.notable-marker .facility-marker-tail {
+	border-top-color: var(--color-nearest);
 }

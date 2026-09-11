@@ -20,6 +20,8 @@ export type {
 	OsmType,
 	ToiletAccessibility,
 	ToiletFacility,
+	ViewpointFacility,
+	ViewpointProminence,
 	WaterFacility,
 	WaterSourceType,
 	WheelchairAccess,
@@ -28,6 +30,7 @@ export type {
 export {
 	facilityId,
 	isToiletFacility,
+	isViewpointFacility,
 	isWaterFacility,
 	isWheelchairAccessible,
 	osmUrl,
@@ -95,7 +98,13 @@ export {
 	visibleNotices,
 } from './notice';
 export type { OsmTags } from './osm';
-export { facilityFromTags, isToiletTags, waterSourceTypeOf } from './osm';
+export {
+	facilityFromTags,
+	isToiletTags,
+	isViewpointTags,
+	viewpointProminenceOf,
+	waterSourceTypeOf,
+} from './osm';
 export type { UserPosition } from './position';
 export { isMoving, toUserPosition } from './position';
 export type { TileBounds, TileId } from './tile';

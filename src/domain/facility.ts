@@ -1,64 +1,31 @@
-/**
- * Facility domain model
- * A Facility is a validated, fully classified point of interest (water source or toilet).
- * Raw OpenStreetMap tags never leak past this boundary: consumers read typed fields.
- */
-
 import type { Coordinates } from './geo';
 import { coordinates } from './geo';
 
-/**
- * OpenStreetMap element types
- */
 export type OsmType = 'node' | 'way' | 'relation';
 
-/**
- * Reference to the OpenStreetMap element a facility was derived from
- */
 export type OsmRef = {
 	readonly type: OsmType;
 	readonly id: number;
 };
 
-/**
- * Branded facility identifier, unique across OSM element types (e.g. `node/123`)
- */
 export type FacilityId = string & { readonly __brand: 'FacilityId' };
 
-/**
- * Build a FacilityId from an OSM reference
- */
 export const facilityId = (osm: OsmRef): FacilityId => `${osm.type}/${osm.id}` as FacilityId;
 
-/**
- * Public OpenStreetMap URL for an OSM reference
- */
 export const osmUrl = (osm: OsmRef): string =>
 	`https://www.openstreetmap.org/${osm.type}/${osm.id}`;
 
-/**
- * Wheelchair accessibility (`wheelchair=*` tag)
- */
 export type WheelchairAccess = 'yes' | 'no' | 'limited' | 'unknown';
 
-/**
- * Tri-state answer for yes/no tags that may be missing
- */
 export type YesNoUnknown = 'yes' | 'no' | 'unknown';
 
-/**
- * Kind of water source, derived from the primary OSM tag
- */
 export type WaterSourceType =
-	| 'drinking_water' // amenity=drinking_water
-	| 'spring' // natural=spring
-	| 'water_well' // man_made=water_well
-	| 'water_tap' // man_made=water_tap
-	| 'water_point'; // waterway=water_point
+	| 'drinking_water'
+	| 'spring'
+	| 'water_well'
+	| 'water_tap'
+	| 'water_point';
 
-/**
- * Fields shared by every facility
- */
 type FacilityBase = {
 	readonly id: FacilityId;
 	readonly osm: OsmRef;
@@ -69,69 +36,64 @@ type FacilityBase = {
 	readonly openingHours?: string;
 };
 
-/**
- * Drinking water source
- */
 export type WaterFacility = FacilityBase & {
 	readonly kind: 'water';
 	readonly sourceType: WaterSourceType;
-	/** True unless explicitly tagged `drinking_water=no` */
 	readonly drinkable: boolean;
 	readonly seasonal: boolean;
 	readonly bottleRefill: boolean;
 	readonly wheelchair: WheelchairAccess;
 };
 
-/**
- * Accessibility features of a toilet
- */
 export type ToiletAccessibility = {
 	readonly wheelchair: WheelchairAccess;
 	readonly changingTable: YesNoUnknown;
 };
 
-/**
- * Public toilet
- */
 export type ToiletFacility = FacilityBase & {
 	readonly kind: 'toilet';
 	readonly accessibility: ToiletAccessibility;
 	readonly fee: YesNoUnknown;
-	/** null when the tag is absent */
-	readonly unisex: boolean | null;
+	readonly unisex: YesNoUnknown;
 };
 
-/**
- * Discriminated union of all facility types
- */
-export type Facility = WaterFacility | ToiletFacility;
+export type ViewpointProminence = 'bare' | 'named' | 'notable';
 
-/**
- * Facility discriminator values
- */
+export type ViewpointFacility = FacilityBase & {
+	readonly kind: 'viewpoint';
+	readonly prominence: ViewpointProminence;
+	readonly description?: string;
+	readonly elevation?: number;
+};
+
+export type Facility = WaterFacility | ToiletFacility | ViewpointFacility;
+
 export type FacilityKind = Facility['kind'];
 
-/**
- * Type guard for water facilities
- */
 export const isWaterFacility = (facility: Facility): facility is WaterFacility =>
 	facility.kind === 'water';
 
-/**
- * Type guard for toilet facilities
- */
 export const isToiletFacility = (facility: Facility): facility is ToiletFacility =>
 	facility.kind === 'toilet';
 
-/**
- * Wheelchair access of any facility (`yes` only counts as accessible)
- */
-export const wheelchairAccessOf = (facility: Facility): WheelchairAccess =>
-	facility.kind === 'water' ? facility.wheelchair : facility.accessibility.wheelchair;
+export const isViewpointFacility = (facility: Facility): facility is ViewpointFacility =>
+	facility.kind === 'viewpoint';
 
-/**
- * Whether the facility is explicitly wheelchair accessible
- */
+export const wheelchairAccessOf = (facility: Facility): WheelchairAccess => {
+	switch (facility.kind) {
+		case 'water':
+			return facility.wheelchair;
+		case 'toilet':
+			return facility.accessibility.wheelchair;
+		case 'viewpoint':
+			return 'unknown';
+		default: {
+			const exhaustive: never = facility;
+			return exhaustive;
+		}
+	}
+};
+
 export const isWheelchairAccessible = (facility: Facility): boolean =>
 	wheelchairAccessOf(facility) === 'yes';
 
@@ -229,6 +191,9 @@ const isWheelchairAccess = (value: unknown): value is WheelchairAccess =>
 const isYesNoUnknown = (value: unknown): value is YesNoUnknown =>
 	value === 'yes' || value === 'no' || value === 'unknown';
 
+const isViewpointProminence = (value: unknown): value is ViewpointProminence =>
+	value === 'bare' || value === 'named' || value === 'notable';
+
 const parseWaterFacility = (record: UnknownRecord): WaterFacility | null => {
 	const base = parseFacilityBase(record);
 	if (base === null) {
@@ -265,7 +230,7 @@ const parseToiletFacility = (record: UnknownRecord): ToiletFacility | null => {
 		return null;
 	}
 	const unisex = record.unisex;
-	if (unisex !== null && typeof unisex !== 'boolean') {
+	if (!isYesNoUnknown(unisex)) {
 		return null;
 	}
 	return {
@@ -274,6 +239,31 @@ const parseToiletFacility = (record: UnknownRecord): ToiletFacility | null => {
 		accessibility: { wheelchair, changingTable },
 		fee,
 		unisex,
+	};
+};
+
+const parseViewpointFacility = (record: UnknownRecord): ViewpointFacility | null => {
+	const base = parseFacilityBase(record);
+	if (base === null) {
+		return null;
+	}
+	if (!isViewpointProminence(record.prominence)) {
+		return null;
+	}
+	const description = parseOptionalString(record.description);
+	if (description === null) {
+		return null;
+	}
+	const elevation = record.elevation;
+	if (elevation !== undefined && (typeof elevation !== 'number' || !Number.isFinite(elevation))) {
+		return null;
+	}
+	return {
+		...base,
+		kind: 'viewpoint',
+		prominence: record.prominence,
+		...(description.present ? { description: description.value } : {}),
+		...(elevation !== undefined ? { elevation } : {}),
 	};
 };
 
@@ -286,6 +276,8 @@ export const parseFacility = (value: unknown): Facility | null => {
 			return parseWaterFacility(value);
 		case 'toilet':
 			return parseToiletFacility(value);
+		case 'viewpoint':
+			return parseViewpointFacility(value);
 		default:
 			return null;
 	}

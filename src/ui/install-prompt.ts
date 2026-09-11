@@ -59,10 +59,12 @@ const wireEvents = (
 	});
 };
 
+const isStillMountedAndInstallable = (element: PWAInstallElement): boolean =>
+	document.body.contains(element) && element.isInstallAvailable;
+
 const showWhenInstallable = (element: PWAInstallElement): void => {
 	setTimeout(() => {
-		// The component paints nothing until the platform confirms the app is installable.
-		if (!document.body.contains(element) || !element.isInstallAvailable) {
+		if (!isStillMountedAndInstallable(element)) {
 			return;
 		}
 		trackInstallPromptShown();

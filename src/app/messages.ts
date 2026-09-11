@@ -26,6 +26,8 @@ export const subjectOf = (kind: LayerKind): string => {
 			return 'water points';
 		case 'toilet':
 			return 'public toilets';
+		case 'viewpoint':
+			return 'viewpoints';
 		default: {
 			const exhaustive: never = kind;
 			return exhaustive;
@@ -74,6 +76,8 @@ export const emptyAreaMessage = (kind: LayerKind): string => {
 			return 'No water points found in this area. Try zooming out or panning to a different location.';
 		case 'toilet':
 			return 'No public toilets found in this area.';
+		case 'viewpoint':
+			return 'No viewpoints found in this area.';
 		default: {
 			const exhaustive: never = kind;
 			return exhaustive;

@@ -429,7 +429,6 @@ const handleFetchFailed = (
 	return [settled, effects];
 };
 
-/** The notices a connectivity transition shows: a status chip going offline, a toast coming back. */
 const connectivityNotices = (connectivity: Connectivity): readonly SyncEffect[] => {
 	switch (connectivity) {
 		case 'offline':

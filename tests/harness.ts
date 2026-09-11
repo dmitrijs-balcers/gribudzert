@@ -577,7 +577,8 @@ export type AppHandle = {
 	readonly card: () => { readonly message: string; readonly action: string | null } | null;
 	readonly loadingVisible: () => boolean;
 	readonly settled: () => Promise<void>;
-	readonly layerCheckbox: (label: string) => HTMLInputElement;
+	readonly layerSwitch: (label: string) => HTMLButtonElement;
+	readonly isLayerOn: (label: string) => boolean;
 	readonly toggleLayer: (label: string) => void;
 	readonly locateButton: () => HTMLButtonElement;
 	readonly clickLocate: () => void;
@@ -616,7 +617,6 @@ export type RenderOptions = {
 	readonly connectivity?: Connectivity;
 	readonly pointer?: PointerKind;
 	readonly displayMode?: DisplayMode;
-	/** Seed the inline `#splash` overlay from index.html so its dismissal can be observed */
 	readonly splash?: boolean;
 };
 
@@ -683,12 +683,7 @@ const dispatchGesturePointer = (
 
 const TILE_ZOOM_PATTERN = /tile\.openstreetmap\.org\/(\d+)\//;
 
-/**
- * Leaflet keeps already-loaded tiles of neighbouring zoom levels in the DOM until the current
- * level has loaded (which fake tile images here never do), so the current level is read from
- * the tile container Leaflet stacks on top: it gives the current level the highest z-index.
- */
-const tileZoomOf = (container: HTMLElement): number | null => {
+const zoomOfTopmostTileLevel = (container: HTMLElement): number | null => {
 	const levels = Array.from(
 		container.querySelectorAll<HTMLElement>('.leaflet-tile-pane .leaflet-tile-container')
 	);
@@ -702,20 +697,15 @@ const tileZoomOf = (container: HTMLElement): number | null => {
 	return match?.[1] === undefined ? null : Number(match[1]);
 };
 
-/**
- * The app started by the most recent `renderApp`, kept so the next render (or the suite's
- * `afterEach`) can dispose it. A map left behind by an earlier test keeps its timers and
- * animations running against a detached container; disposing stops that.
- */
-let renderedApp: { readonly dispose: () => void } | null = null;
+let mostRecentlyRenderedApp: { readonly dispose: () => void } | null = null;
 
-export const disposeRenderedApp = (): void => {
-	renderedApp?.dispose();
-	renderedApp = null;
+export const disposePreviousApp = (): void => {
+	mostRecentlyRenderedApp?.dispose();
+	mostRecentlyRenderedApp = null;
 };
 
 export async function renderApp(options: RenderOptions = {}): Promise<AppHandle> {
-	disposeRenderedApp();
+	disposePreviousApp();
 	blurFocusedElement();
 	document.body.innerHTML = '';
 	if (options.splash === true) {
@@ -741,7 +731,7 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 
 	vi.resetModules();
 	const { bootstrap } = await import('../src/app');
-	renderedApp = bootstrap();
+	mostRecentlyRenderedApp = bootstrap();
 
 	await waitFor(() => expect(container.classList.contains('leaflet-container')).toBe(true));
 	const isReload = options.reload === true;
@@ -759,15 +749,38 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 	const popup = (): HTMLElement | null =>
 		container.querySelector<HTMLElement>('.leaflet-popup-pane .leaflet-popup-content');
 
-	const layerCheckbox = (label: string): HTMLInputElement => {
-		const labels = Array.from(container.querySelectorAll('.leaflet-control-layers-overlays label'));
-		const match = labels.find((element) => element.textContent?.trim() === label);
-		const input = match?.querySelector('input');
-		if (!(input instanceof HTMLInputElement)) {
-			throw new Error(`No "${label}" layer in the layer control`);
+	const layerPickerButton = (): HTMLButtonElement => {
+		const button = container.querySelector('.layer-picker-button');
+		if (!(button instanceof HTMLButtonElement)) {
+			throw new Error('Layer picker button is not on the page');
 		}
-		return input;
+		return button;
 	};
+
+	const layerPickerPopover = (): HTMLElement | null =>
+		container.querySelector<HTMLElement>('.layer-picker-popover');
+
+	const openLayerPicker = (): void => {
+		const popover = layerPickerPopover();
+		if (popover === null || popover.hidden) {
+			clickOn(layerPickerButton(), 'Layer picker button');
+		}
+	};
+
+	const layerSwitch = (label: string): HTMLButtonElement => {
+		openLayerPicker();
+		const tiles = Array.from(container.querySelectorAll<HTMLButtonElement>('.layer-picker-tile'));
+		const match = tiles.find(
+			(tile) => tile.querySelector('.layer-picker-tile-label')?.textContent?.trim() === label
+		);
+		if (match === undefined) {
+			throw new Error(`No "${label}" layer in the layer picker`);
+		}
+		return match;
+	};
+
+	const isLayerOn = (label: string): boolean =>
+		layerSwitch(label).getAttribute('aria-checked') === 'true';
 
 	const locateButton = (): HTMLButtonElement => {
 		const button = container.querySelector('.locate-control button');
@@ -828,8 +841,9 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		},
 		loadingVisible: () => document.querySelector('.loading-overlay.loading-visible') !== null,
 		settled,
-		layerCheckbox,
-		toggleLayer: (label) => clickOn(layerCheckbox(label), `"${label}" checkbox`),
+		layerSwitch,
+		isLayerOn,
+		toggleLayer: (label) => clickOn(layerSwitch(label), `"${label}" tile`),
 		locateButton,
 		clickLocate: () => clickOn(locateButton(), 'Locate button'),
 		zoomIn: () => clickOn(container.querySelector('.leaflet-control-zoom-in'), 'Zoom in button'),
@@ -862,7 +876,7 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		goOffline: onLineFake.goOffline,
 		goOnline: onLineFake.goOnline,
 		zoomControlVisible: () => container.querySelector('.leaflet-control-zoom-in') !== null,
-		tileZoom: () => tileZoomOf(container),
+		tileZoom: () => zoomOfTopmostTileLevel(container),
 		draggingEnabled: () => container.classList.contains('leaflet-grab'),
 		gesturePointer: (type, point, pointerId = 1) =>
 			dispatchGesturePointer(container, type, point, pointerId),

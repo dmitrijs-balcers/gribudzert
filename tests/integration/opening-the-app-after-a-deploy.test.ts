@@ -9,8 +9,7 @@ const assertResponded = (response: Response | null): Response => {
 	return response;
 };
 
-/** A network that is alive but never answers, like one bar of 3G on a trail */
-const neverResolves = (): void => undefined;
+const aliveButSilentNetwork = (): void => undefined;
 
 const ORIGIN = 'https://gribudzert.test';
 const DEFAULT_BUILD_ID = 'abcdef0123456789';
@@ -42,7 +41,7 @@ describe('Opening the app after a deploy', () => {
 	it('serves the precached index.html for an online navigation without waiting on the network', async () => {
 		const worker = startWorker();
 		await worker.install();
-		worker.replyToShell(() => new Promise<Response>(neverResolves));
+		worker.replyToShell(() => new Promise<Response>(aliveButSilentNetwork));
 
 		const response = assertResponded(await worker.request(`${ORIGIN}/`, { mode: 'navigate' }));
 
