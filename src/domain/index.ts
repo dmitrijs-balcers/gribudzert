@@ -61,6 +61,14 @@ export {
 	metersPerSecond,
 	metersPerSecondLiteral,
 } from './geo';
+export type { GuidanceCourse, GuidanceEvent, GuidanceState, GuidanceTarget } from './guidance';
+export {
+	applyGuidance,
+	guidanceCourse,
+	guidanceTargetOf,
+	initialGuidanceState,
+	isGuidedTo,
+} from './guidance';
 export type { InstallHistory, InvitationPolicy, InvitationVerdict } from './install-invitation';
 export {
 	invitationVerdict,
