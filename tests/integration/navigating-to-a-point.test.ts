@@ -5,14 +5,15 @@ import { renderApp } from '../harness';
 
 const SETTLE_MS = 400;
 
-describe('Navigating to a point from its popup', () => {
+describe('Navigating to a point from its sheet', () => {
 	it('offers a walking-directions link for the coordinates of the point that opens in a new tab', async () => {
 		const app = await renderApp({ geolocation: { position: USER } });
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 
-		app.openPopupOf(app.markers().findIndex((m) => m.classList.contains('nearest-marker')));
-		await waitFor(() => expect(app.popupText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`));
-		const link = within(app.popup() as HTMLElement).getByRole('link', {
+		app.tapMarker(app.markers().findIndex((m) => m.classList.contains('nearest-marker')));
+		app.expandSheet();
+		await waitFor(() => expect(app.sheetText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`));
+		const link = within(app.sheet() as HTMLElement).getByRole('link', {
 			name: /walking directions/,
 		});
 
@@ -21,22 +22,23 @@ describe('Navigating to a point from its popup', () => {
 		);
 		expect(link.getAttribute('href')).toContain('travelmode=walking');
 		expect(link.getAttribute('target')).toBe('_blank');
-		expect(link.getAttribute('rel')).toContain('noopener');
+		expect(link.getAttribute('rel')).toBe('noopener noreferrer');
 	});
 });
 
-describe('Keeping a popup open', () => {
-	it('keeps the popup open when the map settles again over the same points', async () => {
+describe('Keeping a sheet open', () => {
+	it('keeps the sheet open when the map settles again over the same points', async () => {
 		const app = await renderApp({ geolocation: { position: USER } });
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
-		app.openPopupOf(app.markers().findIndex((m) => m.classList.contains('nearest-marker')));
-		await waitFor(() => expect(app.popupText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`));
+		app.tapMarker(app.markers().findIndex((m) => m.classList.contains('nearest-marker')));
+		app.expandSheet();
+		await waitFor(() => expect(app.sheetText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`));
 		const requestsBefore = app.overpass.requests.length;
 
 		await app.pan('right', { far: false });
 		await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
 
 		expect(app.overpass.requests).toHaveLength(requestsBefore);
-		expect(app.popupText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`);
+		expect(app.sheetText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`);
 	});
 });

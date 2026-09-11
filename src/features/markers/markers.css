@@ -114,3 +114,28 @@
 .notable-marker .facility-marker-tail {
 	border-top-color: var(--color-nearest);
 }
+
+.facility-marker--selected .facility-marker-badge {
+	transform: scale(1.15);
+	box-shadow:
+		0 0 0 3px var(--marker-selected-ring, var(--color-accent-ring)),
+		var(--shadow-marker-raised);
+}
+
+.facility-marker--selected.facility-marker--water {
+	--marker-selected-ring: var(--accent-water-soft);
+}
+
+.facility-marker--selected.facility-marker--toilet {
+	--marker-selected-ring: var(--accent-toilet-soft);
+}
+
+.facility-marker--selected.facility-marker--viewpoint {
+	--marker-selected-ring: var(--accent-viewpoint-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.facility-marker-badge {
+		transition: transform var(--duration-fast) var(--ease-out);
+	}
+}

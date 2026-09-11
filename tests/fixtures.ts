@@ -97,7 +97,9 @@ export const NOTABLE_VIEWPOINT = {
 		tourism: 'viewpoint',
 		name: 'Cathedral Hill',
 		description: 'Panoramic view over the old town',
-		wikipedia: 'en:Cathedral Hill',
+		wikipedia: 'lv:Katedrāles kalns',
+		wikimedia_commons: 'File:Cathedral Hill.jpg',
+		website: 'https://www.example.org/hill',
 		ele: '42',
 	},
 } as const satisfies OverpassElement;

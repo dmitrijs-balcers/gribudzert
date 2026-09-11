@@ -59,11 +59,13 @@ describe('Finding public toilets', () => {
 		expect(toiletMarker.classList.contains('facility-marker--toilet')).toBe(true);
 		expect(toiletMarker.getAttribute('title')).toContain('Public Toilet');
 
-		app.openPopupOf(newestMarkerIndex);
-		await waitFor(() => expect(app.popupText()).toContain('Public Toilet'));
-		expect(app.popupText()).toContain('Wheelchair Accessible');
+		app.tapMarker(newestMarkerIndex);
+		await waitFor(() => expect(app.sheetText()).toContain('Public Toilet'));
+		app.expandSheet();
+		expect(app.sheetText()).toContain('Wheelchair Accessible');
+		expect(app.sheetText()).not.toContain('unknown');
 		expect(
-			within(app.popup() as HTMLElement).getByRole('link', { name: 'Open on OpenStreetMap' })
+			within(app.sheet() as HTMLElement).getByRole('link', { name: 'OpenStreetMap' })
 		).toHaveProperty('href', expect.stringContaining(`/way/${ACCESSIBLE_TOILET.id}`));
 
 		app.toggleLayer('Public Toilets');

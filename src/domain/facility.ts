@@ -26,6 +26,19 @@ export type WaterSourceType =
 	| 'water_tap'
 	| 'water_point';
 
+export type ExternalLinkKind = 'wikipedia' | 'wikidata' | 'website' | 'commons' | 'photo';
+
+export type ExternalLink = {
+	readonly kind: ExternalLinkKind;
+	readonly url: string;
+	readonly label: string;
+};
+
+export type Photo = {
+	readonly thumbnailUrl: string;
+	readonly pageUrl: string;
+};
+
 type FacilityBase = {
 	readonly id: FacilityId;
 	readonly osm: OsmRef;
@@ -34,6 +47,8 @@ type FacilityBase = {
 	readonly operator?: string;
 	readonly note?: string;
 	readonly openingHours?: string;
+	readonly links?: readonly ExternalLink[];
+	readonly photo?: Photo;
 };
 
 export type WaterFacility = FacilityBase & {
@@ -141,6 +156,59 @@ const parseOptionalString = (value: unknown): ParsedOptionalString | null => {
 	return null;
 };
 
+const isExternalLinkKind = (value: unknown): value is ExternalLinkKind =>
+	value === 'wikipedia' ||
+	value === 'wikidata' ||
+	value === 'website' ||
+	value === 'commons' ||
+	value === 'photo';
+
+const parseExternalLink = (value: unknown): ExternalLink | null => {
+	if (!isRecord(value)) {
+		return null;
+	}
+	const { kind, url, label } = value;
+	if (!isExternalLinkKind(kind) || typeof url !== 'string' || typeof label !== 'string') {
+		return null;
+	}
+	return { kind, url, label };
+};
+
+type ParsedOptionalLinks =
+	| { readonly present: false }
+	| { readonly present: true; readonly value: readonly ExternalLink[] };
+
+const parseOptionalLinks = (value: unknown): ParsedOptionalLinks | null => {
+	if (value === undefined) {
+		return { present: false };
+	}
+	if (!Array.isArray(value)) {
+		return null;
+	}
+	const links = value.map(parseExternalLink);
+	return links.every((link): link is ExternalLink => link !== null)
+		? { present: true, value: links }
+		: null;
+};
+
+type ParsedOptionalPhoto =
+	| { readonly present: false }
+	| { readonly present: true; readonly value: Photo };
+
+const parseOptionalPhoto = (value: unknown): ParsedOptionalPhoto | null => {
+	if (value === undefined) {
+		return { present: false };
+	}
+	if (!isRecord(value)) {
+		return null;
+	}
+	const { thumbnailUrl, pageUrl } = value;
+	if (typeof thumbnailUrl !== 'string' || typeof pageUrl !== 'string') {
+		return null;
+	}
+	return { present: true, value: { thumbnailUrl, pageUrl } };
+};
+
 type ParsedFacilityBase = {
 	readonly id: FacilityId;
 	readonly osm: OsmRef;
@@ -149,6 +217,8 @@ type ParsedFacilityBase = {
 	readonly operator?: string;
 	readonly note?: string;
 	readonly openingHours?: string;
+	readonly links?: readonly ExternalLink[];
+	readonly photo?: Photo;
 };
 
 const parseFacilityBase = (record: UnknownRecord): ParsedFacilityBase | null => {
@@ -164,7 +234,16 @@ const parseFacilityBase = (record: UnknownRecord): ParsedFacilityBase | null => 
 	const operator = parseOptionalString(record.operator);
 	const note = parseOptionalString(record.note);
 	const openingHours = parseOptionalString(record.openingHours);
-	if (name === null || operator === null || note === null || openingHours === null) {
+	const links = parseOptionalLinks(record.links);
+	const photo = parseOptionalPhoto(record.photo);
+	if (
+		name === null ||
+		operator === null ||
+		note === null ||
+		openingHours === null ||
+		links === null ||
+		photo === null
+	) {
 		return null;
 	}
 	return {
@@ -175,6 +254,8 @@ const parseFacilityBase = (record: UnknownRecord): ParsedFacilityBase | null => 
 		...(operator.present ? { operator: operator.value } : {}),
 		...(note.present ? { note: note.value } : {}),
 		...(openingHours.present ? { openingHours: openingHours.value } : {}),
+		...(links.present ? { links: links.value } : {}),
+		...(photo.present ? { photo: photo.value } : {}),
 	};
 };
 

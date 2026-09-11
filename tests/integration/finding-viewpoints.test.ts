@@ -68,9 +68,11 @@ describe('Finding viewpoints', () => {
 		expect(namedMarker?.classList.contains('notable-marker')).toBe(false);
 
 		if (notableMarker !== undefined) {
-			app.openPopupOf(allMarkers.indexOf(notableMarker));
-			await waitFor(() => expect(app.popupText()).toContain('Cathedral Hill'));
-			expect(app.popupText()).toContain('Elevation: 42 m');
+			app.tapMarker(allMarkers.indexOf(notableMarker));
+			await waitFor(() => expect(app.sheetText()).toContain('Cathedral Hill'));
+			app.expandSheet();
+			expect(app.sheetText()).toContain('Elevation: 42 m');
+			expect(app.sheetText()).toContain('Panoramic view over the old town');
 		}
 
 		app.toggleLayer('Viewpoints');
@@ -124,6 +126,31 @@ describe('viewpoint facility round-trip', () => {
 
 		const roundTripped = parseFacility(JSON.parse(JSON.stringify(facility)));
 		expect(roundTripped).toEqual(facility);
+		expect(roundTripped?.photo).toBeDefined();
+		expect(roundTripped?.links).toHaveLength(2);
+	});
+
+	it('still accepts a cached viewpoint saved before photos and links were stored', async () => {
+		const facility = facilityFromTags(
+			{ type: 'node', id: 303 },
+			requireCoordinates(56.954, 24.109),
+			NOTABLE_VIEWPOINT.tags
+		);
+		const { photo, links, ...legacy } = JSON.parse(JSON.stringify(facility));
+		expect(photo).toBeDefined();
+		expect(links).toBeDefined();
+
+		expect(parseFacility(legacy)).toEqual(legacy);
+	});
+
+	it('rejects a cached viewpoint whose links carry an unknown kind', async () => {
+		const facility = facilityFromTags(
+			{ type: 'node', id: 303 },
+			requireCoordinates(56.954, 24.109),
+			NOTABLE_VIEWPOINT.tags
+		);
+		const tampered = { ...facility, links: [{ kind: 'myspace', url: 'https://x', label: 'x' }] };
+		expect(parseFacility(tampered)).toBeNull();
 	});
 
 	it('rejects a viewpoint with an invalid prominence value', () => {

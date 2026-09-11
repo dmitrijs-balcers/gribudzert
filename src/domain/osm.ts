@@ -11,6 +11,7 @@ import type {
 } from './facility';
 import { facilityId } from './facility';
 import type { Coordinates } from './geo';
+import { mediaFromTags } from './media';
 
 export type OsmTags = Readonly<Record<string, string>>;
 
@@ -84,15 +85,20 @@ const parseElevation = (value: string | undefined): number | undefined => {
 	return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-const baseFields = (osm: OsmRef, coordinates: Coordinates, tags: OsmTags) => ({
-	id: facilityId(osm),
-	osm,
-	coordinates,
-	...(tags.name !== undefined ? { name: tags.name } : {}),
-	...(tags.operator !== undefined ? { operator: tags.operator } : {}),
-	...(tags.note !== undefined ? { note: tags.note } : {}),
-	...(tags.opening_hours !== undefined ? { openingHours: tags.opening_hours } : {}),
-});
+const baseFields = (osm: OsmRef, coordinates: Coordinates, tags: OsmTags) => {
+	const media = mediaFromTags(tags);
+	return {
+		id: facilityId(osm),
+		osm,
+		coordinates,
+		...(tags.name !== undefined ? { name: tags.name } : {}),
+		...(tags.operator !== undefined ? { operator: tags.operator } : {}),
+		...(tags.note !== undefined ? { note: tags.note } : {}),
+		...(tags.opening_hours !== undefined ? { openingHours: tags.opening_hours } : {}),
+		...(media.links.length > 0 ? { links: media.links } : {}),
+		...(media.photo !== null ? { photo: media.photo } : {}),
+	};
+};
 
 const waterFacilityFromTags = (
 	osm: OsmRef,

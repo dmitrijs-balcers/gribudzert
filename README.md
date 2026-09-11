@@ -9,8 +9,10 @@ Interactive map application using Leaflet and OpenStreetMap to display points of
 - ♿ **Accessibility Info**: View wheelchair access, changing tables, and fee status
 - 📍 **Location-Based**: Automatic location detection with nearest point highlighting
 - 🗺️ **Interactive Map**: Pan and zoom to explore different areas
-- 🗺️ **Directions**: Walking directions to any point in your maps app (Apple Maps on iPhone, or any installed maps app on Android)
-- 🧭 **Compass Guidance**: Tap any point and the compass HUD and beeline guide you to it, with distance and bearing, offline
+- 🪪 **Point Details**: Tap any marker and a floating card shows what is known about it, with live distance and compass point
+- 🗺️ **Directions**: Walking directions to any point in your maps app (Apple Maps on iPhone, or any installed maps app on Android) from its card
+- 🧭 **Compass Guidance**: Tapping a marker starts guiding you to it; once the card is closed the compass HUD and beeline keep showing distance and bearing, offline
+- 🖼️ **Viewpoint Photos & Links**: Viewpoints with a Wikimedia Commons photo show it on their card, with links to Wikipedia, Wikidata, Commons and the official website
 
 ## 🛰️ Offline
 

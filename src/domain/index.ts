@@ -13,11 +13,14 @@ export {
 	wantsFetch,
 } from './coverage';
 export type {
+	ExternalLink,
+	ExternalLinkKind,
 	Facility,
 	FacilityId,
 	FacilityKind,
 	OsmRef,
 	OsmType,
+	Photo,
 	ToiletAccessibility,
 	ToiletFacility,
 	ViewpointFacility,
@@ -88,6 +91,15 @@ export {
 } from './located';
 export type { MapTileKey } from './map-tile';
 export { mapTileKey, parseMapTileKey } from './map-tile';
+export type { CommonsMedia, FacilityMedia } from './media';
+export {
+	commonsOf,
+	imageOf,
+	mediaFromTags,
+	websiteLinkOf,
+	wikidataLinkOf,
+	wikipediaLinkOf,
+} from './media';
 export type {
 	Card,
 	CardRequest,

@@ -9,6 +9,7 @@ import {
 	trackLocateRequested,
 	trackLocateSuccess,
 	trackMapLoaded,
+	trackNavigationStarted,
 } from '../analytics';
 import {
 	CACHE_WARMUP_TIMEOUT_MS,
@@ -35,6 +36,7 @@ import type {
 } from '../domain';
 import {
 	applyGuidance,
+	bearingBetween,
 	compassPointOf,
 	distanceBetween,
 	guidanceCourse,
@@ -50,6 +52,8 @@ import { defaultSnapshotStore, snapshotFrom } from '../features/cache';
 import type { Snapshot } from '../features/cache/snapshot';
 import { currentConnectivity, observeConnectivity } from '../features/connectivity';
 import { composeQuery, fetchFacilities, overpassSelector } from '../features/data';
+import { detailViewOf } from '../features/detail';
+import type { DirectionsPlatform } from '../features/directions';
 import { directionsPlatformOf } from '../features/directions';
 import type {
 	BeelineLayer,
@@ -67,8 +71,8 @@ import {
 } from '../features/location';
 import type { FollowMode } from '../features/location/follow';
 import type { TrackingState } from '../features/location/tracker';
-import { addMarkers } from '../features/markers/markers';
-import type { PopupContext } from '../features/markers/popup';
+import type { MarkerHandlers } from '../features/markers/markers';
+import { addMarkers, SELECTED_MARKER_CLASS } from '../features/markers/markers';
 import type { Glyph } from '../features/markers/presentation';
 import { presentationOf } from '../features/markers/presentation';
 import { toTileBounds } from '../features/navigation/bounds';
@@ -78,6 +82,8 @@ import drinkingWater from '../oql/drinking_water.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
 import viewpoints from '../oql/viewpoints.overpassql?raw';
 import { toLocationFailureCategory } from '../types/errors';
+import type { DetailSheetView } from '../ui/detail-sheet/detail-sheet';
+import { createDetailSheet } from '../ui/detail-sheet/detail-sheet';
 import { initInstallPrompt } from '../ui/install-prompt';
 import type { LayerPicker } from '../ui/layer-picker';
 import { createLayerPicker } from '../ui/layer-picker';
@@ -115,6 +121,7 @@ export const MAP_CONTAINER_ID = 'map';
 
 const NEAREST_WATER_GLYPH: Glyph = { kind: 'emoji', char: '🚰' };
 const NEAREST_WATER_TITLE = 'Nearest water';
+const SELECTED_MARKER_Z_OFFSET = 1000;
 
 const VIEWPORT_DEBOUNCE_MS = 300;
 
@@ -213,13 +220,10 @@ type MarkerRenderer = {
 	readonly clearAll: () => void;
 };
 
-/**
- * Rebuilds a layer's markers only when its items changed, so a popup that is
- * open on a marker survives the map settling again over the same points.
- */
 const createMarkerRenderer = (
 	layers: FacilityLayers,
-	popupContext: PopupContext
+	handlers: MarkerHandlers,
+	onRendered: () => void
 ): MarkerRenderer => {
 	let rendered: Partial<Record<LayerKind, readonly Located<Facility>[]>> = {};
 
@@ -230,7 +234,7 @@ const createMarkerRenderer = (
 		}
 		const layer = layers[layerRender.kind];
 		clearLayerMarkers(layer);
-		addMarkers(layerRender.items, layer.group, popupContext);
+		addMarkers(layerRender.items, layer.group, handlers);
 		rendered = { ...rendered, [layerRender.kind]: layerRender.items };
 	};
 
@@ -244,6 +248,7 @@ const createMarkerRenderer = (
 			for (const layerRender of renders) {
 				renderLayer(layerRender);
 			}
+			onRendered();
 		},
 		clear,
 		clearAll: () => {
@@ -264,6 +269,34 @@ const isMarkerAt = (layer: L.Layer, coordinates: LatLon): layer is L.Marker => {
 
 const findMarkerAt = (group: L.FeatureGroup<L.Marker>, coordinates: LatLon): L.Marker | null =>
 	group.getLayers().find((layer): layer is L.Marker => isMarkerAt(layer, coordinates)) ?? null;
+
+const markMarkerSelected = (marker: L.Marker): void => {
+	marker.getElement()?.classList.add(SELECTED_MARKER_CLASS);
+	marker.setZIndexOffset(SELECTED_MARKER_Z_OFFSET);
+};
+
+const unmarkMarkerSelected = (marker: L.Marker): void => {
+	marker.getElement()?.classList.remove(SELECTED_MARKER_CLASS);
+	marker.setZIndexOffset(0);
+};
+
+const isTargetFacility = (target: GuidanceTarget, facility: Facility): boolean =>
+	target.facility.id === facility.id;
+
+const courseFrom = (position: UserPosition, facility: Facility): GuidanceCourse => ({
+	distance: distanceBetween(position, facility.coordinates),
+	bearing: bearingBetween(position, facility.coordinates),
+});
+
+const locateTarget = (
+	target: GuidanceTarget,
+	position: UserPosition,
+	nearestWater: Located<WaterFacility> | null
+): Located<Facility> => ({
+	facility: target.facility,
+	distance: distanceBetween(position, target.facility.coordinates),
+	isNearest: nearestWater !== null && isTargetFacility(target, nearestWater.facility),
+});
 
 const locateButtonViewOf = (state: TrackingState, follow: FollowMode): LocateButtonView => {
 	switch (state.kind) {
@@ -342,11 +375,11 @@ const onLocateActivate = (
 };
 
 const needsReranking = (
-	popupOpen: boolean,
+	sheetOpen: boolean,
 	rankedFrom: LatLon | null,
 	position: LatLon
 ): boolean => {
-	if (popupOpen) {
+	if (sheetOpen) {
 		return false;
 	}
 	if (rankedFrom === null) {
@@ -449,14 +482,42 @@ const bootstrapOrThrow = async (
 		userLayer.show(remembered, 'stale');
 	}
 
+	const platform: DirectionsPlatform = directionsPlatformOf(navigator.userAgent);
+
 	let nearestWater: Located<WaterFacility> | null = null;
 	let guidance: GuidanceState = initialGuidanceState;
 	let lastPosition: UserPosition | null = null;
-	let popupOpen = false;
+	let openItem: Located<Facility> | null = null;
+	let selectedMarker: L.Marker | null = null;
 	let rankedFrom: LatLon | null = null;
 
 	const guidanceTarget = (): GuidanceTarget | null =>
 		guidanceTargetOf(guidance, layers.water.active ? (nearestWater?.facility ?? null) : null);
+
+	const sheetIsOpen = (): boolean => openItem !== null;
+
+	const courseTo = (position: UserPosition, facility: Facility): GuidanceCourse => {
+		const target = guidanceTarget();
+		return target !== null && isTargetFacility(target, facility)
+			? guidanceCourse(position, target)
+			: courseFrom(position, facility);
+	};
+
+	const sheetViewOf = (item: Located<Facility>): DetailSheetView => ({
+		kind: 'shown',
+		state: 'peek',
+		detail: detailViewOf(
+			item,
+			lastPosition === null ? null : courseTo(lastPosition, item.facility),
+			platform
+		),
+	});
+
+	const refreshSheet = (): void => {
+		if (openItem !== null) {
+			sheet.render(sheetViewOf(openItem));
+		}
+	};
 
 	const hideGuidance = (): void => {
 		hud.render({ kind: 'hidden' });
@@ -469,16 +530,21 @@ const bootstrapOrThrow = async (
 			hideGuidance();
 			return;
 		}
-		hud.render(guidanceHudViewOf(target, guidanceCourse(position, target)));
+		hud.render(
+			sheetIsOpen()
+				? { kind: 'hidden' }
+				: guidanceHudViewOf(target, guidanceCourse(position, target))
+		);
 		beelineLayer.show(position, target.facility.coordinates);
 	};
 
 	const refreshGuidance = (): void => {
 		if (lastPosition === null) {
 			hideGuidance();
-			return;
+		} else {
+			refreshHudAndBeeline(lastPosition);
 		}
-		refreshHudAndBeeline(lastPosition);
+		refreshSheet();
 	};
 
 	const dispatchGuidance = (event: GuidanceEvent): void => {
@@ -486,28 +552,78 @@ const bootstrapOrThrow = async (
 		refreshGuidance();
 	};
 
-	const flyToGuidanceTargetAndOpenPopup = (): void => {
-		const target = guidanceTarget();
-		if (target === null) {
+	const clearSelectedMarker = (): void => {
+		if (selectedMarker !== null) {
+			unmarkMarkerSelected(selectedMarker);
+			selectedMarker = null;
+		}
+	};
+
+	const applySelectedMarker = (): void => {
+		clearSelectedMarker();
+		if (openItem === null) {
 			return;
 		}
-		const { facility } = target;
-		const { coordinates } = facility;
+		const { facility } = openItem;
+		const marker = findMarkerAt(layers[facility.kind].group, facility.coordinates);
+		if (marker === null) {
+			return;
+		}
+		markMarkerSelected(marker);
+		selectedMarker = marker;
+	};
+
+	const onSheetClosed = (): void => {
+		openItem = null;
+		clearSelectedMarker();
+		refreshGuidance();
+		if (lastPosition !== null) {
+			dispatchOriginIfNeeded(lastPosition);
+		}
+	};
+
+	const closeSheet = (): void => {
+		if (openItem === null) {
+			return;
+		}
+		sheet.render({ kind: 'hidden' });
+		onSheetClosed();
+	};
+
+	const openSheet = (item: Located<Facility>): void => {
+		openItem = item;
+		applySelectedMarker();
+		refreshGuidance();
+	};
+
+	const revealGuidanceTarget = (): void => {
+		const target = guidanceTarget();
+		if (target === null || lastPosition === null) {
+			return;
+		}
+		openSheet(locateTarget(target, lastPosition, nearestWater));
+		const { coordinates } = target.facility;
 		map.flyTo([coordinates.lat, coordinates.lon], Math.max(map.getZoom(), LOCATE_ZOOM));
-		findMarkerAt(layers[facility.kind].group, coordinates)?.openPopup();
 	};
 
 	const hud = createGuidanceHud(map, {
 		onActivate: () => {
 			followController.unfollow();
-			flyToGuidanceTargetAndOpenPopup();
+			revealGuidanceTarget();
 		},
 		onDismiss: () => dispatchGuidance({ kind: 'guidance-dismissed' }),
 	});
 
-	const popupContext: PopupContext = {
-		platform: directionsPlatformOf(navigator.userAgent),
-		onSelect: (facility) => {
+	const sheet = createDetailSheet(map, {
+		onClose: onSheetClosed,
+		onDirections: (detail) => trackNavigationStarted(detail.kind),
+	});
+	onTeardown(sheet.destroy);
+
+	const markerHandlers: MarkerHandlers = {
+		onSelect: (item) => {
+			openSheet(item);
+			const { facility } = item;
 			if (isGuidedTo(guidance, facility)) {
 				return;
 			}
@@ -516,7 +632,7 @@ const bootstrapOrThrow = async (
 		},
 	};
 
-	const markerRenderer = createMarkerRenderer(layers, popupContext);
+	const markerRenderer = createMarkerRenderer(layers, markerHandlers, applySelectedMarker);
 
 	const reportNearest = (kind: LayerKind, nearest: Located<Facility> | null): void => {
 		if (kind !== 'water') {
@@ -580,7 +696,7 @@ const bootstrapOrThrow = async (
 	cacheLoad.then(dispatchCacheReadyOnce);
 
 	const dispatchOriginIfNeeded = (position: LatLon): void => {
-		if (needsReranking(popupOpen, rankedFrom, position)) {
+		if (needsReranking(sheetIsOpen(), rankedFrom, position)) {
 			rankedFrom = position;
 			dispatchWhileMounted({ kind: 'origin-moved', position });
 		}
@@ -625,18 +741,8 @@ const bootstrapOrThrow = async (
 		lastPosition = position;
 		userLayer.show(position, state.freshness);
 		saveLastKnownPosition(localStorage, position);
-		refreshHudAndBeeline(position);
+		refreshGuidance();
 		dispatchOriginIfNeeded(position);
-	});
-
-	map.on('popupopen', () => {
-		popupOpen = true;
-	});
-	map.on('popupclose', () => {
-		popupOpen = false;
-		if (lastPosition !== null) {
-			dispatchOriginIfNeeded(lastPosition);
-		}
 	});
 
 	tracker.start();
@@ -662,6 +768,9 @@ const bootstrapOrThrow = async (
 				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: false });
 				if (kind === 'water') {
 					nearestWater = null;
+				}
+				if (openItem?.facility.kind === kind) {
+					closeSheet();
 				}
 				dispatchGuidance({ kind: 'layer-disabled', layer: kind });
 			}

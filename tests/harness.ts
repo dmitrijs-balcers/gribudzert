@@ -585,10 +585,11 @@ export type AppHandle = {
 	readonly zoomOut: () => void;
 	readonly pan: (direction: PanDirection, options?: { readonly far?: boolean }) => Promise<void>;
 	readonly pressArrowKey: (direction: PanDirection) => Promise<void>;
-	readonly openPopupOf: (index: number) => void;
-	readonly closePopup: () => void;
-	readonly popup: () => HTMLElement | null;
-	readonly popupText: () => string;
+	readonly tapMarker: (index: number) => void;
+	readonly closeSheet: () => void;
+	readonly expandSheet: () => void;
+	readonly sheet: () => HTMLElement | null;
+	readonly sheetText: () => string;
 	readonly hud: () => string | null;
 	readonly clickHud: () => void;
 	readonly stopGuiding: () => void;
@@ -745,8 +746,10 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		await settled();
 	}
 
-	const popup = (): HTMLElement | null =>
-		container.querySelector<HTMLElement>('.leaflet-popup-pane .leaflet-popup-content');
+	const sheet = (): HTMLElement | null => {
+		const root = container.querySelector<HTMLElement>('.detail-sheet');
+		return root !== null && !root.hidden ? root : null;
+	};
 
 	const layerPickerButton = (): HTMLButtonElement => {
 		const button = container.querySelector('.layer-picker-button');
@@ -848,12 +851,14 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		zoomOut: () => clickOn(container.querySelector('.leaflet-control-zoom-out'), 'Zoom out button'),
 		pan: (direction, { far = true } = {}) => dispatchArrowKey(direction, far),
 		pressArrowKey: (direction) => dispatchArrowKey(direction, true),
-		openPopupOf: (index) =>
+		tapMarker: (index) =>
 			clickOn(facilityMarkerElements(container)[index] ?? null, `Marker #${index}`),
-		closePopup: () =>
-			clickOn(container.querySelector('.leaflet-popup-close-button'), 'Popup close button'),
-		popup,
-		popupText: () => popup()?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+		closeSheet: () =>
+			clickOn(sheet()?.querySelector('.detail-sheet-close') ?? null, 'Sheet close button'),
+		expandSheet: () =>
+			clickOn(sheet()?.querySelector('.detail-sheet-details') ?? null, 'Sheet details button'),
+		sheet,
+		sheetText: () => sheet()?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
 		hud: () => hudRoot()?.querySelector('.guidance-hud-text')?.textContent?.trim() ?? null,
 		clickHud: () =>
 			clickOn(hudRoot()?.querySelector('.guidance-hud-target') ?? null, 'Guidance HUD'),
