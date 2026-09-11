@@ -45,7 +45,8 @@ export type GestureEvent =
 export type GestureEffect =
 	| { readonly kind: 'begin'; readonly anchor: GesturePoint }
 	| { readonly kind: 'zoomTo'; readonly zoom: number }
-	| { readonly kind: 'end' };
+	| { readonly kind: 'end' }
+	| { readonly kind: 'tapZoomIn'; readonly anchor: GesturePoint };
 
 type Reduction = readonly [GestureState, readonly GestureEffect[]];
 
@@ -144,6 +145,7 @@ const reduceArmed = (
 			];
 		}
 		case 'pointerUp':
+			return [idleGestureState, [{ kind: 'end' }, { kind: 'tapZoomIn', anchor: state.anchor }]];
 		case 'cancel':
 			return [idleGestureState, [{ kind: 'end' }]];
 		default: {

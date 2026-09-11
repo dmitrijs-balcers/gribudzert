@@ -23,8 +23,10 @@ zoom control and mouse-wheel zoom untouched.
    zoom the same way any other zoom does.
 3. The zoom anchors on the point of the second tap: whatever was under that finger stays
    under it as the map scales.
-4. If the second tap lifts without sliding more than ~10 px, nothing custom happens —
-   Leaflet's own double-tap zoom fires as it always has.
+4. If the second tap lifts without sliding more than ~10 px, it is a plain double tap: the
+   map zooms in one level (`zoomDelta`) around the tap point, animated, as in other map
+   apps. Leaflet's own `doubleClickZoom` is switched off on coarse pointers so a browser-
+   synthesised `dblclick` cannot zoom a second time.
 5. If the finger moves more than 30 px before the second tap lands, the gesture never arms:
    it was a pan, not a double-tap-and-slide, and normal one-finger panning proceeds
    untouched.
@@ -175,7 +177,8 @@ Harness additions (`tests/harness.ts`), all additive:
 Scenarios: zoom increases sliding down / decreases sliding up (asserted via `tileZoom()`
 after one animation frame and the lift, using exactly 150 px so the target zoom is already a
 whole number, sidestepping the fact that `zoomSnap: 0` only matters for `Browser.any3d`-
-detected environments and happy-dom is not one); a plain double tap with no slide leaves the zoom and `dragging` untouched;
+detected environments and happy-dom is not one); a plain double tap with no slide zooms in
+one level and leaves `dragging` enabled; two taps too far apart leave the zoom untouched;
 zoom control hidden on coarse / shown on fine (two `it`s, not one — sharing one `renderApp`
 across assertions in a single test also shares its `indexedDB`, so a second `renderApp` in
 the same test serves the first render's facility cache and never calls Overpass); dragging

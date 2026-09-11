@@ -1,4 +1,5 @@
 import type * as L from 'leaflet';
+import { point as leafletPoint } from 'leaflet';
 import { timestampNow } from '../../domain';
 import { createContinuousZoom } from './continuous-zoom';
 import type { GestureEffect, GestureEvent, GesturePoint, GestureState } from './gesture';
@@ -40,6 +41,12 @@ export const createOneHandZoomHandler = (
 				zoom.finish();
 				map.dragging.enable();
 				map.getContainer().classList.remove(GESTURE_ACTIVE_CLASS);
+				return;
+			case 'tapZoomIn':
+				map.setZoomAround(
+					leafletPoint(effect.anchor.x, effect.anchor.y),
+					map.getZoom() + (map.options.zoomDelta ?? 1)
+				);
 				return;
 			default: {
 				const exhaustive: never = effect;

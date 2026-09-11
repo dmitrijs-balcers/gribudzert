@@ -49,11 +49,24 @@ describe('One-hand zoom on mobile', () => {
 		expect(app.draggingEnabled()).toBe(true);
 	});
 
-	it('does nothing custom on a plain double tap that never slides', async () => {
+	it('zooms in one level on a plain double tap that never slides', async () => {
 		const app = await renderApp({ pointer: 'coarse' });
 		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM));
 
 		plainDoubleTap(app);
+
+		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM + 1));
+		expect(app.draggingEnabled()).toBe(true);
+	});
+
+	it('does not zoom on two taps that are too far apart', async () => {
+		const app = await renderApp({ pointer: 'coarse' });
+		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM));
+
+		app.gesturePointer('pointerdown', TAP_POINT);
+		app.gesturePointer('pointerup', TAP_POINT);
+		app.gesturePointer('pointerdown', { x: TAP_POINT.x + 100, y: TAP_POINT.y });
+		app.gesturePointer('pointerup', { x: TAP_POINT.x + 100, y: TAP_POINT.y });
 
 		await new Promise((resolve) => setTimeout(resolve, 50));
 		expect(app.tileZoom()).toBe(DEFAULT_ZOOM);
