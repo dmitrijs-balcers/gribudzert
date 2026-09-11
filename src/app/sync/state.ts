@@ -18,7 +18,6 @@ export type PendingFetch = {
 	readonly id: RequestId;
 	readonly tiles: readonly TileId[];
 	readonly kinds: readonly FacilityKind[];
-	readonly loadingShown: boolean;
 };
 
 export type SyncState = {

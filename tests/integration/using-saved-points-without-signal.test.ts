@@ -49,7 +49,6 @@ describe('Using saved points without a signal', () => {
 
 		app.goOffline();
 		await waitFor(() => expect(app.provenance()).toBe('offline'));
-		expect(app.loadingVisible()).toBe(false);
 
 		await panRightAndSettle(app);
 

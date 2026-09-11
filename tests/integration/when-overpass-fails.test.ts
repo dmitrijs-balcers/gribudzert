@@ -21,12 +21,10 @@ const panRightAndSettle = async (app: AppHandle): Promise<void> => {
 };
 
 describe('When Overpass fails', () => {
-	it('shows the loading overlay while waiting, then an error, then hides the overlay', async () => {
+	it('shows an error and no markers', async () => {
 		const app = await renderApp({ overpass: () => failAfter(400), settle: false });
 
-		await waitFor(() => expect(app.loadingVisible()).toBe(true));
 		await waitFor(() => expect(app.toasts()).toContain(NETWORK_ERROR));
-		await waitFor(() => expect(app.loadingVisible()).toBe(false));
 		expect(app.markers()).toHaveLength(0);
 	});
 
@@ -38,7 +36,6 @@ describe('When Overpass fails', () => {
 
 		await waitFor(() => expect(app.toasts()).toContain(TIMEOUT_ERROR));
 		expect(app.overpass.lastRequest().aborted).toBe(true);
-		await waitFor(() => expect(app.loadingVisible()).toBe(false));
 	});
 
 	it('retries a busy response once and shows markers without any error toast', async () => {
@@ -71,7 +68,6 @@ describe('When Overpass fails', () => {
 
 		await waitFor(() => expect(app.toasts()).toContain(BUSY_ERROR));
 		expect(app.toasts().some((message) => message.includes('internet connection'))).toBe(false);
-		await waitFor(() => expect(app.loadingVisible()).toBe(false));
 		expect(app.markers()).toHaveLength(0);
 	});
 
@@ -79,7 +75,6 @@ describe('When Overpass fails', () => {
 		const app = await renderApp({ overpass: () => ({ status: 500 }), settle: false });
 
 		await waitFor(() => expect(app.toasts()).toContain(NETWORK_ERROR));
-		await waitFor(() => expect(app.loadingVisible()).toBe(false));
 	});
 
 	it('replaces the per-layer error with a single "showing saved points" message when the failed area is partly covered by the offline cache', async () => {
@@ -98,7 +93,6 @@ describe('When Overpass fails', () => {
 		await waitFor(() => expect(app.overpass.requests).toHaveLength(3));
 		expect(app.overpass.lastRequest().query).toContain('amenity"="toilets');
 		await waitFor(() => expect(app.toasts()).toContain(OFFLINE_SHOWING_SAVED));
-		await waitFor(() => expect(app.loadingVisible()).toBe(false));
 		expect(app.toasts().filter((toast) => toast === OFFLINE_SHOWING_SAVED)).toHaveLength(1);
 		expect(app.toasts()).not.toContain(NETWORK_ERROR);
 	});

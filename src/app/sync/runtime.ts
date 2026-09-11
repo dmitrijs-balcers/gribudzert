@@ -25,8 +25,6 @@ export type SyncPorts = {
 	readonly clearRender: () => void;
 	readonly notify: (request: NoticeRequest) => void;
 	readonly clearStatus: () => void;
-	readonly showLoading: () => void;
-	readonly hideLoading: () => void;
 	readonly persist: (snapshot: Snapshot) => void;
 	readonly reportNearest: (kind: LayerKind, nearest: Located<Facility> | null) => void;
 	readonly trackAreaExplored: () => void;
@@ -96,12 +94,6 @@ export const createSyncRuntime = (ports: SyncPorts, initial: SyncState): SyncRun
 				return;
 			case 'clear-status':
 				ports.clearStatus();
-				return;
-			case 'show-loading':
-				ports.showLoading();
-				return;
-			case 'hide-loading':
-				ports.hideLoading();
 				return;
 			case 'persist':
 				ports.persist(effect.snapshot);

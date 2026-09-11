@@ -21,8 +21,6 @@ export type SyncEffect =
 	| { readonly kind: 'clear-render' }
 	| { readonly kind: 'notify'; readonly request: NoticeRequest }
 	| { readonly kind: 'clear-status' }
-	| { readonly kind: 'show-loading' }
-	| { readonly kind: 'hide-loading' }
 	| { readonly kind: 'persist'; readonly snapshot: Snapshot }
 	| {
 			readonly kind: 'report-nearest';
