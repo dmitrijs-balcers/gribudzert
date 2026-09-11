@@ -67,6 +67,7 @@ export const LAST_POSITION_MAX_AGE_MS: DurationMs = durationMsLiteral(604_800_00
 export const LAYER_NAMES = {
 	WATER: 'Drinking Points',
 	TOILET: 'Public Toilets',
+	VIEWPOINT: 'Viewpoints',
 } as const;
 
 export type LayerName = (typeof LAYER_NAMES)[keyof typeof LAYER_NAMES];

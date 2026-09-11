@@ -175,7 +175,7 @@ const isRecord = (value: unknown): value is UnknownRecord =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const isFacilityKind = (value: unknown): value is FacilityKind =>
-	value === 'water' || value === 'toilet';
+	value === 'water' || value === 'toilet' || value === 'viewpoint';
 
 export type SnapshotParseError =
 	| { readonly reason: 'not-a-record' }

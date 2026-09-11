@@ -8,7 +8,7 @@ import type { FetchError } from '../types/errors';
 
 export type LayerKind = FacilityKind;
 
-export const LAYER_KINDS: readonly LayerKind[] = ['water', 'toilet'];
+export const LAYER_KINDS: readonly LayerKind[] = ['water', 'toilet', 'viewpoint'];
 
 export type FacilityLayerGroup = L.FeatureGroup<L.Marker>;
 
@@ -28,6 +28,8 @@ export const labelOf = (kind: LayerKind): LayerName => {
 			return LAYER_NAMES.WATER;
 		case 'toilet':
 			return LAYER_NAMES.TOILET;
+		case 'viewpoint':
+			return LAYER_NAMES.VIEWPOINT;
 		default: {
 			const exhaustive: never = kind;
 			return exhaustive;
@@ -38,6 +40,7 @@ export const labelOf = (kind: LayerKind): LayerName => {
 const KIND_BY_LABEL: Readonly<Record<LayerName, LayerKind>> = {
 	[LAYER_NAMES.WATER]: 'water',
 	[LAYER_NAMES.TOILET]: 'toilet',
+	[LAYER_NAMES.VIEWPOINT]: 'viewpoint',
 };
 
 export const isLayerName = (name: string): name is LayerName => Object.hasOwn(KIND_BY_LABEL, name);
@@ -62,6 +65,7 @@ export const createFacilityLayers = (
 ): FacilityLayers => ({
 	water: createFacilityLayer('water', selectors.water),
 	toilet: createFacilityLayer('toilet', selectors.toilet),
+	viewpoint: createFacilityLayer('viewpoint', selectors.viewpoint),
 });
 
 export type LayerHost = Pick<L.Map, 'addLayer' | 'removeLayer'>;
@@ -96,6 +100,7 @@ export const locateFacilities = (
 		case 'water':
 			return markNearest(located);
 		case 'toilet':
+		case 'viewpoint':
 			return located;
 		default: {
 			const exhaustive: never = kind;

@@ -62,6 +62,7 @@ import { createUserInteractionSource } from '../features/navigation/user-interac
 import { createOneHandZoomHandler } from '../features/zoom-gesture';
 import drinkingWater from '../oql/drinking_water.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
+import viewpoints from '../oql/viewpoints.overpassql?raw';
 import { toLocationFailureCategory } from '../types/errors';
 import { initInstallPrompt } from '../ui/install-prompt';
 import { hideLoading, resetLoading, showLoading } from '../ui/loading';
@@ -159,6 +160,7 @@ const addLayerControl = (map: L.Map, layers: FacilityLayers): void => {
 			{
 				[layers.water.label]: layers.water.group,
 				[layers.toilet.label]: layers.toilet.group,
+				[layers.viewpoint.label]: layers.viewpoint.group,
 			},
 			{ collapsed: false }
 		)
@@ -357,6 +359,7 @@ const bootstrapOrThrow = async (
 	const layers = createFacilityLayers({
 		water: overpassSelector(drinkingWater),
 		toilet: overpassSelector(publicToilets),
+		viewpoint: overpassSelector(viewpoints),
 	});
 
 	const userLayer: UserLocationLayer = createUserLocationLayer(map);

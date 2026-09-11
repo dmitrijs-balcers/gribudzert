@@ -1,18 +1,58 @@
 import type * as L from 'leaflet';
 import { trackMarkerClicked, trackNavigationStarted } from '../../analytics';
-import type { Facility, Located, ToiletFacility, WaterFacility } from '../../domain';
+import type {
+	Facility,
+	Located,
+	ToiletFacility,
+	ViewpointFacility,
+	WaterFacility,
+} from '../../domain';
 import { formatDistance, osmUrl } from '../../domain';
 import { escapeHtml } from '../../utils/html';
 import * as logger from '../../utils/logger';
 import { openNavigation } from '../navigation/navigation';
+import type { Glyph } from './presentation';
 import {
 	NON_DRINKABLE_BADGE_COLOR,
 	TOILET_PRESENTATION,
+	VIEWPOINT_PRESENTATION,
 	WATER_SOURCE_PRESENTATION,
 } from './presentation';
 
-const navigationLabel = (facility: Facility): string =>
-	facility.kind === 'toilet' ? 'toilet' : 'water_tap';
+const navigationLabel = (facility: Facility): string => {
+	switch (facility.kind) {
+		case 'toilet':
+			return 'toilet';
+		case 'viewpoint':
+			return 'viewpoint';
+		case 'water':
+			return 'water_tap';
+		default: {
+			const exhaustive: never = facility;
+			return exhaustive;
+		}
+	}
+};
+
+/** Render a glyph inline at 1em, for use next to popup title text */
+const glyphHtml = (glyph: Glyph): string => {
+	switch (glyph.kind) {
+		case 'emoji':
+			return glyph.char;
+		case 'svg':
+			return glyph.markup.replace(
+				'<svg ',
+				'<svg style="width:1em;height:1em;vertical-align:-0.15em;display:inline-block;" '
+			);
+		default: {
+			const exhaustive: never = glyph;
+			return exhaustive;
+		}
+	}
+};
+
+const headingOf = (presentation: { readonly glyph: Glyph; readonly label: string }): string =>
+	`${glyphHtml(presentation.glyph)} ${presentation.label}`;
 
 const titleHtml = (facility: Facility, color: string, heading: string): string =>
 	`<strong style="color: ${color};">${heading}</strong>` +
@@ -45,13 +85,7 @@ function createToiletPopupContent(item: Located<ToiletFacility>): string {
 	const { facility, distance } = item;
 	const parts: string[] = [];
 
-	parts.push(
-		titleHtml(
-			facility,
-			TOILET_PRESENTATION.badgeColor,
-			`${TOILET_PRESENTATION.glyph} ${TOILET_PRESENTATION.label}`
-		)
-	);
+	parts.push(titleHtml(facility, TOILET_PRESENTATION.badgeColor, headingOf(TOILET_PRESENTATION)));
 	parts.push(`<div><strong>Distance: ${formatDistance(distance)}</strong></div>`);
 
 	switch (facility.accessibility.wheelchair) {
@@ -110,7 +144,7 @@ function createWaterPopupContent(item: Located<WaterFacility>): string {
 		titleHtml(
 			facility,
 			facility.drinkable ? source.badgeColor : NON_DRINKABLE_BADGE_COLOR,
-			`${source.glyph} ${source.label}`
+			headingOf(source)
 		)
 	);
 
@@ -148,6 +182,29 @@ function createWaterPopupContent(item: Located<WaterFacility>): string {
 	return parts.join('');
 }
 
+function createViewpointPopupContent(item: Located<ViewpointFacility>): string {
+	const { facility, distance } = item;
+	const parts: string[] = [];
+
+	parts.push(
+		titleHtml(facility, VIEWPOINT_PRESENTATION.badgeColor, headingOf(VIEWPOINT_PRESENTATION))
+	);
+
+	if (facility.description !== undefined) {
+		parts.push(`<div>${escapeHtml(facility.description)}</div>`);
+	}
+	if (facility.elevation !== undefined) {
+		parts.push(`<div>Elevation: ${facility.elevation} m</div>`);
+	}
+
+	parts.push(`<div><strong>Distance: ${formatDistance(distance)}</strong></div>`);
+
+	parts.push(...detailsHtml(facility));
+	parts.push(actionsHtml(facility, 'viewpoint'));
+
+	return parts.join('');
+}
+
 export function createPopupContent(item: Located<Facility>): string {
 	const { facility } = item;
 	switch (facility.kind) {
@@ -155,6 +212,12 @@ export function createPopupContent(item: Located<Facility>): string {
 			return createToiletPopupContent({ ...item, facility });
 		case 'water':
 			return createWaterPopupContent({ ...item, facility });
+		case 'viewpoint':
+			return createViewpointPopupContent({ ...item, facility });
+		default: {
+			const exhaustive: never = facility;
+			return exhaustive;
+		}
 	}
 }
 

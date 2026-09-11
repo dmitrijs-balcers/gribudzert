@@ -107,6 +107,56 @@ export const TOILET_ELEMENTS: readonly OverpassElement[] = [ACCESSIBLE_TOILET];
 export const isToiletQuery = (query: string): boolean => query.includes('"amenity"="toilets"');
 
 /**
+ * Whether an Overpass query asks for viewpoints
+ */
+export const isViewpointQuery = (query: string): boolean => query.includes('"tourism"="viewpoint"');
+
+/**
+ * A bare viewpoint: no name, description, or media tags at all
+ */
+export const BARE_VIEWPOINT = {
+	type: 'node',
+	id: 301,
+	lat: 56.953,
+	lon: 24.108,
+	tags: { tourism: 'viewpoint' },
+} as const satisfies OverpassElement;
+
+/**
+ * A named viewpoint: has a name, nothing more
+ */
+export const NAMED_VIEWPOINT = {
+	type: 'node',
+	id: 302,
+	lat: 56.9535,
+	lon: 24.1085,
+	tags: { tourism: 'viewpoint', name: 'Riverside Overlook' },
+} as const satisfies OverpassElement;
+
+/**
+ * A notable viewpoint: carries a Wikipedia article, elevation and a description
+ */
+export const NOTABLE_VIEWPOINT = {
+	type: 'node',
+	id: 303,
+	lat: 56.954,
+	lon: 24.109,
+	tags: {
+		tourism: 'viewpoint',
+		name: 'Cathedral Hill',
+		description: 'Panoramic view over the old town',
+		wikipedia: 'en:Cathedral Hill',
+		ele: '42',
+	},
+} as const satisfies OverpassElement;
+
+export const VIEWPOINT_ELEMENTS: readonly OverpassElement[] = [
+	BARE_VIEWPOINT,
+	NAMED_VIEWPOINT,
+	NOTABLE_VIEWPOINT,
+];
+
+/**
  * Water nodes placed at the centre of a bounding box, for areas the viewer pans to
  */
 export const waterNodesAt = (

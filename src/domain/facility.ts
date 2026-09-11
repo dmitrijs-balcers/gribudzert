@@ -102,9 +102,27 @@ export type ToiletFacility = FacilityBase & {
 };
 
 /**
+ * Prominence tier of a viewpoint, derived from how well-documented it is in OSM.
+ * `notable` carries a photo or article, `named` at least a name or description,
+ * `bare` neither.
+ */
+export type ViewpointProminence = 'bare' | 'named' | 'notable';
+
+/**
+ * Scenic viewpoint (`tourism=viewpoint`)
+ */
+export type ViewpointFacility = FacilityBase & {
+	readonly kind: 'viewpoint';
+	readonly prominence: ViewpointProminence;
+	readonly description?: string;
+	/** Elevation in metres, from `ele` when it parses as a finite number */
+	readonly elevation?: number;
+};
+
+/**
  * Discriminated union of all facility types
  */
-export type Facility = WaterFacility | ToiletFacility;
+export type Facility = WaterFacility | ToiletFacility | ViewpointFacility;
 
 /**
  * Facility discriminator values
@@ -124,10 +142,29 @@ export const isToiletFacility = (facility: Facility): facility is ToiletFacility
 	facility.kind === 'toilet';
 
 /**
- * Wheelchair access of any facility (`yes` only counts as accessible)
+ * Type guard for viewpoint facilities
  */
-export const wheelchairAccessOf = (facility: Facility): WheelchairAccess =>
-	facility.kind === 'water' ? facility.wheelchair : facility.accessibility.wheelchair;
+export const isViewpointFacility = (facility: Facility): facility is ViewpointFacility =>
+	facility.kind === 'viewpoint';
+
+/**
+ * Wheelchair access of any facility (`yes` only counts as accessible). Viewpoints carry no
+ * wheelchair tag of their own, so they report `unknown`.
+ */
+export const wheelchairAccessOf = (facility: Facility): WheelchairAccess => {
+	switch (facility.kind) {
+		case 'water':
+			return facility.wheelchair;
+		case 'toilet':
+			return facility.accessibility.wheelchair;
+		case 'viewpoint':
+			return 'unknown';
+		default: {
+			const exhaustive: never = facility;
+			return exhaustive;
+		}
+	}
+};
 
 /**
  * Whether the facility is explicitly wheelchair accessible
@@ -229,6 +266,9 @@ const isWheelchairAccess = (value: unknown): value is WheelchairAccess =>
 const isYesNoUnknown = (value: unknown): value is YesNoUnknown =>
 	value === 'yes' || value === 'no' || value === 'unknown';
 
+const isViewpointProminence = (value: unknown): value is ViewpointProminence =>
+	value === 'bare' || value === 'named' || value === 'notable';
+
 const parseWaterFacility = (record: UnknownRecord): WaterFacility | null => {
 	const base = parseFacilityBase(record);
 	if (base === null) {
@@ -277,6 +317,31 @@ const parseToiletFacility = (record: UnknownRecord): ToiletFacility | null => {
 	};
 };
 
+const parseViewpointFacility = (record: UnknownRecord): ViewpointFacility | null => {
+	const base = parseFacilityBase(record);
+	if (base === null) {
+		return null;
+	}
+	if (!isViewpointProminence(record.prominence)) {
+		return null;
+	}
+	const description = parseOptionalString(record.description);
+	if (description === null) {
+		return null;
+	}
+	const elevation = record.elevation;
+	if (elevation !== undefined && (typeof elevation !== 'number' || !Number.isFinite(elevation))) {
+		return null;
+	}
+	return {
+		...base,
+		kind: 'viewpoint',
+		prominence: record.prominence,
+		...(description.present ? { description: description.value } : {}),
+		...(elevation !== undefined ? { elevation } : {}),
+	};
+};
+
 export const parseFacility = (value: unknown): Facility | null => {
 	if (!isRecord(value)) {
 		return null;
@@ -286,6 +351,8 @@ export const parseFacility = (value: unknown): Facility | null => {
 			return parseWaterFacility(value);
 		case 'toilet':
 			return parseToiletFacility(value);
+		case 'viewpoint':
+			return parseViewpointFacility(value);
 		default:
 			return null;
 	}

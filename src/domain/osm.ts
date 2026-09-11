@@ -8,6 +8,8 @@ import type {
 	Facility,
 	OsmRef,
 	ToiletFacility,
+	ViewpointFacility,
+	ViewpointProminence,
 	WaterFacility,
 	WaterSourceType,
 	WheelchairAccess,
@@ -76,9 +78,45 @@ export const waterSourceTypeOf = (tags: OsmTags): WaterSourceType | null => {
 export const isToiletTags = (tags: OsmTags): boolean => tags.amenity === 'toilets';
 
 /**
+ * Whether the tags describe a viewpoint
+ */
+export const isViewpointTags = (tags: OsmTags): boolean => tags.tourism === 'viewpoint';
+
+/**
+ * Determine a viewpoint's prominence tier from its tags: `notable` when it carries a photo
+ * or article (`image`, `wikimedia_commons`, `wikipedia` or `wikidata`), else `named` when it
+ * has a `name` or `description`, else `bare`.
+ */
+export const viewpointProminenceOf = (tags: OsmTags): ViewpointProminence => {
+	if (
+		tags.image !== undefined ||
+		tags.wikimedia_commons !== undefined ||
+		tags.wikipedia !== undefined ||
+		tags.wikidata !== undefined
+	) {
+		return 'notable';
+	}
+	if (tags.name !== undefined || tags.description !== undefined) {
+		return 'named';
+	}
+	return 'bare';
+};
+
+/**
  * Water is assumed drinkable unless explicitly tagged `drinking_water=no`
  */
 const isDrinkable = (tags: OsmTags): boolean => tagValue(tags, 'drinking_water') !== 'no';
+
+/**
+ * Parse the `ele=*` tag into metres; undefined when absent or not a finite number
+ */
+const parseElevation = (value: string | undefined): number | undefined => {
+	if (value === undefined) {
+		return undefined;
+	}
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : undefined;
+};
 
 /**
  * Fields shared by all facilities. Optional fields are only present when the tag exists.
@@ -130,8 +168,27 @@ const toiletFacilityFromTags = (
 });
 
 /**
+ * Build a ViewpointFacility from OSM tags
+ */
+const viewpointFacilityFromTags = (
+	osm: OsmRef,
+	coordinates: Coordinates,
+	tags: OsmTags
+): ViewpointFacility => {
+	const elevation = parseElevation(tags.ele);
+	return {
+		...baseFields(osm, coordinates, tags),
+		kind: 'viewpoint',
+		prominence: viewpointProminenceOf(tags),
+		...(tags.description !== undefined ? { description: tags.description } : {}),
+		...(elevation !== undefined ? { elevation } : {}),
+	};
+};
+
+/**
  * Classify OSM tags into a Facility
- * @returns A toilet for `amenity=toilets`, a water facility for any known water tag, otherwise null
+ * @returns A toilet for `amenity=toilets`, a viewpoint for `tourism=viewpoint`, a water
+ * facility for any known water tag, otherwise null
  */
 export const facilityFromTags = (
 	osm: OsmRef,
@@ -140,6 +197,10 @@ export const facilityFromTags = (
 ): Facility | null => {
 	if (isToiletTags(tags)) {
 		return toiletFacilityFromTags(osm, coordinates, tags);
+	}
+
+	if (isViewpointTags(tags)) {
+		return viewpointFacilityFromTags(osm, coordinates, tags);
 	}
 
 	const sourceType = waterSourceTypeOf(tags);
