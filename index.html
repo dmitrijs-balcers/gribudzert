@@ -148,6 +148,7 @@
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
+                box-sizing: border-box;
                 padding: 8px 10px;
                 border-radius: 8px;
                 border: 0;
@@ -163,6 +164,11 @@
                     box-shadow 120ms ease,
                     opacity 120ms ease;
                 -webkit-tap-highlight-color: transparent;
+            }
+
+            /* Outranks Leaflet's ".leaflet-container a" link colour */
+            .leaflet-container a.navigate-btn {
+                color: white;
             }
 
             .guide-btn {

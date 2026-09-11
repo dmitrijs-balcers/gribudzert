@@ -1,5 +1,6 @@
 import { waitFor } from '@testing-library/dom';
 import { describe, expect, it } from 'vitest';
+import { GUIDANCE_WAITING_FOR_LOCATION_MESSAGE } from '../../src/app/messages';
 import {
 	ACCESSIBLE_TOILET,
 	isToiletQuery,
@@ -63,6 +64,24 @@ describe('Guiding me to a point', () => {
 		app.toggleLayer('Public Toilets');
 
 		await waitFor(() => expect(app.hud()).toContain('Nearest water'));
+	});
+
+	it('waits for the location when none is known yet, then starts guiding', async () => {
+		const app = await renderApp({ geolocation: { pending: true } });
+		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
+		app.openPopupOf(0);
+		await waitFor(() => expect(app.popup()).not.toBeNull());
+
+		app.guideFromPopup();
+
+		await waitFor(() => expect(app.popup()).toBeNull());
+		expect(app.hud()).toBeNull();
+		expect(app.toastHistory()).toContain(GUIDANCE_WAITING_FOR_LOCATION_MESSAGE);
+
+		app.geolocation.moveTo(USER);
+
+		await waitFor(() => expect(app.hud()).toContain('Guiding to'));
+		expect(app.beelineVisible()).toBe(true);
 	});
 
 	it('opens the chosen point when the visitor taps the HUD', async () => {

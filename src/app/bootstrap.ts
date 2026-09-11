@@ -41,6 +41,7 @@ import {
 	guidanceTargetOf,
 	initialGuidanceState,
 	isWaterFacility,
+	sameLocatedList,
 	timestampNow,
 	zoom,
 } from '../domain';
@@ -88,15 +89,17 @@ import { createProvenanceIndicator } from '../ui/provenance-indicator';
 import { dismissSplash } from '../ui/splash';
 import { isCoarsePointer } from '../ui/pointer';
 import * as logger from '../utils/logger';
-import type { LayerKind } from './layers';
+import type { FacilityLayers, LayerKind } from './layers';
 import {
 	activeLayerCount,
+	clearLayerMarkers,
 	createFacilityLayers,
 	disableLayer,
 	enableLayer,
 	LAYER_KINDS,
 } from './layers';
 import {
+	GUIDANCE_WAITING_FOR_LOCATION_MESSAGE,
 	INITIALIZATION_FAILED_MESSAGE,
 	INITIALIZATION_REFRESH_ACTION_LABEL,
 	LOCATION_FALLBACK_MESSAGE,
@@ -202,6 +205,53 @@ const guidanceHudViewOf = (target: GuidanceTarget, course: GuidanceCourse): Guid
 			return exhaustive;
 		}
 	}
+};
+
+type MarkerRenderer = {
+	readonly render: (renders: readonly LayerRender[]) => void;
+	readonly clear: (kind: LayerKind) => void;
+	readonly clearAll: () => void;
+};
+
+/**
+ * Rebuilds a layer's markers only when its items changed, so a popup that is
+ * open on a marker survives the map settling again over the same points.
+ */
+const createMarkerRenderer = (
+	layers: FacilityLayers,
+	popupContext: PopupContext
+): MarkerRenderer => {
+	let rendered: Partial<Record<LayerKind, readonly Located<Facility>[]>> = {};
+
+	const renderLayer = (layerRender: LayerRender): void => {
+		const previous = rendered[layerRender.kind];
+		if (previous !== undefined && sameLocatedList(previous, layerRender.items)) {
+			return;
+		}
+		const layer = layers[layerRender.kind];
+		clearLayerMarkers(layer);
+		addMarkers(layerRender.items, layer.group, popupContext);
+		rendered = { ...rendered, [layerRender.kind]: layerRender.items };
+	};
+
+	const clear = (kind: LayerKind): void => {
+		clearLayerMarkers(layers[kind]);
+		rendered = { ...rendered, [kind]: undefined };
+	};
+
+	return {
+		render: (renders) => {
+			for (const layerRender of renders) {
+				renderLayer(layerRender);
+			}
+		},
+		clear,
+		clearAll: () => {
+			for (const kind of LAYER_KINDS) {
+				clear(kind);
+			}
+		},
+	};
 };
 
 const isMarkerAt = (layer: L.Layer, coordinates: LatLon): layer is L.Marker => {
@@ -455,14 +505,28 @@ const bootstrapOrThrow = async (
 		onDismiss: () => dispatchGuidance({ kind: 'guidance-dismissed' }),
 	});
 
+	const locateForGuidance = (): void => {
+		notices.toast(GUIDANCE_WAITING_FOR_LOCATION_MESSAGE);
+		const state = tracker.state();
+		if (state.kind === 'idle' || state.kind === 'failed') {
+			reportPressOutcome(tracker, notices);
+			tracker.start();
+		}
+	};
+
 	const popupContext: PopupContext = {
 		platform: directionsPlatformOf(navigator.userAgent),
 		onGuide: (facility) => {
 			trackGuidanceStarted(facility.kind);
 			dispatchGuidance({ kind: 'facility-chosen', facility });
 			map.closePopup();
+			if (lastPosition === null) {
+				locateForGuidance();
+			}
 		},
 	};
+
+	const markerRenderer = createMarkerRenderer(layers, popupContext);
 
 	const reportNearest = (kind: LayerKind, nearest: Located<Facility> | null): void => {
 		if (kind !== 'water') {
@@ -482,27 +546,13 @@ const bootstrapOrThrow = async (
 			});
 	};
 
-	const render = (renders: readonly LayerRender[]): void => {
-		for (const layerRender of renders) {
-			const layer = layers[layerRender.kind];
-			layer.group.clearLayers();
-			addMarkers(layerRender.items, layer.group, popupContext);
-		}
-	};
-
-	const clearRenderAll = (): void => {
-		for (const kind of LAYER_KINDS) {
-			layers[kind].group.clearLayers();
-		}
-	};
-
 	const runtime: SyncRuntime = createSyncRuntime(
 		{
 			now: timestampNow,
 			queryFor: (kinds) => composeQuery(kinds.map((kind) => layers[kind].selector)),
 			fetchFacilities,
-			render,
-			clearRender: clearRenderAll,
+			render: markerRenderer.render,
+			clearRender: markerRenderer.clearAll,
 			notify: notices.announce,
 			clearStatus: notices.clearStatus,
 			showLoading,
@@ -619,6 +669,7 @@ const bootstrapOrThrow = async (
 				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: true });
 			} else {
 				disableLayer(layer, map);
+				markerRenderer.clear(kind);
 				trackLayerDisabled(layer.label, activeLayerCount(layers));
 				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: false });
 				if (kind === 'water') {

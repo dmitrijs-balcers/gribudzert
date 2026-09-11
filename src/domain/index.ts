@@ -78,7 +78,14 @@ export {
 	recordVisit,
 } from './install-invitation';
 export type { Located } from './located';
-export { findNearest, markNearest, nearestOf, withDistances } from './located';
+export {
+	findNearest,
+	markNearest,
+	nearestOf,
+	sameLocated,
+	sameLocatedList,
+	withDistances,
+} from './located';
 export type { MapTileKey } from './map-tile';
 export { mapTileKey, parseMapTileKey } from './map-tile';
 export type {
