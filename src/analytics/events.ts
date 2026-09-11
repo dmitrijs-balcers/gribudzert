@@ -18,6 +18,10 @@ export const trackNavigationStarted = (facilityType: FacilityType): void => {
 	safeTrack('navigation_started', { facility_type: facilityType });
 };
 
+export const trackGuidanceStarted = (facilityType: FacilityType): void => {
+	safeTrack('guidance_started', { facility_type: facilityType });
+};
+
 export const trackLayerEnabled = (layerName: LayerName, activeLayerCount: number): void => {
 	safeTrack('layer_enabled', {
 		layer_name: layerName,

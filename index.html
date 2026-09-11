@@ -129,7 +129,7 @@
                 }
             }
 
-            /* Popup Navigate button styles - prominent & accessible */
+            /* Popup action styles (directions, guide me) - prominent & accessible */
             .leaflet-popup-content-wrapper {
                 font-size: 14px;
             }
@@ -147,12 +147,14 @@
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
+                box-sizing: border-box;
                 padding: 8px 10px;
                 border-radius: 8px;
                 border: 0;
                 background: linear-gradient(180deg, var(--color-brand), #0063d1);
                 color: white;
                 box-shadow: 0 3px 8px rgba(3, 102, 214, 0.2);
+                font: inherit;
                 font-weight: 600;
                 text-decoration: none;
                 cursor: pointer;
@@ -161,6 +163,11 @@
                     box-shadow 120ms ease,
                     opacity 120ms ease;
                 -webkit-tap-highlight-color: transparent;
+            }
+
+            /* Outranks Leaflet's ".leaflet-container a" link colour */
+            .leaflet-container a.navigate-btn {
+                color: white;
             }
 
             .navigate-btn:active {

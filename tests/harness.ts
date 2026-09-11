@@ -592,6 +592,7 @@ export type AppHandle = {
 	readonly popupText: () => string;
 	readonly hud: () => string | null;
 	readonly clickHud: () => void;
+	readonly stopGuiding: () => void;
 	readonly beelineVisible: () => boolean;
 	readonly snapshot: () => Promise<unknown>;
 	readonly provenance: () => string | null;
@@ -805,9 +806,9 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 		}
 	};
 
-	const hudButton = (): HTMLButtonElement | null => {
-		const button = container.querySelector('.nearest-hud');
-		return button instanceof HTMLButtonElement ? button : null;
+	const hudRoot = (): HTMLElement | null => {
+		const root = container.querySelector('.guidance-hud');
+		return root instanceof HTMLElement && !root.hidden ? root : null;
 	};
 
 	return {
@@ -856,14 +857,11 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 			clickOn(container.querySelector('.leaflet-popup-close-button'), 'Popup close button'),
 		popup,
 		popupText: () => popup()?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-		hud: () => {
-			const button = hudButton();
-			if (button === null || button.hidden) {
-				return null;
-			}
-			return button.querySelector('.nearest-hud-text')?.textContent?.trim() ?? null;
-		},
-		clickHud: () => clickOn(hudButton(), 'Nearest HUD'),
+		hud: () => hudRoot()?.querySelector('.guidance-hud-text')?.textContent?.trim() ?? null,
+		clickHud: () =>
+			clickOn(hudRoot()?.querySelector('.guidance-hud-target') ?? null, 'Guidance HUD'),
+		stopGuiding: () =>
+			clickOn(hudRoot()?.querySelector('.guidance-hud-dismiss') ?? null, 'Stop guiding button'),
 		beelineVisible: () => container.querySelector('.leaflet-overlay-pane path.beeline') !== null,
 		snapshot: () => readCacheRecord(),
 		provenance: () => {

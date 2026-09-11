@@ -10,29 +10,32 @@ import type {
 import { formatDistance, osmUrl } from '../../domain';
 import { escapeHtml } from '../../utils/html';
 import * as logger from '../../utils/logger';
-import { openNavigation } from '../navigation/navigation';
+import type { DirectionsPlatform } from '../directions';
+import { directionsLink } from '../directions';
 import type { Glyph } from './presentation';
 import {
 	NON_DRINKABLE_BADGE_COLOR,
+	presentationOf,
 	TOILET_PRESENTATION,
 	VIEWPOINT_PRESENTATION,
 	WATER_SOURCE_PRESENTATION,
 } from './presentation';
 
-const navigationLabel = (facility: Facility): string => {
-	switch (facility.kind) {
-		case 'toilet':
-			return 'toilet';
-		case 'viewpoint':
-			return 'viewpoint';
-		case 'water':
-			return 'water_tap';
-		default: {
-			const exhaustive: never = facility;
-			return exhaustive;
-		}
-	}
+export type PopupHandlers = {
+	readonly onSelect: (facility: Facility) => void;
 };
+
+export type PopupContext = PopupHandlers & {
+	readonly platform: DirectionsPlatform;
+};
+
+const DIRECTIONS_LINK_CLASS = 'navigate-btn';
+const OSM_LINK_CLASS = 'popup-secondary';
+
+const facilityTitle = (facility: Facility): string =>
+	`${presentationOf(facility).label} ${facility.osm.id}`;
+
+const destinationNameOf = (facility: Facility): string => facility.name ?? facilityTitle(facility);
 
 const glyphHtml = (glyph: Glyph): string => {
 	switch (glyph.kind) {
@@ -69,18 +72,34 @@ const detailsHtml = (facility: Facility): readonly string[] => {
 	return parts;
 };
 
-const actionsHtml = (facility: Facility, ariaTarget: string): string =>
-	`<div class="popup-actions">` +
-	`<button type="button" class="navigate-btn" data-lat="${facility.coordinates.lat}" data-lon="${facility.coordinates.lon}" aria-label="Navigate to ${ariaTarget} ${facility.osm.id}">` +
-	`<span class="icon" aria-hidden="true">🧭</span>` +
-	`<span class="label">Navigate</span>` +
-	`</button>` +
-	`<a class="popup-secondary" target="_blank" rel="noreferrer" href="${osmUrl(facility.osm)}">` +
+const directionsHtml = (facility: Facility, platform: DirectionsPlatform): string => {
+	const href = directionsLink(platform, {
+		coordinates: facility.coordinates,
+		name: destinationNameOf(facility),
+	});
+	return (
+		`<a class="${DIRECTIONS_LINK_CLASS}" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" aria-label="Get walking directions to ${escapeHtml(facilityTitle(facility))}">` +
+		`<span class="icon" aria-hidden="true">🗺️</span>` +
+		`<span class="label">Directions</span>` +
+		`</a>`
+	);
+};
+
+const osmLinkHtml = (facility: Facility): string =>
+	`<a class="${OSM_LINK_CLASS}" target="_blank" rel="noreferrer" href="${osmUrl(facility.osm)}">` +
 	`Open on OpenStreetMap` +
-	`</a>` +
+	`</a>`;
+
+const actionsHtml = (facility: Facility, platform: DirectionsPlatform): string =>
+	`<div class="popup-actions">` +
+	directionsHtml(facility, platform) +
+	osmLinkHtml(facility) +
 	`</div>`;
 
-function createToiletPopupContent(item: Located<ToiletFacility>): string {
+function createToiletPopupContent(
+	item: Located<ToiletFacility>,
+	platform: DirectionsPlatform
+): string {
 	const { facility, distance } = item;
 	const parts: string[] = [];
 
@@ -129,12 +148,15 @@ function createToiletPopupContent(item: Located<ToiletFacility>): string {
 	}
 
 	parts.push(...detailsHtml(facility));
-	parts.push(actionsHtml(facility, 'toilet'));
+	parts.push(actionsHtml(facility, platform));
 
 	return parts.join('');
 }
 
-function createWaterPopupContent(item: Located<WaterFacility>): string {
+function createWaterPopupContent(
+	item: Located<WaterFacility>,
+	platform: DirectionsPlatform
+): string {
 	const { facility, distance, isNearest } = item;
 	const parts: string[] = [];
 	const source = WATER_SOURCE_PRESENTATION[facility.sourceType];
@@ -176,12 +198,15 @@ function createWaterPopupContent(item: Located<WaterFacility>): string {
 		parts.push(`<div>🕒 Hours: ${escapeHtml(facility.openingHours)}</div>`);
 	}
 
-	parts.push(actionsHtml(facility, source.label.toLowerCase()));
+	parts.push(actionsHtml(facility, platform));
 
 	return parts.join('');
 }
 
-function createViewpointPopupContent(item: Located<ViewpointFacility>): string {
+function createViewpointPopupContent(
+	item: Located<ViewpointFacility>,
+	platform: DirectionsPlatform
+): string {
 	const { facility, distance } = item;
 	const parts: string[] = [];
 
@@ -199,20 +224,20 @@ function createViewpointPopupContent(item: Located<ViewpointFacility>): string {
 	parts.push(`<div><strong>Distance: ${formatDistance(distance)}</strong></div>`);
 
 	parts.push(...detailsHtml(facility));
-	parts.push(actionsHtml(facility, 'viewpoint'));
+	parts.push(actionsHtml(facility, platform));
 
 	return parts.join('');
 }
 
-export function createPopupContent(item: Located<Facility>): string {
+export function createPopupContent(item: Located<Facility>, platform: DirectionsPlatform): string {
 	const { facility } = item;
 	switch (facility.kind) {
 		case 'toilet':
-			return createToiletPopupContent({ ...item, facility });
+			return createToiletPopupContent({ ...item, facility }, platform);
 		case 'water':
-			return createWaterPopupContent({ ...item, facility });
+			return createWaterPopupContent({ ...item, facility }, platform);
 		case 'viewpoint':
-			return createViewpointPopupContent({ ...item, facility });
+			return createViewpointPopupContent({ ...item, facility }, platform);
 		default: {
 			const exhaustive: never = facility;
 			return exhaustive;
@@ -220,40 +245,28 @@ export function createPopupContent(item: Located<Facility>): string {
 	}
 }
 
-export function attachPopupHandlers(marker: L.Marker, facility: Facility): void {
-	marker.on('popupopen', (e: L.PopupEvent) => {
+const wireActions = (popupElement: HTMLElement, facility: Facility): void => {
+	popupElement
+		.querySelector(`.${DIRECTIONS_LINK_CLASS}`)
+		?.addEventListener('click', () => trackNavigationStarted(facility.kind));
+};
+
+export function attachPopupHandlers(
+	marker: L.Marker,
+	facility: Facility,
+	handlers: PopupHandlers
+): void {
+	marker.on('popupopen', (event: L.PopupEvent) => {
 		trackMarkerClicked(facility.kind);
-
+		handlers.onSelect(facility);
 		try {
-			const popupEl = e.popup.getElement();
-			if (!popupEl) return;
-
-			const navBtn = popupEl.querySelector('.navigate-btn');
-			if (navBtn && !(navBtn as unknown as { __bound?: boolean }).__bound) {
-				(navBtn as unknown as { __bound: boolean }).__bound = true;
-
-				navBtn.addEventListener('click', (ev) => {
-					ev.preventDefault();
-					trackNavigationStarted(facility.kind);
-
-					const lat = navBtn.getAttribute('data-lat');
-					const lon = navBtn.getAttribute('data-lon');
-					if (lat && lon) {
-						openNavigation(lat, lon, `${navigationLabel(facility)} ${facility.osm.id}`);
-					}
-				});
-
-				navBtn.setAttribute('tabindex', '0');
-				navBtn.setAttribute('role', 'button');
+			const popupElement = event.popup.getElement();
+			if (popupElement === undefined) {
+				return;
 			}
-
-			const osmLink = popupEl.querySelector('.popup-secondary');
-			if (osmLink) {
-				osmLink.setAttribute('role', 'link');
-				osmLink.setAttribute('tabindex', '0');
-			}
-		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Unknown error';
+			wireActions(popupElement, facility);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
 			logger.info('Failed to attach popup action handlers:', message);
 		}
 	});

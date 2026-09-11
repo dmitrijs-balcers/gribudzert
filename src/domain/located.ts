@@ -1,4 +1,5 @@
 import type { Facility } from './facility';
+import { facilityId } from './facility';
 import type { LatLon, Meters } from './geo';
 import { distanceBetween } from './geo';
 
@@ -48,3 +49,18 @@ export const findNearest = <F extends Facility>(
 	const index = firstNearestIndex(located);
 	return index === -1 ? null : (located[index]?.facility ?? null);
 };
+
+export const sameLocated = (a: Located<Facility>, b: Located<Facility>): boolean =>
+	facilityId(a.facility.osm) === facilityId(b.facility.osm) &&
+	a.distance === b.distance &&
+	a.isNearest === b.isNearest;
+
+export const sameLocatedList = (
+	a: readonly Located<Facility>[],
+	b: readonly Located<Facility>[]
+): boolean =>
+	a.length === b.length &&
+	a.every((item, index) => {
+		const other = b[index];
+		return other !== undefined && sameLocated(item, other);
+	});

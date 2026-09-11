@@ -61,6 +61,14 @@ export {
 	metersPerSecond,
 	metersPerSecondLiteral,
 } from './geo';
+export type { GuidanceCourse, GuidanceEvent, GuidanceState, GuidanceTarget } from './guidance';
+export {
+	applyGuidance,
+	guidanceCourse,
+	guidanceTargetOf,
+	initialGuidanceState,
+	isGuidedTo,
+} from './guidance';
 export type { InstallHistory, InvitationPolicy, InvitationVerdict } from './install-invitation';
 export {
 	invitationVerdict,
@@ -70,7 +78,14 @@ export {
 	recordVisit,
 } from './install-invitation';
 export type { Located } from './located';
-export { findNearest, markNearest, nearestOf, withDistances } from './located';
+export {
+	findNearest,
+	markNearest,
+	nearestOf,
+	sameLocated,
+	sameLocatedList,
+	withDistances,
+} from './located';
 export type { MapTileKey } from './map-tile';
 export { mapTileKey, parseMapTileKey } from './map-tile';
 export type {

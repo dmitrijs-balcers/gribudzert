@@ -2,6 +2,7 @@ import * as L from 'leaflet';
 import {
 	trackAreaExplored,
 	trackEmptyArea,
+	trackGuidanceStarted,
 	trackLayerDisabled,
 	trackLayerEnabled,
 	trackLocateFailed,
@@ -21,6 +22,10 @@ import {
 } from '../core/config';
 import type {
 	Facility,
+	GuidanceCourse,
+	GuidanceEvent,
+	GuidanceState,
+	GuidanceTarget,
 	LatLon,
 	Located,
 	UserPosition,
@@ -29,10 +34,15 @@ import type {
 	Zoom,
 } from '../domain';
 import {
-	bearingBetween,
+	applyGuidance,
 	compassPointOf,
 	distanceBetween,
+	guidanceCourse,
+	guidanceTargetOf,
+	initialGuidanceState,
+	isGuidedTo,
 	isWaterFacility,
+	sameLocatedList,
 	timestampNow,
 	zoom,
 } from '../domain';
@@ -40,6 +50,7 @@ import { defaultSnapshotStore, snapshotFrom } from '../features/cache';
 import type { Snapshot } from '../features/cache/snapshot';
 import { currentConnectivity, observeConnectivity } from '../features/connectivity';
 import { composeQuery, fetchFacilities, overpassSelector } from '../features/data';
+import { directionsPlatformOf } from '../features/directions';
 import type {
 	BeelineLayer,
 	FollowController,
@@ -57,6 +68,9 @@ import {
 import type { FollowMode } from '../features/location/follow';
 import type { TrackingState } from '../features/location/tracker';
 import { addMarkers } from '../features/markers/markers';
+import type { PopupContext } from '../features/markers/popup';
+import type { Glyph } from '../features/markers/presentation';
+import { presentationOf } from '../features/markers/presentation';
 import { toTileBounds } from '../features/navigation/bounds';
 import { createUserInteractionSource } from '../features/navigation/user-interaction';
 import { createOneHandZoomHandler } from '../features/zoom-gesture';
@@ -70,14 +84,16 @@ import type { LayerPicker } from '../ui/layer-picker';
 import { createLayerPicker } from '../ui/layer-picker';
 import type { LocateButtonView, LocateControl } from '../ui/locate-control';
 import { createLocateControl } from '../ui/locate-control';
-import { createNearestHud } from '../ui/nearest-hud';
+import type { GuidanceHudView } from '../ui/guidance-hud';
+import { createGuidanceHud } from '../ui/guidance-hud';
 import { createProvenanceIndicator } from '../ui/provenance-indicator';
 import { dismissSplash } from '../ui/splash';
 import { isCoarsePointer } from '../ui/pointer';
 import * as logger from '../utils/logger';
-import type { LayerKind } from './layers';
+import type { FacilityLayers, LayerKind } from './layers';
 import {
 	activeLayerCount,
+	clearLayerMarkers,
 	createFacilityLayers,
 	disableLayer,
 	enableLayer,
@@ -98,7 +114,8 @@ import { createSyncRuntime, initialSyncState } from './sync';
 
 export const MAP_CONTAINER_ID = 'map';
 
-const NEAREST_WATER_GLYPH = '🚰';
+const NEAREST_WATER_GLYPH: Glyph = { kind: 'emoji', char: '🚰' };
+const NEAREST_WATER_TITLE = 'Nearest water';
 
 const VIEWPORT_DEBOUNCE_MS = 300;
 
@@ -158,6 +175,84 @@ const toLocatedWater = (item: Located<Facility>): Located<WaterFacility> | null 
 	isWaterFacility(item.facility)
 		? { facility: item.facility, distance: item.distance, isNearest: item.isNearest }
 		: null;
+
+const guidanceHudViewOf = (target: GuidanceTarget, course: GuidanceCourse): GuidanceHudView => {
+	const shown = {
+		kind: 'shown',
+		distance: course.distance,
+		bearing: course.bearing,
+		label: compassPointOf(course.bearing),
+	} as const;
+	switch (target.kind) {
+		case 'nearest-water':
+			return {
+				...shown,
+				glyph: NEAREST_WATER_GLYPH,
+				title: NEAREST_WATER_TITLE,
+				dismissible: false,
+			};
+		case 'chosen': {
+			const presentation = presentationOf(target.facility);
+			return {
+				...shown,
+				glyph: presentation.glyph,
+				title: `Guiding to ${presentation.label}`,
+				dismissible: true,
+			};
+		}
+		default: {
+			const exhaustive: never = target;
+			return exhaustive;
+		}
+	}
+};
+
+type MarkerRenderer = {
+	readonly render: (renders: readonly LayerRender[]) => void;
+	readonly clear: (kind: LayerKind) => void;
+	readonly clearAll: () => void;
+};
+
+/**
+ * Rebuilds a layer's markers only when its items changed, so a popup that is
+ * open on a marker survives the map settling again over the same points.
+ */
+const createMarkerRenderer = (
+	layers: FacilityLayers,
+	popupContext: PopupContext
+): MarkerRenderer => {
+	let rendered: Partial<Record<LayerKind, readonly Located<Facility>[]>> = {};
+
+	const renderLayer = (layerRender: LayerRender): void => {
+		const previous = rendered[layerRender.kind];
+		if (previous !== undefined && sameLocatedList(previous, layerRender.items)) {
+			return;
+		}
+		const layer = layers[layerRender.kind];
+		clearLayerMarkers(layer);
+		addMarkers(layerRender.items, layer.group, popupContext);
+		rendered = { ...rendered, [layerRender.kind]: layerRender.items };
+	};
+
+	const clear = (kind: LayerKind): void => {
+		clearLayerMarkers(layers[kind]);
+		rendered = { ...rendered, [kind]: undefined };
+	};
+
+	return {
+		render: (renders) => {
+			for (const layerRender of renders) {
+				renderLayer(layerRender);
+			}
+		},
+		clear,
+		clearAll: () => {
+			for (const kind of LAYER_KINDS) {
+				clear(kind);
+			}
+		},
+	};
+};
 
 const isMarkerAt = (layer: L.Layer, coordinates: LatLon): layer is L.Marker => {
 	if (!(layer instanceof L.Marker)) {
@@ -355,50 +450,80 @@ const bootstrapOrThrow = async (
 	}
 
 	let nearestWater: Located<WaterFacility> | null = null;
+	let guidance: GuidanceState = initialGuidanceState;
 	let lastPosition: UserPosition | null = null;
 	let popupOpen = false;
 	let rankedFrom: LatLon | null = null;
 
+	const guidanceTarget = (): GuidanceTarget | null =>
+		guidanceTargetOf(guidance, layers.water.active ? (nearestWater?.facility ?? null) : null);
+
+	const hideGuidance = (): void => {
+		hud.render({ kind: 'hidden' });
+		beelineLayer.clear();
+	};
+
 	const refreshHudAndBeeline = (position: UserPosition): void => {
-		if (nearestWater === null || !layers.water.active) {
-			hud.render({ kind: 'hidden' });
-			beelineLayer.clear();
+		const target = guidanceTarget();
+		if (target === null) {
+			hideGuidance();
 			return;
 		}
-		const to = nearestWater.facility.coordinates;
-		const bearing = bearingBetween(position, to);
-		hud.render({
-			kind: 'shown',
-			distance: distanceBetween(position, to),
-			bearing,
-			glyph: NEAREST_WATER_GLYPH,
-			label: compassPointOf(bearing),
-		});
-		beelineLayer.show(position, to);
+		hud.render(guidanceHudViewOf(target, guidanceCourse(position, target)));
+		beelineLayer.show(position, target.facility.coordinates);
 	};
 
-	const flyToNearestWaterAndOpenPopup = (): void => {
-		if (nearestWater === null) {
+	const refreshGuidance = (): void => {
+		if (lastPosition === null) {
+			hideGuidance();
 			return;
 		}
-		const coordinates = nearestWater.facility.coordinates;
+		refreshHudAndBeeline(lastPosition);
+	};
+
+	const dispatchGuidance = (event: GuidanceEvent): void => {
+		guidance = applyGuidance(guidance, event);
+		refreshGuidance();
+	};
+
+	const flyToGuidanceTargetAndOpenPopup = (): void => {
+		const target = guidanceTarget();
+		if (target === null) {
+			return;
+		}
+		const { facility } = target;
+		const { coordinates } = facility;
 		map.flyTo([coordinates.lat, coordinates.lon], Math.max(map.getZoom(), LOCATE_ZOOM));
-		findMarkerAt(layers.water.group, coordinates)?.openPopup();
+		findMarkerAt(layers[facility.kind].group, coordinates)?.openPopup();
 	};
 
-	const hud = createNearestHud(map, () => {
-		followController.unfollow();
-		flyToNearestWaterAndOpenPopup();
+	const hud = createGuidanceHud(map, {
+		onActivate: () => {
+			followController.unfollow();
+			flyToGuidanceTargetAndOpenPopup();
+		},
+		onDismiss: () => dispatchGuidance({ kind: 'guidance-dismissed' }),
 	});
+
+	const popupContext: PopupContext = {
+		platform: directionsPlatformOf(navigator.userAgent),
+		onSelect: (facility) => {
+			if (isGuidedTo(guidance, facility)) {
+				return;
+			}
+			trackGuidanceStarted(facility.kind);
+			dispatchGuidance({ kind: 'facility-chosen', facility });
+		},
+	};
+
+	const markerRenderer = createMarkerRenderer(layers, popupContext);
 
 	const reportNearest = (kind: LayerKind, nearest: Located<Facility> | null): void => {
 		if (kind !== 'water') {
 			return;
 		}
 		nearestWater = nearest === null ? null : toLocatedWater(nearest);
-		if (lastPosition !== null) {
-			refreshHudAndBeeline(lastPosition);
-		}
+		refreshGuidance();
 	};
 
 	const store = defaultSnapshotStore();
@@ -411,27 +536,13 @@ const bootstrapOrThrow = async (
 			});
 	};
 
-	const render = (renders: readonly LayerRender[]): void => {
-		for (const layerRender of renders) {
-			const layer = layers[layerRender.kind];
-			layer.group.clearLayers();
-			addMarkers(layerRender.items, layer.group);
-		}
-	};
-
-	const clearRenderAll = (): void => {
-		for (const kind of LAYER_KINDS) {
-			layers[kind].group.clearLayers();
-		}
-	};
-
 	const runtime: SyncRuntime = createSyncRuntime(
 		{
 			now: timestampNow,
 			queryFor: (kinds) => composeQuery(kinds.map((kind) => layers[kind].selector)),
 			fetchFacilities,
-			render,
-			clearRender: clearRenderAll,
+			render: markerRenderer.render,
+			clearRender: markerRenderer.clearAll,
 			notify: notices.announce,
 			clearStatus: notices.clearStatus,
 			showLoading,
@@ -532,12 +643,6 @@ const bootstrapOrThrow = async (
 
 	tracker.start();
 
-	const onWaterLayerDisabled = (): void => {
-		nearestWater = null;
-		hud.render({ kind: 'hidden' });
-		beelineLayer.clear();
-	};
-
 	const layerActiveState = (): Readonly<Record<LayerKind, boolean>> => ({
 		water: layers.water.active,
 		toilet: layers.toilet.active,
@@ -554,11 +659,13 @@ const bootstrapOrThrow = async (
 				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: true });
 			} else {
 				disableLayer(layer, map);
+				markerRenderer.clear(kind);
 				trackLayerDisabled(layer.label, activeLayerCount(layers));
 				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: false });
 				if (kind === 'water') {
-					onWaterLayerDisabled();
+					nearestWater = null;
 				}
+				dispatchGuidance({ kind: 'layer-disabled', layer: kind });
 			}
 			layerPicker.render(layerActiveState());
 		},
