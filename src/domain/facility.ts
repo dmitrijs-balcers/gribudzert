@@ -39,7 +39,14 @@ export type Photo = {
 	readonly pageUrl: string;
 };
 
-type FacilityBase = {
+export type FacilityMedia = {
+	readonly links: readonly ExternalLink[];
+	readonly photo: Photo | null;
+};
+
+export const NO_MEDIA: FacilityMedia = { links: [], photo: null };
+
+export type FacilityBase = {
 	readonly id: FacilityId;
 	readonly osm: OsmRef;
 	readonly coordinates: Coordinates;
@@ -47,8 +54,7 @@ type FacilityBase = {
 	readonly operator?: string;
 	readonly note?: string;
 	readonly openingHours?: string;
-	readonly links?: readonly ExternalLink[];
-	readonly photo?: Photo;
+	readonly media: FacilityMedia;
 };
 
 export type WaterFacility = FacilityBase & {
@@ -120,6 +126,11 @@ const isRecord = (value: unknown): value is UnknownRecord =>
 const isOsmType = (value: unknown): value is OsmType =>
 	value === 'node' || value === 'way' || value === 'relation';
 
+const parseString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+const parseFiniteNumber = (value: unknown): number | null =>
+	typeof value === 'number' && Number.isFinite(value) ? value : null;
+
 const parseOsmRef = (value: unknown): OsmRef | null => {
 	if (!isRecord(value)) {
 		return null;
@@ -142,18 +153,17 @@ const parseCoordinatesField = (value: unknown): Coordinates | null => {
 	return coordinates(lat, lon);
 };
 
-type ParsedOptionalString =
-	| { readonly present: false }
-	| { readonly present: true; readonly value: string };
+type Parsed<T> = { readonly present: false } | { readonly present: true; readonly value: T };
 
-const parseOptionalString = (value: unknown): ParsedOptionalString | null => {
+const parseOptional = <T>(
+	value: unknown,
+	parse: (value: unknown) => T | null
+): Parsed<T> | null => {
 	if (value === undefined) {
 		return { present: false };
 	}
-	if (typeof value === 'string') {
-		return { present: true, value };
-	}
-	return null;
+	const parsed = parse(value);
+	return parsed === null ? null : { present: true, value: parsed };
 };
 
 const isExternalLinkKind = (value: unknown): value is ExternalLinkKind =>
@@ -174,31 +184,17 @@ const parseExternalLink = (value: unknown): ExternalLink | null => {
 	return { kind, url, label };
 };
 
-type ParsedOptionalLinks =
-	| { readonly present: false }
-	| { readonly present: true; readonly value: readonly ExternalLink[] };
+const isExternalLink = (link: ExternalLink | null): link is ExternalLink => link !== null;
 
-const parseOptionalLinks = (value: unknown): ParsedOptionalLinks | null => {
-	if (value === undefined) {
-		return { present: false };
-	}
+const parseLinks = (value: unknown): readonly ExternalLink[] | null => {
 	if (!Array.isArray(value)) {
 		return null;
 	}
 	const links = value.map(parseExternalLink);
-	return links.every((link): link is ExternalLink => link !== null)
-		? { present: true, value: links }
-		: null;
+	return links.every(isExternalLink) ? links : null;
 };
 
-type ParsedOptionalPhoto =
-	| { readonly present: false }
-	| { readonly present: true; readonly value: Photo };
-
-const parseOptionalPhoto = (value: unknown): ParsedOptionalPhoto | null => {
-	if (value === undefined) {
-		return { present: false };
-	}
+const parsePhoto = (value: unknown): Photo | null => {
 	if (!isRecord(value)) {
 		return null;
 	}
@@ -206,22 +202,25 @@ const parseOptionalPhoto = (value: unknown): ParsedOptionalPhoto | null => {
 	if (typeof thumbnailUrl !== 'string' || typeof pageUrl !== 'string') {
 		return null;
 	}
-	return { present: true, value: { thumbnailUrl, pageUrl } };
+	return { thumbnailUrl, pageUrl };
 };
 
-type ParsedFacilityBase = {
-	readonly id: FacilityId;
-	readonly osm: OsmRef;
-	readonly coordinates: Coordinates;
-	readonly name?: string;
-	readonly operator?: string;
-	readonly note?: string;
-	readonly openingHours?: string;
-	readonly links?: readonly ExternalLink[];
-	readonly photo?: Photo;
+export const parseMedia = (value: unknown): FacilityMedia | null => {
+	if (!isRecord(value)) {
+		return null;
+	}
+	const links = parseLinks(value.links);
+	if (links === null) {
+		return null;
+	}
+	if (value.photo === null) {
+		return { links, photo: null };
+	}
+	const photo = parsePhoto(value.photo);
+	return photo === null ? null : { links, photo };
 };
 
-const parseFacilityBase = (record: UnknownRecord): ParsedFacilityBase | null => {
+const parseFacilityBase = (record: UnknownRecord): FacilityBase | null => {
 	const osm = parseOsmRef(record.osm);
 	if (osm === null || record.id !== facilityId(osm)) {
 		return null;
@@ -230,19 +229,17 @@ const parseFacilityBase = (record: UnknownRecord): ParsedFacilityBase | null => 
 	if (parsedCoordinates === null) {
 		return null;
 	}
-	const name = parseOptionalString(record.name);
-	const operator = parseOptionalString(record.operator);
-	const note = parseOptionalString(record.note);
-	const openingHours = parseOptionalString(record.openingHours);
-	const links = parseOptionalLinks(record.links);
-	const photo = parseOptionalPhoto(record.photo);
+	const name = parseOptional(record.name, parseString);
+	const operator = parseOptional(record.operator, parseString);
+	const note = parseOptional(record.note, parseString);
+	const openingHours = parseOptional(record.openingHours, parseString);
+	const media = parseOptional(record.media, parseMedia);
 	if (
 		name === null ||
 		operator === null ||
 		note === null ||
 		openingHours === null ||
-		links === null ||
-		photo === null
+		media === null
 	) {
 		return null;
 	}
@@ -254,8 +251,7 @@ const parseFacilityBase = (record: UnknownRecord): ParsedFacilityBase | null => 
 		...(operator.present ? { operator: operator.value } : {}),
 		...(note.present ? { note: note.value } : {}),
 		...(openingHours.present ? { openingHours: openingHours.value } : {}),
-		...(links.present ? { links: links.value } : {}),
-		...(photo.present ? { photo: photo.value } : {}),
+		media: media.present ? media.value : NO_MEDIA,
 	};
 };
 
@@ -331,12 +327,9 @@ const parseViewpointFacility = (record: UnknownRecord): ViewpointFacility | null
 	if (!isViewpointProminence(record.prominence)) {
 		return null;
 	}
-	const description = parseOptionalString(record.description);
-	if (description === null) {
-		return null;
-	}
-	const elevation = record.elevation;
-	if (elevation !== undefined && (typeof elevation !== 'number' || !Number.isFinite(elevation))) {
+	const description = parseOptional(record.description, parseString);
+	const elevation = parseOptional(record.elevation, parseFiniteNumber);
+	if (description === null || elevation === null) {
 		return null;
 	}
 	return {
@@ -344,7 +337,7 @@ const parseViewpointFacility = (record: UnknownRecord): ViewpointFacility | null
 		kind: 'viewpoint',
 		prominence: record.prominence,
 		...(description.present ? { description: description.value } : {}),
-		...(elevation !== undefined ? { elevation } : {}),
+		...(elevation.present ? { elevation: elevation.value } : {}),
 	};
 };
 

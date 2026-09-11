@@ -7,8 +7,8 @@ import type {
 	WaterSourceType,
 } from '../../domain';
 import { formatDistance } from '../../domain';
-import type { Glyph } from './presentation';
-import { NON_DRINKABLE_BADGE_COLOR, presentationOf, VIEWPOINT_BADGE_COLORS } from './presentation';
+import type { Glyph } from '../presentation';
+import { NON_DRINKABLE_BADGE_COLOR, presentationOf, VIEWPOINT_BADGE_COLORS } from '../presentation';
 import './markers.css';
 
 export const NEAREST_MARKER_CLASS = 'nearest-marker';

@@ -3,6 +3,8 @@ import {
 	commonsOf,
 	imageOf,
 	mediaFromTags,
+	NO_MEDIA,
+	parseMedia,
 	websiteLinkOf,
 	wikidataLinkOf,
 	wikipediaLinkOf,
@@ -175,5 +177,27 @@ describe('Collecting media from tags', () => {
 
 	it('yields nothing for tags without media', () => {
 		expect(mediaFromTags({ amenity: 'drinking_water' })).toEqual({ links: [], photo: null });
+	});
+});
+
+describe('Parsing cached media', () => {
+	const photo = {
+		thumbnailUrl: 'https://commons.wikimedia.org/wiki/Special:FilePath/Hill.jpg?width=640',
+		pageUrl: 'https://commons.wikimedia.org/wiki/File:Hill.jpg',
+	};
+	const link = { kind: 'wikipedia', url: 'https://en.wikipedia.org/wiki/Hill', label: 'Wikipedia' };
+
+	it('accepts links with a photo or with none', () => {
+		expect(parseMedia({ links: [link], photo })).toEqual({ links: [link], photo });
+		expect(parseMedia({ links: [], photo: null })).toEqual(NO_MEDIA);
+	});
+
+	it('rejects anything that is not a links list plus a photo or null', () => {
+		expect(parseMedia(null)).toBeNull();
+		expect(parseMedia([])).toBeNull();
+		expect(parseMedia({ links: [], photo: undefined })).toBeNull();
+		expect(parseMedia({ links: 'wikipedia', photo: null })).toBeNull();
+		expect(parseMedia({ links: [{ ...link, kind: 'myspace' }], photo: null })).toBeNull();
+		expect(parseMedia({ links: [], photo: { pageUrl: photo.pageUrl } })).toBeNull();
 	});
 });

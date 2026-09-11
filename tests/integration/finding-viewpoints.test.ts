@@ -4,6 +4,7 @@ import type { Coordinates } from '../../src/domain';
 import {
 	coordinates,
 	facilityFromTags,
+	NO_MEDIA,
 	parseFacility,
 	viewpointProminenceOf,
 } from '../../src/domain';
@@ -126,31 +127,46 @@ describe('viewpoint facility round-trip', () => {
 
 		const roundTripped = parseFacility(JSON.parse(JSON.stringify(facility)));
 		expect(roundTripped).toEqual(facility);
-		expect(roundTripped?.photo).toBeDefined();
-		expect(roundTripped?.links).toHaveLength(2);
+		expect(roundTripped?.media.photo).not.toBeNull();
+		expect(roundTripped?.media.links).toHaveLength(2);
 	});
 
-	it('still accepts a cached viewpoint saved before photos and links were stored', async () => {
+	it('still accepts a cached viewpoint saved before media was stored, with no media', () => {
 		const facility = facilityFromTags(
 			{ type: 'node', id: 303 },
 			requireCoordinates(56.954, 24.109),
 			NOTABLE_VIEWPOINT.tags
 		);
-		const { photo, links, ...legacy } = JSON.parse(JSON.stringify(facility));
-		expect(photo).toBeDefined();
-		expect(links).toBeDefined();
+		const { media, ...legacy } = JSON.parse(JSON.stringify(facility));
+		expect(media.photo).not.toBeNull();
 
-		expect(parseFacility(legacy)).toEqual(legacy);
+		expect(parseFacility(legacy)).toEqual({ ...legacy, media: NO_MEDIA });
 	});
 
-	it('rejects a cached viewpoint whose links carry an unknown kind', async () => {
+	it('rejects a cached viewpoint whose media links carry an unknown kind', () => {
 		const facility = facilityFromTags(
 			{ type: 'node', id: 303 },
 			requireCoordinates(56.954, 24.109),
 			NOTABLE_VIEWPOINT.tags
 		);
-		const tampered = { ...facility, links: [{ kind: 'myspace', url: 'https://x', label: 'x' }] };
+		const tampered = {
+			...facility,
+			media: { links: [{ kind: 'myspace', url: 'https://x', label: 'x' }], photo: null },
+		};
 		expect(parseFacility(tampered)).toBeNull();
+	});
+
+	it('rejects a cached viewpoint whose media is malformed', () => {
+		const facility = facilityFromTags(
+			{ type: 'node', id: 303 },
+			requireCoordinates(56.954, 24.109),
+			NOTABLE_VIEWPOINT.tags
+		);
+		expect(parseFacility({ ...facility, media: 'none' })).toBeNull();
+		expect(parseFacility({ ...facility, media: { links: [] } })).toBeNull();
+		expect(
+			parseFacility({ ...facility, media: { links: [], photo: { pageUrl: 'x' } } })
+		).toBeNull();
 	});
 
 	it('rejects a viewpoint with an invalid prominence value', () => {

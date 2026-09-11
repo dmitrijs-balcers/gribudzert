@@ -1,5 +1,6 @@
 import type {
 	Facility,
+	FacilityBase,
 	OsmRef,
 	ToiletFacility,
 	ViewpointFacility,
@@ -85,20 +86,16 @@ const parseElevation = (value: string | undefined): number | undefined => {
 	return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-const baseFields = (osm: OsmRef, coordinates: Coordinates, tags: OsmTags) => {
-	const media = mediaFromTags(tags);
-	return {
-		id: facilityId(osm),
-		osm,
-		coordinates,
-		...(tags.name !== undefined ? { name: tags.name } : {}),
-		...(tags.operator !== undefined ? { operator: tags.operator } : {}),
-		...(tags.note !== undefined ? { note: tags.note } : {}),
-		...(tags.opening_hours !== undefined ? { openingHours: tags.opening_hours } : {}),
-		...(media.links.length > 0 ? { links: media.links } : {}),
-		...(media.photo !== null ? { photo: media.photo } : {}),
-	};
-};
+const baseFields = (osm: OsmRef, coordinates: Coordinates, tags: OsmTags): FacilityBase => ({
+	id: facilityId(osm),
+	osm,
+	coordinates,
+	...(tags.name !== undefined ? { name: tags.name } : {}),
+	...(tags.operator !== undefined ? { operator: tags.operator } : {}),
+	...(tags.note !== undefined ? { note: tags.note } : {}),
+	...(tags.opening_hours !== undefined ? { openingHours: tags.opening_hours } : {}),
+	media: mediaFromTags(tags),
+});
 
 const waterFacilityFromTags = (
 	osm: OsmRef,

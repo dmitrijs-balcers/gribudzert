@@ -3,13 +3,12 @@ import { trackMarkerClicked } from '../../analytics';
 import type { Facility, Located } from '../../domain';
 import { appearanceOf, createFacilityIcon, rootAttributesOf } from './styling';
 
-export type FacilityLayer = L.FeatureGroup<L.Marker>;
-
 export type MarkerHandlers = {
 	readonly onSelect: (item: Located<Facility>) => void;
 };
 
 export const SELECTED_MARKER_CLASS = 'facility-marker--selected';
+export const SELECTED_MARKER_Z_OFFSET = 1000;
 
 const applyRootAttributes = (
 	marker: L.Marker,
@@ -38,7 +37,7 @@ export function createFacilityMarker(item: Located<Facility>): L.Marker {
 	return marker;
 }
 
-const attachSelectHandler = (
+export const attachSelectHandler = (
 	marker: L.Marker,
 	item: Located<Facility>,
 	handlers: MarkerHandlers
@@ -49,14 +48,7 @@ const attachSelectHandler = (
 	});
 };
 
-export function addMarkers(
-	items: readonly Located<Facility>[],
-	layer: FacilityLayer,
-	handlers: MarkerHandlers
-): void {
-	for (const item of items) {
-		const marker = createFacilityMarker(item);
-		marker.addTo(layer);
-		attachSelectHandler(marker, item, handlers);
-	}
-}
+export const setMarkerHighlighted = (marker: L.Marker, highlighted: boolean): void => {
+	marker.getElement()?.classList.toggle(SELECTED_MARKER_CLASS, highlighted);
+	marker.setZIndexOffset(highlighted ? SELECTED_MARKER_Z_OFFSET : 0);
+};

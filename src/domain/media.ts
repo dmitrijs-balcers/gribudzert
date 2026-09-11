@@ -1,10 +1,5 @@
-import type { ExternalLink, Photo } from './facility';
+import type { ExternalLink, FacilityMedia, Photo } from './facility';
 import type { OsmTags } from './osm';
-
-export type FacilityMedia = {
-	readonly links: readonly ExternalLink[];
-	readonly photo: Photo | null;
-};
 
 export type CommonsMedia =
 	| { readonly kind: 'photo'; readonly photo: Photo }

@@ -16,8 +16,10 @@ export type {
 	ExternalLink,
 	ExternalLinkKind,
 	Facility,
+	FacilityBase,
 	FacilityId,
 	FacilityKind,
+	FacilityMedia,
 	OsmRef,
 	OsmType,
 	Photo,
@@ -36,8 +38,10 @@ export {
 	isViewpointFacility,
 	isWaterFacility,
 	isWheelchairAccessible,
+	NO_MEDIA,
 	osmUrl,
 	parseFacility,
+	parseMedia,
 	wheelchairAccessOf,
 } from './facility';
 export type {
@@ -91,7 +95,7 @@ export {
 } from './located';
 export type { MapTileKey } from './map-tile';
 export { mapTileKey, parseMapTileKey } from './map-tile';
-export type { CommonsMedia, FacilityMedia } from './media';
+export type { CommonsMedia } from './media';
 export {
 	commonsOf,
 	imageOf,

@@ -1,14 +1,60 @@
 import { describe, expect, it } from 'vitest';
-import type { FacilityId } from '../../src/domain';
-import { facilityId } from '../../src/domain';
-import type { SheetState } from '../../src/ui/detail-sheet/sheet-state';
-import { applySheet, initialSheetState, isSheetOpen } from '../../src/ui/detail-sheet/sheet-state';
+import type { Facility, Located, Meters } from '../../src/domain';
+import { coordinates, facilityFromTags, metersLiteral } from '../../src/domain';
+import type { DetailView } from '../../src/features/detail';
+import { detailViewOf } from '../../src/features/detail';
+import type { SheetState } from '../../src/ui/detail-sheet';
+import {
+	applySheet,
+	initialSheetState,
+	isSheetOpen,
+	photoShown,
+	sheetTransition,
+} from '../../src/ui/detail-sheet';
+import { ACCESSIBLE_TOILET, NON_DRINKABLE, NOTABLE_VIEWPOINT } from '../fixtures';
 
-const tap: FacilityId = facilityId({ type: 'node', id: 101 });
-const toilet: FacilityId = facilityId({ type: 'way', id: 201 });
+const facilityOf = (
+	osm: { readonly type: 'node' | 'way'; readonly id: number },
+	point: { readonly lat: number; readonly lon: number },
+	tags: Readonly<Record<string, string>>
+): Facility => {
+	const position = coordinates(point.lat, point.lon);
+	if (position === null) {
+		throw new Error('fixture has invalid coordinates');
+	}
+	const facility = facilityFromTags(osm, position, tags);
+	if (facility === null) {
+		throw new Error('fixture tags do not describe a facility');
+	}
+	return facility;
+};
 
-const openOn = (facility: FacilityId): SheetState =>
-	applySheet(initialSheetState, { kind: 'shown', facilityId: facility, expansion: 'peek' });
+const detailOf = (facility: Facility, distance: Meters): DetailView => {
+	const located: Located<Facility> = { facility, distance, isNearest: false };
+	return detailViewOf(located, null, 'web');
+};
+
+const tap = detailOf(
+	facilityOf(NON_DRINKABLE, NON_DRINKABLE, NON_DRINKABLE.tags),
+	metersLiteral(420)
+);
+const tapCloser = detailOf(
+	facilityOf(NON_DRINKABLE, NON_DRINKABLE, NON_DRINKABLE.tags),
+	metersLiteral(80)
+);
+const toilet = detailOf(
+	facilityOf(ACCESSIBLE_TOILET, ACCESSIBLE_TOILET.center, ACCESSIBLE_TOILET.tags),
+	metersLiteral(300)
+);
+const viewpoint = detailOf(
+	facilityOf(NOTABLE_VIEWPOINT, NOTABLE_VIEWPOINT, NOTABLE_VIEWPOINT.tags),
+	metersLiteral(900)
+);
+
+const openOn = (detail: DetailView): SheetState =>
+	applySheet(initialSheetState, { kind: 'shown', detail });
+
+const expand = (state: SheetState): SheetState => applySheet(state, { kind: 'toggled' });
 
 describe('Opening and closing the sheet', () => {
 	it('starts closed', () => {
@@ -16,8 +62,8 @@ describe('Opening and closing the sheet', () => {
 		expect(isSheetOpen(initialSheetState)).toBe(false);
 	});
 
-	it('opens in the requested state for a point', () => {
-		expect(openOn(tap)).toEqual({ kind: 'open', facilityId: tap, expansion: 'peek' });
+	it('opens a point in peek with its photo shown', () => {
+		expect(openOn(tap)).toEqual({ kind: 'open', detail: tap, expansion: 'peek', photo: 'shown' });
 		expect(isSheetOpen(openOn(tap))).toBe(true);
 	});
 
@@ -25,41 +71,106 @@ describe('Opening and closing the sheet', () => {
 		expect(applySheet(openOn(tap), { kind: 'hidden' })).toEqual(initialSheetState);
 	});
 
-	it('keeps its expansion when the same point is shown again with fresh data', () => {
-		const expanded = applySheet(openOn(tap), { kind: 'expanded' });
+	it('keeps expansion and photo status but takes fresh data when the same point is shown again', () => {
+		const expanded = applySheet(expand(openOn(viewpoint)), { kind: 'photo-failed' });
+		const refreshedViewpoint = detailOf(
+			facilityOf(NOTABLE_VIEWPOINT, NOTABLE_VIEWPOINT, NOTABLE_VIEWPOINT.tags),
+			metersLiteral(120)
+		);
 
-		const refreshed = applySheet(expanded, { kind: 'shown', facilityId: tap, expansion: 'peek' });
+		const refreshed = applySheet(expanded, { kind: 'shown', detail: refreshedViewpoint });
 
-		expect(refreshed).toBe(expanded);
+		expect(refreshed).toEqual({
+			kind: 'open',
+			detail: refreshedViewpoint,
+			expansion: 'full',
+			photo: 'failed',
+		});
 	});
 
 	it('starts afresh in peek when another point is shown', () => {
-		const expanded = applySheet(openOn(tap), { kind: 'expanded' });
+		const expanded = applySheet(expand(openOn(viewpoint)), { kind: 'photo-failed' });
 
-		expect(applySheet(expanded, { kind: 'shown', facilityId: toilet, expansion: 'peek' })).toEqual({
+		expect(applySheet(expanded, { kind: 'shown', detail: toilet })).toEqual({
 			kind: 'open',
-			facilityId: toilet,
+			detail: toilet,
 			expansion: 'peek',
+			photo: 'shown',
 		});
 	});
 });
 
 describe('Expanding and collapsing the sheet', () => {
-	it('expands, collapses and toggles between peek and full', () => {
+	it('toggles between peek and full and collapses back to peek', () => {
 		const open = openOn(tap);
 
-		expect(applySheet(open, { kind: 'expanded' }).kind === 'open').toBe(true);
-		expect(applySheet(open, { kind: 'expanded' })).toEqual({ ...open, expansion: 'full' });
-		expect(applySheet(applySheet(open, { kind: 'expanded' }), { kind: 'collapsed' })).toEqual(open);
-		expect(applySheet(open, { kind: 'toggled' })).toEqual({ ...open, expansion: 'full' });
-		expect(applySheet(applySheet(open, { kind: 'toggled' }), { kind: 'toggled' })).toEqual(open);
+		expect(expand(open)).toEqual({ ...open, expansion: 'full' });
+		expect(expand(expand(open))).toEqual(open);
+		expect(applySheet(expand(open), { kind: 'collapsed' })).toEqual(open);
 	});
 
 	it('returns the same state when nothing changes', () => {
 		const open = openOn(tap);
 
 		expect(applySheet(open, { kind: 'collapsed' })).toBe(open);
-		expect(applySheet(initialSheetState, { kind: 'expanded' })).toBe(initialSheetState);
+		expect(applySheet(initialSheetState, { kind: 'collapsed' })).toBe(initialSheetState);
 		expect(applySheet(initialSheetState, { kind: 'toggled' })).toBe(initialSheetState);
+		expect(applySheet(initialSheetState, { kind: 'photo-failed' })).toBe(initialSheetState);
+	});
+});
+
+describe('Showing the photo', () => {
+	it('shows a photo only for an open point that has one and whose image loaded', () => {
+		expect(photoShown(initialSheetState)).toBe(false);
+		expect(photoShown(openOn(tap))).toBe(false);
+		expect(photoShown(openOn(viewpoint))).toBe(true);
+	});
+
+	it('hides the photo once its image fails and remembers the failure', () => {
+		const failed = applySheet(openOn(viewpoint), { kind: 'photo-failed' });
+
+		expect(photoShown(failed)).toBe(false);
+		expect(applySheet(failed, { kind: 'photo-failed' })).toBe(failed);
+	});
+});
+
+describe('Describing what changed between two sheet states', () => {
+	it('reports opening as a facility change', () => {
+		expect(sheetTransition(initialSheetState, openOn(tap))).toEqual({
+			opened: true,
+			closed: false,
+			facilityChanged: true,
+		});
+	});
+
+	it('reports closing without a facility change', () => {
+		expect(sheetTransition(openOn(tap), initialSheetState)).toEqual({
+			opened: false,
+			closed: true,
+			facilityChanged: false,
+		});
+	});
+
+	it('reports switching points while open', () => {
+		expect(sheetTransition(openOn(tap), openOn(toilet))).toEqual({
+			opened: false,
+			closed: false,
+			facilityChanged: true,
+		});
+	});
+
+	it('reports nothing for a live refresh of the same point', () => {
+		const refreshed = applySheet(openOn(tap), { kind: 'shown', detail: tapCloser });
+
+		expect(sheetTransition(openOn(tap), refreshed)).toEqual({
+			opened: false,
+			closed: false,
+			facilityChanged: false,
+		});
+		expect(sheetTransition(initialSheetState, initialSheetState)).toEqual({
+			opened: false,
+			closed: false,
+			facilityChanged: false,
+		});
 	});
 });

@@ -19,7 +19,7 @@ import type {
 import { compassPointOf, osmUrl } from '../../domain';
 import type { DirectionsPlatform } from '../directions';
 import { directionsLink } from '../directions';
-import { presentationOf } from '../markers/presentation';
+import { presentationOf } from '../presentation';
 
 export type FactIcon =
 	| 'elevation'
@@ -210,7 +210,7 @@ export const detailViewOf = (
 		warnings: warningsOf(facility),
 		description: descriptionOf(facility),
 		facts: factsOf(facility),
-		photo: facility.photo ?? null,
-		links: facility.links ?? [],
+		photo: facility.media.photo,
+		links: facility.media.links,
 	};
 };

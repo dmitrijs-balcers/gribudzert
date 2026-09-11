@@ -44,7 +44,6 @@ import {
 	initialGuidanceState,
 	isGuidedTo,
 	isWaterFacility,
-	sameLocatedList,
 	timestampNow,
 	zoom,
 } from '../domain';
@@ -71,10 +70,10 @@ import {
 } from '../features/location';
 import type { FollowMode } from '../features/location/follow';
 import type { TrackingState } from '../features/location/tracker';
-import type { MarkerHandlers } from '../features/markers/markers';
-import { addMarkers, SELECTED_MARKER_CLASS } from '../features/markers/markers';
-import type { Glyph } from '../features/markers/presentation';
-import { presentationOf } from '../features/markers/presentation';
+import type { MarkerHandlers } from '../features/markers';
+import { createMarkerRenderer } from '../features/markers';
+import type { Glyph } from '../features/presentation';
+import { presentationOf } from '../features/presentation';
 import { toTileBounds } from '../features/navigation/bounds';
 import { createUserInteractionSource } from '../features/navigation/user-interaction';
 import { createOneHandZoomHandler } from '../features/zoom-gesture';
@@ -82,8 +81,8 @@ import drinkingWater from '../oql/drinking_water.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
 import viewpoints from '../oql/viewpoints.overpassql?raw';
 import { toLocationFailureCategory } from '../types/errors';
-import type { DetailSheetView } from '../ui/detail-sheet/detail-sheet';
-import { createDetailSheet } from '../ui/detail-sheet/detail-sheet';
+import type { DetailSheetView } from '../ui/detail-sheet';
+import { createDetailSheet } from '../ui/detail-sheet';
 import { initInstallPrompt } from '../ui/install-prompt';
 import type { LayerPicker } from '../ui/layer-picker';
 import { createLayerPicker } from '../ui/layer-picker';
@@ -95,10 +94,9 @@ import { createProvenanceIndicator } from '../ui/provenance-indicator';
 import { dismissSplash } from '../ui/splash';
 import { isCoarsePointer } from '../ui/pointer';
 import * as logger from '../utils/logger';
-import type { FacilityLayers, LayerKind } from './layers';
+import type { LayerKind } from './layers';
 import {
 	activeLayerCount,
-	clearLayerMarkers,
 	createFacilityLayers,
 	disableLayer,
 	enableLayer,
@@ -114,14 +112,13 @@ import {
 import type { InstalledNoticeCenter, NoticeCenter } from './notices';
 import { installNoticeCenter } from './notices';
 import { registerServiceWorker } from './service-worker-client';
-import type { LayerRender, SyncRuntime } from './sync';
+import type { SyncRuntime } from './sync';
 import { createSyncRuntime, initialSyncState } from './sync';
 
 export const MAP_CONTAINER_ID = 'map';
 
 const NEAREST_WATER_GLYPH: Glyph = { kind: 'emoji', char: '🚰' };
 const NEAREST_WATER_TITLE = 'Nearest water';
-const SELECTED_MARKER_Z_OFFSET = 1000;
 
 const VIEWPORT_DEBOUNCE_MS = 300;
 
@@ -212,72 +209,6 @@ const guidanceHudViewOf = (target: GuidanceTarget, course: GuidanceCourse): Guid
 			return exhaustive;
 		}
 	}
-};
-
-type MarkerRenderer = {
-	readonly render: (renders: readonly LayerRender[]) => void;
-	readonly clear: (kind: LayerKind) => void;
-	readonly clearAll: () => void;
-};
-
-const createMarkerRenderer = (
-	layers: FacilityLayers,
-	handlers: MarkerHandlers,
-	onRendered: () => void
-): MarkerRenderer => {
-	let rendered: Partial<Record<LayerKind, readonly Located<Facility>[]>> = {};
-
-	const renderLayer = (layerRender: LayerRender): void => {
-		const previous = rendered[layerRender.kind];
-		if (previous !== undefined && sameLocatedList(previous, layerRender.items)) {
-			return;
-		}
-		const layer = layers[layerRender.kind];
-		clearLayerMarkers(layer);
-		addMarkers(layerRender.items, layer.group, handlers);
-		rendered = { ...rendered, [layerRender.kind]: layerRender.items };
-	};
-
-	const clear = (kind: LayerKind): void => {
-		clearLayerMarkers(layers[kind]);
-		rendered = { ...rendered, [kind]: undefined };
-	};
-
-	return {
-		render: (renders) => {
-			for (const layerRender of renders) {
-				renderLayer(layerRender);
-			}
-			onRendered();
-		},
-		clear,
-		clearAll: () => {
-			for (const kind of LAYER_KINDS) {
-				clear(kind);
-			}
-		},
-	};
-};
-
-const isMarkerAt = (layer: L.Layer, coordinates: LatLon): layer is L.Marker => {
-	if (!(layer instanceof L.Marker)) {
-		return false;
-	}
-	const latLng = layer.getLatLng();
-	return latLng.lat === coordinates.lat && latLng.lng === coordinates.lon;
-};
-
-const findMarkerAt = (group: L.FeatureGroup<L.Marker>, coordinates: LatLon): L.Marker | null =>
-	group.getLayers().find((layer): layer is L.Marker => isMarkerAt(layer, coordinates)) ?? null;
-
-const markMarkerSelected = (marker: L.Marker): void => {
-	marker.getElement()?.classList.add(SELECTED_MARKER_CLASS);
-	marker.setZIndexOffset(SELECTED_MARKER_Z_OFFSET);
-};
-
-const unmarkMarkerSelected = (marker: L.Marker): void => {
-	marker.getElement()?.classList.remove(SELECTED_MARKER_CLASS);
-	marker.setZIndexOffset(0);
 };
 
 const isTargetFacility = (target: GuidanceTarget, facility: Facility): boolean =>
@@ -488,7 +419,6 @@ const bootstrapOrThrow = async (
 	let guidance: GuidanceState = initialGuidanceState;
 	let lastPosition: UserPosition | null = null;
 	let openItem: Located<Facility> | null = null;
-	let selectedMarker: L.Marker | null = null;
 	let rankedFrom: LatLon | null = null;
 
 	const guidanceTarget = (): GuidanceTarget | null =>
@@ -505,7 +435,6 @@ const bootstrapOrThrow = async (
 
 	const sheetViewOf = (item: Located<Facility>): DetailSheetView => ({
 		kind: 'shown',
-		state: 'peek',
 		detail: detailViewOf(
 			item,
 			lastPosition === null ? null : courseTo(lastPosition, item.facility),
@@ -552,30 +481,9 @@ const bootstrapOrThrow = async (
 		refreshGuidance();
 	};
 
-	const clearSelectedMarker = (): void => {
-		if (selectedMarker !== null) {
-			unmarkMarkerSelected(selectedMarker);
-			selectedMarker = null;
-		}
-	};
-
-	const applySelectedMarker = (): void => {
-		clearSelectedMarker();
-		if (openItem === null) {
-			return;
-		}
-		const { facility } = openItem;
-		const marker = findMarkerAt(layers[facility.kind].group, facility.coordinates);
-		if (marker === null) {
-			return;
-		}
-		markMarkerSelected(marker);
-		selectedMarker = marker;
-	};
-
 	const onSheetClosed = (): void => {
 		openItem = null;
-		clearSelectedMarker();
+		markerRenderer.select(null);
 		refreshGuidance();
 		if (lastPosition !== null) {
 			dispatchOriginIfNeeded(lastPosition);
@@ -592,7 +500,7 @@ const bootstrapOrThrow = async (
 
 	const openSheet = (item: Located<Facility>): void => {
 		openItem = item;
-		applySelectedMarker();
+		markerRenderer.select(openItem?.facility.id ?? null);
 		refreshGuidance();
 	};
 
@@ -632,7 +540,11 @@ const bootstrapOrThrow = async (
 		},
 	};
 
-	const markerRenderer = createMarkerRenderer(layers, markerHandlers, applySelectedMarker);
+	const markerRenderer = createMarkerRenderer(
+		{ water: layers.water.group, toilet: layers.toilet.group, viewpoint: layers.viewpoint.group },
+		markerHandlers
+	);
+	onTeardown(markerRenderer.destroy);
 
 	const reportNearest = (kind: LayerKind, nearest: Located<Facility> | null): void => {
 		if (kind !== 'water') {
