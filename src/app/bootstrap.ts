@@ -5,9 +5,6 @@ import {
 	trackGuidanceStarted,
 	trackLayerDisabled,
 	trackLayerEnabled,
-	trackLocateFailed,
-	trackLocateRequested,
-	trackLocateSuccess,
 	trackMapLoaded,
 	trackNavigationStarted,
 } from '../analytics';
@@ -18,48 +15,17 @@ import {
 	MAX_ZOOM,
 	OSM_ATTRIBUTION,
 	OSM_TILE_URL,
-	RERANK_MIN_MOVE_M,
 	RIGA_CENTER,
 } from '../core/config';
-import type {
-	Facility,
-	GuidanceCourse,
-	GuidanceEvent,
-	GuidanceState,
-	GuidanceTarget,
-	LatLon,
-	Located,
-	UserPosition,
-	Viewport,
-	WaterFacility,
-	Zoom,
-} from '../domain';
-import {
-	applyGuidance,
-	bearingBetween,
-	compassPointOf,
-	distanceBetween,
-	guidanceCourse,
-	guidanceTargetOf,
-	initialGuidanceState,
-	isGuidedTo,
-	isWaterFacility,
-	timestampNow,
-	zoom,
-} from '../domain';
+import type { Facility, Located, Viewport, Zoom } from '../domain';
+import { timestampNow, zoom } from '../domain';
 import { defaultSnapshotStore, snapshotFrom } from '../features/cache';
 import type { Snapshot } from '../features/cache/snapshot';
 import { currentConnectivity, observeConnectivity } from '../features/connectivity';
 import { composeQuery, fetchFacilities, overpassSelector } from '../features/data';
-import { detailViewOf } from '../features/detail';
 import type { DirectionsPlatform } from '../features/directions';
 import { directionsPlatformOf } from '../features/directions';
-import type {
-	BeelineLayer,
-	FollowController,
-	LocationTracker,
-	UserLocationLayer,
-} from '../features/location';
+import type { BeelineLayer, UserLocationLayer } from '../features/location';
 import {
 	createBeelineLayer,
 	createFollowController,
@@ -68,32 +34,26 @@ import {
 	loadLastKnownPosition,
 	saveLastKnownPosition,
 } from '../features/location';
-import type { FollowMode } from '../features/location/follow';
-import type { TrackingState } from '../features/location/tracker';
-import type { MarkerHandlers } from '../features/markers';
 import { createMarkerRenderer } from '../features/markers';
-import type { Glyph } from '../features/presentation';
-import { presentationOf } from '../features/presentation';
 import { toTileBounds } from '../features/navigation/bounds';
 import { createUserInteractionSource } from '../features/navigation/user-interaction';
 import { createOneHandZoomHandler } from '../features/zoom-gesture';
 import drinkingWater from '../oql/drinking_water.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
 import viewpoints from '../oql/viewpoints.overpassql?raw';
-import { toLocationFailureCategory } from '../types/errors';
-import type { DetailSheetView } from '../ui/detail-sheet';
 import { createDetailSheet } from '../ui/detail-sheet';
 import { initInstallPrompt } from '../ui/install-prompt';
 import type { LayerPicker } from '../ui/layer-picker';
 import { createLayerPicker } from '../ui/layer-picker';
-import type { LocateButtonView, LocateControl } from '../ui/locate-control';
+import type { LocateControl } from '../ui/locate-control';
 import { createLocateControl } from '../ui/locate-control';
-import type { GuidanceHudView } from '../ui/guidance-hud';
 import { createGuidanceHud } from '../ui/guidance-hud';
 import { createProvenanceIndicator } from '../ui/provenance-indicator';
 import { dismissSplash } from '../ui/splash';
 import { isCoarsePointer } from '../ui/pointer';
 import * as logger from '../utils/logger';
+import type { GuidanceRuntime } from './guidance';
+import { createGuidanceRuntime, initialGuidanceAppState } from './guidance';
 import type { LayerKind } from './layers';
 import {
 	activeLayerCount,
@@ -102,11 +62,11 @@ import {
 	enableLayer,
 	LAYER_KINDS,
 } from './layers';
+import { locateButtonViewOf, onceSettled, onLocateActivate } from './locate';
 import {
 	INITIALIZATION_FAILED_MESSAGE,
 	INITIALIZATION_REFRESH_ACTION_LABEL,
 	LOCATION_FALLBACK_MESSAGE,
-	locationErrorMessage,
 	OFFLINE_STATUS_MESSAGE,
 } from './messages';
 import type { InstalledNoticeCenter, NoticeCenter } from './notices';
@@ -116,9 +76,6 @@ import type { SyncRuntime } from './sync';
 import { createSyncRuntime, initialSyncState } from './sync';
 
 export const MAP_CONTAINER_ID = 'map';
-
-const NEAREST_WATER_GLYPH: Glyph = { kind: 'emoji', char: '🚰' };
-const NEAREST_WATER_TITLE = 'Nearest water';
 
 const VIEWPORT_DEBOUNCE_MS = 300;
 
@@ -173,150 +130,6 @@ const createMap = (center: L.LatLngTuple, coarsePointer: boolean): L.Map => {
 	}).addTo(map);
 	L.control.scale({ metric: true, imperial: false }).addTo(map);
 	return map;
-};
-
-const toLocatedWater = (item: Located<Facility>): Located<WaterFacility> | null =>
-	isWaterFacility(item.facility)
-		? { facility: item.facility, distance: item.distance, isNearest: item.isNearest }
-		: null;
-
-const guidanceHudViewOf = (target: GuidanceTarget, course: GuidanceCourse): GuidanceHudView => {
-	const shown = {
-		kind: 'shown',
-		distance: course.distance,
-		bearing: course.bearing,
-		label: compassPointOf(course.bearing),
-	} as const;
-	switch (target.kind) {
-		case 'nearest-water':
-			return {
-				...shown,
-				glyph: NEAREST_WATER_GLYPH,
-				title: NEAREST_WATER_TITLE,
-				dismissible: false,
-			};
-		case 'chosen': {
-			const presentation = presentationOf(target.facility);
-			return {
-				...shown,
-				glyph: presentation.glyph,
-				title: `Guiding to ${presentation.label}`,
-				dismissible: true,
-			};
-		}
-		default: {
-			const exhaustive: never = target;
-			return exhaustive;
-		}
-	}
-};
-
-const isTargetFacility = (target: GuidanceTarget, facility: Facility): boolean =>
-	target.facility.id === facility.id;
-
-const courseFrom = (position: UserPosition, facility: Facility): GuidanceCourse => ({
-	distance: distanceBetween(position, facility.coordinates),
-	bearing: bearingBetween(position, facility.coordinates),
-});
-
-const locateTarget = (
-	target: GuidanceTarget,
-	position: UserPosition,
-	nearestWater: Located<WaterFacility> | null
-): Located<Facility> => ({
-	facility: target.facility,
-	distance: distanceBetween(position, target.facility.coordinates),
-	isNearest: nearestWater !== null && isTargetFacility(target, nearestWater.facility),
-});
-
-const locateButtonViewOf = (state: TrackingState, follow: FollowMode): LocateButtonView => {
-	switch (state.kind) {
-		case 'idle':
-			return { kind: 'idle' };
-		case 'acquiring':
-			return { kind: 'acquiring' };
-		case 'tracking':
-			return { kind: 'tracking', follow };
-		case 'paused':
-			return state.lastKnown === null ? { kind: 'acquiring' } : { kind: 'tracking', follow };
-		case 'failed':
-			return state.error.type === 'permission-denied' ? { kind: 'blocked' } : { kind: 'failed' };
-		default: {
-			const exhaustive: never = state;
-			return exhaustive;
-		}
-	}
-};
-
-const onceSettled = (
-	tracker: LocationTracker,
-	onSettled: (state: Extract<TrackingState, { kind: 'tracking' | 'failed' }>) => void
-): void => {
-	const stop = tracker.subscribe((state) => {
-		if (state.kind !== 'tracking' && state.kind !== 'failed') {
-			return;
-		}
-		stop();
-		onSettled(state);
-	});
-};
-
-const reportPressOutcome = (tracker: LocationTracker, notices: NoticeCenter): void => {
-	onceSettled(tracker, (state) => {
-		if (state.kind === 'tracking') {
-			trackLocateSuccess();
-			return;
-		}
-		trackLocateFailed(toLocationFailureCategory(state.error));
-		notices.toast(locationErrorMessage(state.error), 'error');
-	});
-};
-
-const onLocateActivate = (
-	tracker: LocationTracker,
-	followController: FollowController,
-	notices: NoticeCenter
-): void => {
-	trackLocateRequested();
-	const state = tracker.state();
-	switch (state.kind) {
-		case 'idle':
-		case 'failed':
-			reportPressOutcome(tracker, notices);
-			tracker.start();
-			followController.follow('flyTo');
-			return;
-		case 'paused':
-			tracker.start();
-			return;
-		case 'acquiring':
-			return;
-		case 'tracking':
-			if (followController.mode() === 'on') {
-				followController.unfollow();
-			} else {
-				followController.follow('flyTo');
-			}
-			return;
-		default: {
-			const exhaustive: never = state;
-			throw new Error(`Unhandled tracking state: ${JSON.stringify(exhaustive)}`);
-		}
-	}
-};
-
-const needsReranking = (
-	sheetOpen: boolean,
-	rankedFrom: LatLon | null,
-	position: LatLon
-): boolean => {
-	if (sheetOpen) {
-		return false;
-	}
-	if (rankedFrom === null) {
-		return true;
-	}
-	return distanceBetween(rankedFrom, position) >= RERANK_MIN_MOVE_M;
 };
 
 type Teardown = () => void;
@@ -415,143 +228,30 @@ const bootstrapOrThrow = async (
 
 	const platform: DirectionsPlatform = directionsPlatformOf(navigator.userAgent);
 
-	let nearestWater: Located<WaterFacility> | null = null;
-	let guidance: GuidanceState = initialGuidanceState;
-	let lastPosition: UserPosition | null = null;
-	let openItem: Located<Facility> | null = null;
-	let rankedFrom: LatLon | null = null;
-
-	const guidanceTarget = (): GuidanceTarget | null =>
-		guidanceTargetOf(guidance, layers.water.active ? (nearestWater?.facility ?? null) : null);
-
-	const sheetIsOpen = (): boolean => openItem !== null;
-
-	const courseTo = (position: UserPosition, facility: Facility): GuidanceCourse => {
-		const target = guidanceTarget();
-		return target !== null && isTargetFacility(target, facility)
-			? guidanceCourse(position, target)
-			: courseFrom(position, facility);
-	};
-
-	const sheetViewOf = (item: Located<Facility>): DetailSheetView => ({
-		kind: 'shown',
-		detail: detailViewOf(
-			item,
-			lastPosition === null ? null : courseTo(lastPosition, item.facility),
-			platform
-		),
-	});
-
-	const refreshSheet = (): void => {
-		if (openItem !== null) {
-			sheet.render(sheetViewOf(openItem));
-		}
-	};
-
-	const hideGuidance = (): void => {
-		hud.render({ kind: 'hidden' });
-		beelineLayer.clear();
-	};
-
-	const refreshHudAndBeeline = (position: UserPosition): void => {
-		const target = guidanceTarget();
-		if (target === null) {
-			hideGuidance();
-			return;
-		}
-		hud.render(
-			sheetIsOpen()
-				? { kind: 'hidden' }
-				: guidanceHudViewOf(target, guidanceCourse(position, target))
-		);
-		beelineLayer.show(position, target.facility.coordinates);
-	};
-
-	const refreshGuidance = (): void => {
-		if (lastPosition === null) {
-			hideGuidance();
-		} else {
-			refreshHudAndBeeline(lastPosition);
-		}
-		refreshSheet();
-	};
-
-	const dispatchGuidance = (event: GuidanceEvent): void => {
-		guidance = applyGuidance(guidance, event);
-		refreshGuidance();
-	};
-
-	const onSheetClosed = (): void => {
-		openItem = null;
-		markerRenderer.select(null);
-		refreshGuidance();
-		if (lastPosition !== null) {
-			dispatchOriginIfNeeded(lastPosition);
-		}
-	};
-
-	const closeSheet = (): void => {
-		if (openItem === null) {
-			return;
-		}
-		sheet.render({ kind: 'hidden' });
-		onSheetClosed();
-	};
-
-	const openSheet = (item: Located<Facility>): void => {
-		openItem = item;
-		markerRenderer.select(openItem?.facility.id ?? null);
-		refreshGuidance();
-	};
-
-	const revealGuidanceTarget = (): void => {
-		const target = guidanceTarget();
-		if (target === null || lastPosition === null) {
-			return;
-		}
-		openSheet(locateTarget(target, lastPosition, nearestWater));
-		const { coordinates } = target.facility;
-		map.flyTo([coordinates.lat, coordinates.lon], Math.max(map.getZoom(), LOCATE_ZOOM));
-	};
-
 	const hud = createGuidanceHud(map, {
 		onActivate: () => {
 			followController.unfollow();
-			revealGuidanceTarget();
+			guidanceRuntime.dispatch({ kind: 'target-revealed' });
 		},
-		onDismiss: () => dispatchGuidance({ kind: 'guidance-dismissed' }),
+		onDismiss: () => guidanceRuntime.dispatch({ kind: 'guidance-dismissed' }),
 	});
 
 	const sheet = createDetailSheet(map, {
-		onClose: onSheetClosed,
+		onClose: () => guidanceRuntime.dispatch({ kind: 'sheet-closed' }),
 		onDirections: (detail) => trackNavigationStarted(detail.kind),
 	});
 	onTeardown(sheet.destroy);
 
-	const markerHandlers: MarkerHandlers = {
-		onSelect: (item) => {
-			openSheet(item);
-			const { facility } = item;
-			if (isGuidedTo(guidance, facility)) {
-				return;
-			}
-			trackGuidanceStarted(facility.kind);
-			dispatchGuidance({ kind: 'facility-chosen', facility });
-		},
-	};
-
 	const markerRenderer = createMarkerRenderer(
 		{ water: layers.water.group, toilet: layers.toilet.group, viewpoint: layers.viewpoint.group },
-		markerHandlers
+		{ onSelect: (item) => guidanceRuntime.dispatch({ kind: 'facility-selected', item }) }
 	);
 	onTeardown(markerRenderer.destroy);
 
 	const reportNearest = (kind: LayerKind, nearest: Located<Facility> | null): void => {
-		if (kind !== 'water') {
-			return;
+		if (kind === 'water') {
+			guidanceRuntime.dispatch({ kind: 'nearest-water-changed', nearest });
 		}
-		nearestWater = nearest === null ? null : toLocatedWater(nearest);
-		refreshGuidance();
 	};
 
 	const store = defaultSnapshotStore();
@@ -607,12 +307,20 @@ const bootstrapOrThrow = async (
 	await awaitCacheReadyOrTimeout(cacheLoad.then(dispatchCacheReadyOnce));
 	cacheLoad.then(dispatchCacheReadyOnce);
 
-	const dispatchOriginIfNeeded = (position: LatLon): void => {
-		if (needsReranking(sheetIsOpen(), rankedFrom, position)) {
-			rankedFrom = position;
-			dispatchWhileMounted({ kind: 'origin-moved', position });
-		}
-	};
+	const guidanceRuntime: GuidanceRuntime = createGuidanceRuntime(
+		{
+			platform,
+			renderHud: hud.render,
+			renderSheet: sheet.render,
+			showBeeline: beelineLayer.show,
+			clearBeeline: beelineLayer.clear,
+			selectMarker: markerRenderer.select,
+			trackGuidanceStarted,
+			originMoved: (position) => dispatchWhileMounted({ kind: 'origin-moved', position }),
+			flyTo: ({ lat, lon }) => map.flyTo([lat, lon], Math.max(map.getZoom(), LOCATE_ZOOM)),
+		},
+		initialGuidanceAppState
+	);
 
 	const tracker = createLocationTracker();
 	onTeardown(() => tracker.stop());
@@ -650,11 +358,9 @@ const bootstrapOrThrow = async (
 		}
 
 		const position = state.position;
-		lastPosition = position;
 		userLayer.show(position, state.freshness);
 		saveLastKnownPosition(localStorage, position);
-		refreshGuidance();
-		dispatchOriginIfNeeded(position);
+		guidanceRuntime.dispatch({ kind: 'position-updated', position });
 	});
 
 	tracker.start();
@@ -678,14 +384,8 @@ const bootstrapOrThrow = async (
 				markerRenderer.clear(kind);
 				trackLayerDisabled(layer.label, activeLayerCount(layers));
 				dispatchWhileMounted({ kind: 'layer-toggled', layer: kind, active: false });
-				if (kind === 'water') {
-					nearestWater = null;
-				}
-				if (openItem?.facility.kind === kind) {
-					closeSheet();
-				}
-				dispatchGuidance({ kind: 'layer-disabled', layer: kind });
 			}
+			guidanceRuntime.dispatch({ kind: 'layer-toggled', layer: kind, active });
 			layerPicker.render(layerActiveState());
 		},
 	});
