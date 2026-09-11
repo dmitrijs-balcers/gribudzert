@@ -68,7 +68,7 @@
 	pointer-events: none;
 }
 
-.nearest-hud {
+.guidance-hud {
 	position: absolute;
 	left: calc(16px + var(--safe-left, 0px));
 	right: calc(16px + var(--safe-right, 0px));
@@ -79,29 +79,52 @@
 	z-index: var(--z-hud);
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-	padding: 8px 14px;
-	white-space: nowrap;
-	border: 0;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-1) var(--space-1) 14px;
 	border-radius: var(--radius-pill);
 	background: var(--surface-pill);
 	color: var(--color-text);
 	font-size: var(--font-size-md);
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 	box-shadow: var(--shadow-pill);
-	cursor: pointer;
 }
 
-.nearest-hud[hidden] {
+.guidance-hud[hidden] {
 	display: none;
 }
 
-.nearest-hud-text {
+.guidance-hud-target {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	padding: var(--space-1) 6px var(--space-1) 0;
+	white-space: nowrap;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.guidance-hud-icon {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.guidance-hud-icon .facility-marker-svg {
+	width: 1em;
+	height: 1em;
+	color: inherit;
+}
+
+.guidance-hud-text {
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-.nearest-hud-arrow {
+.guidance-hud-arrow {
 	flex-shrink: 0;
 	display: inline-block;
 	width: 0;
@@ -110,6 +133,27 @@
 	border-right: 5px solid transparent;
 	border-bottom: 9px solid var(--color-accent);
 	transform: rotate(var(--bearing, 0deg));
+}
+
+.guidance-hud-dismiss {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: var(--color-accent-soft);
+	color: var(--color-text);
+	font-size: var(--font-size-xl);
+	line-height: 1;
+	cursor: pointer;
+}
+
+.guidance-hud-dismiss[hidden] {
+	display: none;
 }
 
 .locate-control-button {

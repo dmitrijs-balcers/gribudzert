@@ -1,6 +1,7 @@
 export {
 	trackAreaExplored,
 	trackEmptyArea,
+	trackGuidanceStarted,
 	trackInstallPromptAccepted,
 	trackInstallPromptDismissed,
 	trackInstallPromptShown,

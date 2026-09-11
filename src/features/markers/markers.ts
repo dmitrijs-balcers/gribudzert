@@ -1,5 +1,6 @@
 import * as L from 'leaflet';
 import type { Facility, Located } from '../../domain';
+import type { PopupContext } from './popup';
 import { attachPopupHandlers, createPopupContent } from './popup';
 import { appearanceOf, createFacilityIcon, rootAttributesOf } from './styling';
 
@@ -32,11 +33,15 @@ export function createFacilityMarker(item: Located<Facility>): L.Marker {
 	return marker;
 }
 
-export function addMarkers(items: readonly Located<Facility>[], layer: FacilityLayer): void {
+export function addMarkers(
+	items: readonly Located<Facility>[],
+	layer: FacilityLayer,
+	popupContext: PopupContext
+): void {
 	for (const item of items) {
 		const marker = createFacilityMarker(item);
 		marker.addTo(layer);
-		marker.bindPopup(createPopupContent(item));
-		attachPopupHandlers(marker, item.facility);
+		marker.bindPopup(createPopupContent(item, popupContext.platform));
+		attachPopupHandlers(marker, item.facility, { onGuide: popupContext.onGuide });
 	}
 }
