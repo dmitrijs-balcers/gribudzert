@@ -305,6 +305,23 @@
 	transform: translateY(1px);
 }
 
+.detail-sheet-alternative-directions {
+	align-self: center;
+	margin-top: -2px;
+	padding: 6px 10px;
+	min-height: 32px;
+	font-size: var(--font-size-sm);
+	font-weight: var(--font-weight-medium);
+	color: var(--sheet-accent);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.leaflet-container a.detail-sheet-alternative-directions {
+	color: var(--sheet-accent);
+}
+
 .detail-sheet-secondary-row {
 	display: flex;
 	gap: 10px;
@@ -330,6 +347,7 @@
 }
 
 .detail-sheet-directions:focus-visible,
+.detail-sheet-alternative-directions:focus-visible,
 .detail-sheet-osm:focus-visible,
 .detail-sheet-details:focus-visible,
 .detail-sheet-close:focus-visible,

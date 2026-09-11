@@ -1,4 +1,4 @@
-import type { Facility, Located, UserPosition } from '../../domain';
+import type { DirectionsApp, Facility, Located, UserPosition } from '../../domain';
 import type { LayerKind } from '../layers';
 
 export type GuidanceAppEvent =
@@ -8,4 +8,5 @@ export type GuidanceAppEvent =
 	| { readonly kind: 'target-revealed' }
 	| { readonly kind: 'sheet-closed' }
 	| { readonly kind: 'guidance-dismissed' }
+	| { readonly kind: 'directions-app-preferred'; readonly app: DirectionsApp }
 	| { readonly kind: 'layer-toggled'; readonly layer: LayerKind; readonly active: boolean };

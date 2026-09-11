@@ -4,7 +4,7 @@ import type { DetailView } from '../../features/detail';
 import { createElements } from './elements';
 import { createHistoryEntry } from './history';
 import { SHEET_HEIGHT_PROPERTY } from './labels';
-import { renderExpansion, renderLive, renderStatic } from './render';
+import { renderDirections, renderExpansion, renderLive, renderStatic } from './render';
 import type { SheetEvent, SheetState } from './sheet-state';
 import { applySheet, initialSheetState, photoShown, sheetTransition } from './sheet-state';
 import './detail-sheet.css';
@@ -16,6 +16,7 @@ export type DetailSheetView =
 export type DetailSheetHandlers = {
 	readonly onClose: () => void;
 	readonly onDirections: (detail: DetailView) => void;
+	readonly onAlternativeDirections: (detail: DetailView) => void;
 };
 
 export type DetailSheet = {
@@ -110,6 +111,8 @@ export function createDetailSheet(map: L.Map, handlers: DetailSheetHandlers): De
 		if (state.kind === 'open') {
 			if (transition.facilityChanged) {
 				renderStatic(elements, state.detail);
+			} else {
+				renderDirections(elements, state.detail);
 			}
 			renderLive(elements, state.detail.live);
 			renderExpansion(elements, state.expansion, photoShown(state));
@@ -141,6 +144,11 @@ export function createDetailSheet(map: L.Map, handlers: DetailSheetHandlers): De
 	elements.directions.addEventListener('click', () => {
 		if (state.kind === 'open') {
 			handlers.onDirections(state.detail);
+		}
+	});
+	elements.alternativeDirections.addEventListener('click', () => {
+		if (state.kind === 'open') {
+			handlers.onAlternativeDirections(state.detail);
 		}
 	});
 	historyEntry.onPopped(closeByUser);

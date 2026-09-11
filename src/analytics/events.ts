@@ -1,4 +1,5 @@
 import type { LayerName } from '../core/config';
+import type { DirectionsApp } from '../domain';
 import type { LocationFailureCategory } from '../types/errors';
 import { debounce } from './debounce';
 import { safeTrack } from './tracker';
@@ -14,8 +15,11 @@ export const trackMarkerClicked = (facilityType: FacilityType): void => {
 	safeTrack('marker_clicked', { facility_type: facilityType });
 };
 
-export const trackNavigationStarted = (facilityType: FacilityType): void => {
-	safeTrack('navigation_started', { facility_type: facilityType });
+export const trackNavigationStarted = (
+	facilityType: FacilityType,
+	mapsApp: DirectionsApp
+): void => {
+	safeTrack('navigation_started', { facility_type: facilityType, maps_app: mapsApp });
 };
 
 export const trackGuidanceStarted = (facilityType: FacilityType): void => {

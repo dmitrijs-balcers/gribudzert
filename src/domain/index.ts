@@ -12,6 +12,8 @@ export {
 	statusOf,
 	wantsFetch,
 } from './coverage';
+export type { DirectionsApp, DirectionsChoice, DirectionsPlatform } from './directions-app';
+export { chooseDirectionsApp, directionsAppsOffered, isDirectionsApp } from './directions-app';
 export type {
 	ExternalLink,
 	ExternalLinkKind,

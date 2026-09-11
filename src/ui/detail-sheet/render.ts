@@ -67,14 +67,25 @@ export const renderPhoto = (elements: SheetElements, photo: Photo | null): void 
 	elements.thumb.root.href = photo.pageUrl;
 };
 
+/** Rendered on every update: the chosen app can change while the sheet is open. */
+export const renderDirections = (elements: SheetElements, detail: DetailView): void => {
+	elements.directions.href = detail.directions.url;
+	elements.directions.setAttribute('aria-label', detail.directions.label);
+	const alternative = detail.alternativeDirections;
+	elements.alternativeDirections.hidden = alternative === null;
+	if (alternative !== null) {
+		elements.alternativeDirections.href = alternative.url;
+		elements.alternativeDirections.textContent = alternative.label;
+	}
+};
+
 export const renderStatic = (elements: SheetElements, detail: DetailView): void => {
 	elements.root.dataset.kind = detail.kind;
 	elements.kindIcon.innerHTML = kindIcon(detail.kind);
 	elements.kindLabel.textContent = detail.kindLabel;
 	elements.nearestTag.hidden = !detail.nearest;
 	elements.title.textContent = detail.title;
-	elements.directions.href = detail.directionsUrl;
-	elements.directions.setAttribute('aria-label', detail.directionsLabel);
+	renderDirections(elements, detail);
 	elements.osm.href = detail.osmUrl;
 	elements.warnings.replaceChildren(...detail.warnings.map(warningElement));
 	elements.warnings.hidden = detail.warnings.length === 0;
