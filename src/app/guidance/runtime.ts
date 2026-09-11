@@ -1,4 +1,4 @@
-import type { Coordinates, FacilityId, FacilityKind, LatLon } from '../../domain';
+import type { Coordinates, DirectionsApp, FacilityId, FacilityKind, LatLon } from '../../domain';
 import type { DirectionsPlatform } from '../../features/directions';
 import type { DetailSheetView } from '../../ui/detail-sheet';
 import type { GuidanceHudView } from '../../ui/guidance-hud';
@@ -19,6 +19,7 @@ export type GuidancePorts = {
 	readonly trackGuidanceStarted: (kind: FacilityKind) => void;
 	readonly originMoved: (position: LatLon) => void;
 	readonly flyTo: (coordinates: Coordinates) => void;
+	readonly rememberDirectionsApp: (app: DirectionsApp) => void;
 };
 
 export type GuidanceRuntime = {
@@ -99,6 +100,9 @@ export const createGuidanceRuntime = (
 				return;
 			case 'fly-to':
 				ports.flyTo(effect.coordinates);
+				return;
+			case 'directions-app-remembered':
+				ports.rememberDirectionsApp(effect.app);
 				return;
 			default: {
 				const exhaustive: never = effect;

@@ -113,3 +113,5 @@ export const INSTALL_PROMPT_MIN_VISITS = 2;
 export const INSTALL_PROMPT_SHOW_DELAY_MS: DurationMs = durationMsLiteral(3_000);
 
 export const INSTALL_PROMPT_DISMISS_COOLDOWN_MS: DurationMs = durationMsLiteral(1_209_600_000);
+
+export const DIRECTIONS_APP_STORAGE_KEY = 'gribudzert:directions-app';

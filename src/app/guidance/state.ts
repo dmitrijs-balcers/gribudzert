@@ -1,4 +1,5 @@
 import type {
+	DirectionsApp,
 	Facility,
 	GuidanceState,
 	LatLon,
@@ -19,6 +20,7 @@ export type GuidanceAppState = {
 	readonly waterLayerActive: boolean;
 	readonly selection: SheetSelection;
 	readonly rankedFrom: LatLon | null;
+	readonly preferredDirectionsApp: DirectionsApp | null;
 };
 
 export const initialGuidanceAppState: GuidanceAppState = {
@@ -28,4 +30,5 @@ export const initialGuidanceAppState: GuidanceAppState = {
 	waterLayerActive: true,
 	selection: { kind: 'none' },
 	rankedFrom: null,
+	preferredDirectionsApp: null,
 };

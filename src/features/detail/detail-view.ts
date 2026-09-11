@@ -1,6 +1,8 @@
 import type {
 	CompassPoint,
 	Coordinates,
+	DirectionsApp,
+	DirectionsChoice,
 	ExternalLink,
 	Facility,
 	FacilityId,
@@ -17,7 +19,7 @@ import type {
 	YesNoUnknown,
 } from '../../domain';
 import { compassPointOf, osmUrl } from '../../domain';
-import type { DirectionsPlatform } from '../directions';
+import type { DirectionsDestination } from '../directions';
 import { directionsLink } from '../directions';
 import { presentationOf } from '../presentation';
 
@@ -50,6 +52,12 @@ export type DetailLive = {
 	readonly compassPoint: CompassPoint | null;
 };
 
+export type DirectionsAction = {
+	readonly app: DirectionsApp;
+	readonly url: string;
+	readonly label: string;
+};
+
 export type DetailView = {
 	readonly id: FacilityId;
 	readonly kind: FacilityKind;
@@ -60,8 +68,8 @@ export type DetailView = {
 	readonly osmId: number;
 	readonly osmUrl: string;
 	readonly coordinates: Coordinates;
-	readonly directionsUrl: string;
-	readonly directionsLabel: string;
+	readonly directions: DirectionsAction;
+	readonly alternativeDirections: DirectionsAction | null;
 	readonly live: DetailLive;
 	readonly warnings: readonly DetailWarning[];
 	readonly description: string | null;
@@ -183,14 +191,52 @@ const liveOf = (item: Located<Facility>, course: GuidanceCourse | null): DetailL
 const destinationNameOf = (facility: Facility, kindLabel: string): string =>
 	facility.name ?? `${kindLabel} ${facility.osm.id}`;
 
+export const DIRECTIONS_APP_NAME: Readonly<Record<DirectionsApp, string>> = {
+	'apple-maps': 'Apple Maps',
+	osmand: 'OsmAnd',
+	'google-maps': 'Google Maps',
+	'device-chooser': 'Maps',
+};
+
+const directionsAction = (
+	app: DirectionsApp,
+	destination: DirectionsDestination,
+	label: string
+): DirectionsAction => ({ app, url: directionsLink(app, destination), label });
+
+/** Names the app only when there is a choice to make. */
+const directionsOf = (
+	choice: DirectionsChoice,
+	destination: DirectionsDestination
+): DirectionsAction => {
+	const inApp = choice.alternative === null ? '' : ` in ${DIRECTIONS_APP_NAME[choice.chosen]}`;
+	const label = `Get walking directions to ${destination.name}${inApp}`;
+	return directionsAction(choice.chosen, destination, label);
+};
+
+const alternativeDirectionsOf = (
+	choice: DirectionsChoice,
+	destination: DirectionsDestination
+): DirectionsAction | null =>
+	choice.alternative === null
+		? null
+		: directionsAction(
+				choice.alternative,
+				destination,
+				`Open in ${DIRECTIONS_APP_NAME[choice.alternative]} instead`
+			);
+
 export const detailViewOf = (
 	item: Located<Facility>,
 	course: GuidanceCourse | null,
-	platform: DirectionsPlatform
+	directions: DirectionsChoice
 ): DetailView => {
 	const { facility } = item;
 	const kindLabel = presentationOf(facility).label;
-	const destinationName = destinationNameOf(facility, kindLabel);
+	const destination: DirectionsDestination = {
+		coordinates: facility.coordinates,
+		name: destinationNameOf(facility, kindLabel),
+	};
 	return {
 		id: facility.id,
 		kind: facility.kind,
@@ -201,11 +247,8 @@ export const detailViewOf = (
 		osmId: facility.osm.id,
 		osmUrl: osmUrl(facility.osm),
 		coordinates: facility.coordinates,
-		directionsUrl: directionsLink(platform, {
-			coordinates: facility.coordinates,
-			name: destinationName,
-		}),
-		directionsLabel: `Get walking directions to ${destinationName}`,
+		directions: directionsOf(directions, destination),
+		alternativeDirections: alternativeDirectionsOf(directions, destination),
 		live: liveOf(item, course),
 		warnings: warningsOf(facility),
 		description: descriptionOf(facility),

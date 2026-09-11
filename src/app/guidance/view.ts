@@ -9,6 +9,7 @@ import type {
 } from '../../domain';
 import {
 	bearingBetween,
+	chooseDirectionsApp,
 	compassPointOf,
 	distanceBetween,
 	guidanceCourse,
@@ -119,7 +120,8 @@ export const sheetViewOf = (
 			const { item } = state.selection;
 			const course =
 				state.position === null ? null : liveCourseOf(state, state.position, item.facility);
-			return { kind: 'shown', detail: detailViewOf(item, course, platform) };
+			const directions = chooseDirectionsApp(platform, state.preferredDirectionsApp);
+			return { kind: 'shown', detail: detailViewOf(item, course, directions) };
 		}
 		default: {
 			const exhaustive: never = state.selection;

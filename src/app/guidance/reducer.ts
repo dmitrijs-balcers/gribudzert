@@ -1,5 +1,12 @@
 import { RERANK_MIN_MOVE_M } from '../../core/config';
-import type { Facility, LatLon, Located, UserPosition, WaterFacility } from '../../domain';
+import type {
+	DirectionsApp,
+	Facility,
+	LatLon,
+	Located,
+	UserPosition,
+	WaterFacility,
+} from '../../domain';
 import { applyGuidance, distanceBetween, isGuidedTo, isWaterFacility } from '../../domain';
 import type { LayerKind } from '../layers';
 import type { GuidanceAppEffect } from './effects';
@@ -75,6 +82,11 @@ const closeSheet = (state: GuidanceAppState): Step => {
 	return closed.position === null ? unchanged(closed) : rerankFrom(closed, closed.position);
 };
 
+const handleDirectionsAppPreferred = (state: GuidanceAppState, app: DirectionsApp): Step =>
+	state.preferredDirectionsApp === app
+		? unchanged(state)
+		: [{ ...state, preferredDirectionsApp: app }, [{ kind: 'directions-app-remembered', app }]];
+
 const isShowingKind = (state: GuidanceAppState, layer: LayerKind): boolean =>
 	state.selection.kind === 'open' && state.selection.item.facility.kind === layer;
 
@@ -111,6 +123,8 @@ export const applyGuidanceApp = (state: GuidanceAppState, event: GuidanceAppEven
 			});
 		case 'layer-toggled':
 			return handleLayerToggled(state, event.layer, event.active);
+		case 'directions-app-preferred':
+			return handleDirectionsAppPreferred(state, event.app);
 		default: {
 			const exhaustive: never = event;
 			return exhaustive;

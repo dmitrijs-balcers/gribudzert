@@ -1,4 +1,6 @@
-export type DirectionsPlatform = 'apple' | 'android' | 'web';
+import type { DirectionsPlatform } from '../../domain';
+
+export type { DirectionsPlatform } from '../../domain';
 
 const APPLE_DEVICE = /iphone|ipad|ipod/i;
 const ANDROID_DEVICE = /android/i;

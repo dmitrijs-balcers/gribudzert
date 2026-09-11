@@ -93,6 +93,7 @@ export type SheetElements = {
 	readonly live: HTMLElement;
 	readonly thumb: ThumbElements;
 	readonly directions: HTMLAnchorElement;
+	readonly alternativeDirections: HTMLAnchorElement;
 	readonly osm: HTMLAnchorElement;
 	readonly details: HTMLButtonElement;
 	readonly detailsLabel: HTMLSpanElement;
@@ -104,7 +105,10 @@ export type SheetElements = {
 	readonly identity: HTMLSpanElement;
 };
 
-type ActionElements = Pick<SheetElements, 'directions' | 'osm' | 'details' | 'detailsLabel'> & {
+type ActionElements = Pick<
+	SheetElements,
+	'directions' | 'alternativeDirections' | 'osm' | 'details' | 'detailsLabel'
+> & {
 	readonly root: HTMLElement;
 };
 
@@ -116,6 +120,9 @@ const createActions = (): ActionElements => {
 		iconSpan('detail-sheet-button-icon', DIRECTIONS_ICON),
 		labelledSpan(DIRECTIONS_LABEL)
 	);
+
+	const alternativeDirections = externalAnchor('detail-sheet-alternative-directions');
+	alternativeDirections.hidden = true;
 
 	const secondary = element('div', 'detail-sheet-secondary-row');
 	const osm = externalAnchor('detail-sheet-osm');
@@ -129,8 +136,8 @@ const createActions = (): ActionElements => {
 	details.append(detailsLabel, iconSpan('detail-sheet-button-icon', CHEVRON_DOWN_ICON));
 
 	secondary.append(osm, details);
-	root.append(directions, secondary);
-	return { root, directions, osm, details, detailsLabel };
+	root.append(directions, alternativeDirections, secondary);
+	return { root, directions, alternativeDirections, osm, details, detailsLabel };
 };
 
 type FooterElements = { readonly root: HTMLElement; readonly identity: HTMLSpanElement };
@@ -198,6 +205,7 @@ export const createElements = (): SheetElements => {
 		live,
 		thumb,
 		directions: actions.directions,
+		alternativeDirections: actions.alternativeDirections,
 		osm: actions.osm,
 		details: actions.details,
 		detailsLabel: actions.detailsLabel,

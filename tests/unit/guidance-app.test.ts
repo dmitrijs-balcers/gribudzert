@@ -353,6 +353,34 @@ describe('Nearest water reports', () => {
 	});
 });
 
+describe('Preferring a maps app for directions', () => {
+	it('remembers the app, re-renders the sheet with it and asks to store it once', () => {
+		const opened = run([{ kind: 'facility-selected', item: locate(toilet) }]);
+		expect(sheetViewOf(opened.state, 'apple')).toMatchObject({
+			detail: { directions: { app: 'apple-maps' }, alternativeDirections: { app: 'osmand' } },
+		});
+
+		const preferred = run([{ kind: 'directions-app-preferred', app: 'osmand' }], opened.state);
+		expect(preferred.effects).toEqual([{ kind: 'directions-app-remembered', app: 'osmand' }]);
+		expect(sheetViewOf(preferred.state, 'apple')).toMatchObject({
+			detail: { directions: { app: 'osmand' }, alternativeDirections: { app: 'apple-maps' } },
+		});
+
+		const again = run([{ kind: 'directions-app-preferred', app: 'osmand' }], preferred.state);
+		expect(again.effects).toEqual([]);
+	});
+
+	it('ignores a remembered app the platform does not offer', () => {
+		const opened = run([{ kind: 'facility-selected', item: locate(toilet) }], {
+			...initialGuidanceAppState,
+			preferredDirectionsApp: 'osmand',
+		});
+		expect(sheetViewOf(opened.state, 'android')).toMatchObject({
+			detail: { directions: { app: 'device-chooser' }, alternativeDirections: null },
+		});
+	});
+});
+
 describe('Comparing rendered views', () => {
 	it('treats structurally equal views as the same and anything else as different', () => {
 		expect(sameView(hudViewOf(guidedToNearestWater), hudViewOf(guidedToNearestWater))).toBe(true);

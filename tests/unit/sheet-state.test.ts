@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Facility, Located, Meters } from '../../src/domain';
-import { coordinates, facilityFromTags, metersLiteral } from '../../src/domain';
+import {
+	chooseDirectionsApp,
+	coordinates,
+	facilityFromTags,
+	metersLiteral,
+} from '../../src/domain';
 import type { DetailView } from '../../src/features/detail';
 import { detailViewOf } from '../../src/features/detail';
 import type { SheetState } from '../../src/ui/detail-sheet';
@@ -31,7 +36,7 @@ const facilityOf = (
 
 const detailOf = (facility: Facility, distance: Meters): DetailView => {
 	const located: Located<Facility> = { facility, distance, isNearest: false };
-	return detailViewOf(located, null, 'web');
+	return detailViewOf(located, null, chooseDirectionsApp('web', null));
 };
 
 const tap = detailOf(

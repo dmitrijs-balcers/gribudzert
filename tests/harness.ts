@@ -608,7 +608,23 @@ export type AppHandle = {
 	) => boolean;
 };
 
+export type Device = 'iphone' | 'android' | 'desktop';
+
+const USER_AGENTS: Readonly<Record<Device, string>> = {
+	iphone:
+		'Mozilla/5.0 (iPhone; CPU iPhone OS 18_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Mobile/15E148 Safari/604.1',
+	android:
+		'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+	desktop:
+		'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+};
+
+export const installUserAgentFake = (device: Device): void => {
+	Object.defineProperty(navigator, 'userAgent', { configurable: true, value: USER_AGENTS[device] });
+};
+
 export type RenderOptions = {
+	readonly device?: Device;
 	readonly geolocation?: GeoOutcome;
 	readonly overpass?: OverpassHandler;
 	readonly settle?: boolean;
@@ -725,6 +741,9 @@ export async function renderApp(options: RenderOptions = {}): Promise<AppHandle>
 	const connectivity = options.connectivity ?? 'online';
 	const onLineFake = installOnLineFake(connectivity);
 	installMatchMediaFake(options.pointer ?? 'fine', options.displayMode ?? 'browser');
+	if (options.device !== undefined) {
+		installUserAgentFake(options.device);
+	}
 	if (options.rememberedPosition !== undefined) {
 		seedRememberedPosition(options.rememberedPosition);
 	}

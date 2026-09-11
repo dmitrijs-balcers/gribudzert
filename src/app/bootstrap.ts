@@ -24,7 +24,11 @@ import type { Snapshot } from '../features/cache/snapshot';
 import { currentConnectivity, observeConnectivity } from '../features/connectivity';
 import { composeQuery, fetchFacilities, overpassSelector } from '../features/data';
 import type { DirectionsPlatform } from '../features/directions';
-import { directionsPlatformOf } from '../features/directions';
+import {
+	directionsPlatformOf,
+	loadPreferredDirectionsApp,
+	savePreferredDirectionsApp,
+} from '../features/directions';
 import type { BeelineLayer, UserLocationLayer } from '../features/location';
 import {
 	createBeelineLayer,
@@ -238,7 +242,15 @@ const bootstrapOrThrow = async (
 
 	const sheet = createDetailSheet(map, {
 		onClose: () => guidanceRuntime.dispatch({ kind: 'sheet-closed' }),
-		onDirections: (detail) => trackNavigationStarted(detail.kind),
+		onDirections: (detail) => trackNavigationStarted(detail.kind, detail.directions.app),
+		onAlternativeDirections: (detail) => {
+			const alternative = detail.alternativeDirections;
+			if (alternative === null) {
+				return;
+			}
+			trackNavigationStarted(detail.kind, alternative.app);
+			guidanceRuntime.dispatch({ kind: 'directions-app-preferred', app: alternative.app });
+		},
 	});
 	onTeardown(sheet.destroy);
 
@@ -318,8 +330,9 @@ const bootstrapOrThrow = async (
 			trackGuidanceStarted,
 			originMoved: (position) => dispatchWhileMounted({ kind: 'origin-moved', position }),
 			flyTo: ({ lat, lon }) => map.flyTo([lat, lon], Math.max(map.getZoom(), LOCATE_ZOOM)),
+			rememberDirectionsApp: (app) => savePreferredDirectionsApp(localStorage, app),
 		},
-		initialGuidanceAppState
+		{ ...initialGuidanceAppState, preferredDirectionsApp: loadPreferredDirectionsApp(localStorage) }
 	);
 
 	const tracker = createLocationTracker();
