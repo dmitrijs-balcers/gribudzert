@@ -8,7 +8,7 @@
 	position: absolute;
 	inset: 0;
 	border-radius: 50%;
-	background: rgba(19, 106, 236, 0.35);
+	background: var(--color-accent-ring);
 	animation: user-location-pulse 2s ease-out infinite;
 }
 
@@ -20,8 +20,8 @@
 	height: 14px;
 	margin: -7px 0 0 -7px;
 	border-radius: 50%;
-	background: #136aec;
-	border: 2px solid #ffffff;
+	background: var(--color-accent);
+	border: 2px solid var(--color-on-accent);
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
@@ -44,7 +44,7 @@
 }
 
 .user-location-marker[data-freshness='stale'] .user-location-dot {
-	background: #9e9e9e;
+	background: var(--color-neutral);
 	border-color: #e0e0e0;
 }
 
@@ -76,19 +76,19 @@
 	width: max-content;
 	max-width: calc(100% - 32px - var(--safe-left, 0px) - var(--safe-right, 0px));
 	margin-inline: auto;
-	z-index: 1000;
+	z-index: var(--z-hud);
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 	padding: 8px 14px;
 	white-space: nowrap;
 	border: 0;
-	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.95);
-	color: #1a1a1a;
-	font-size: 13px;
+	border-radius: var(--radius-pill);
+	background: var(--surface-pill);
+	color: var(--color-text);
+	font-size: var(--font-size-md);
 	font-weight: 600;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+	box-shadow: var(--shadow-pill);
 	cursor: pointer;
 }
 
@@ -108,7 +108,7 @@
 	height: 0;
 	border-left: 5px solid transparent;
 	border-right: 5px solid transparent;
-	border-bottom: 9px solid #136aec;
+	border-bottom: 9px solid var(--color-accent);
 	transform: rotate(var(--bearing, 0deg));
 }
 
@@ -124,7 +124,7 @@
 	padding: 0;
 	border: 0;
 	background: transparent;
-	color: #333333;
+	color: var(--color-text-secondary);
 	cursor: pointer;
 }
 
@@ -142,9 +142,9 @@
 }
 
 .locate-control-button[data-follow='on'] {
-	color: #ffffff;
-	background: #0078ff;
-	border-radius: 4px;
+	color: var(--color-on-accent);
+	background: var(--color-brand);
+	border-radius: var(--radius-control);
 }
 
 .locate-control-slash {
@@ -153,14 +153,14 @@
 
 .locate-control-button[data-state='blocked'] .locate-control-slash {
 	display: inline;
-	stroke: #d32f2f;
+	stroke: var(--color-danger);
 }
 
 .locate-control-ring {
 	position: absolute;
 	inset: 6px;
 	border-radius: 50%;
-	border: 2px solid #0078ff;
+	border: 2px solid var(--color-brand);
 	opacity: 0;
 }
 

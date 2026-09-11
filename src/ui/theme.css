@@ -18,6 +18,7 @@
 	--color-text-muted: #666666;
 	--color-text-inverse: #f3f6f9;
 	--color-text-inverse-muted: #9ab0c4;
+	--color-on-accent: #ffffff; /* text, glyphs and borders drawn on a coloured fill */
 
 	/* Status */
 	--color-success: #2e7d32;

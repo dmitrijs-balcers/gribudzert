@@ -4,12 +4,12 @@
 	gap: 6px;
 	padding: 4px 10px;
 	border: 0;
-	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.95);
-	color: #1a1a1a;
-	font-size: 12px;
+	border-radius: var(--radius-pill);
+	background: var(--surface-pill);
+	color: var(--color-text);
+	font-size: var(--font-size-sm);
 	font-weight: 600;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+	box-shadow: var(--shadow-pill);
 	white-space: nowrap;
 	cursor: default;
 }
@@ -22,24 +22,24 @@
 	width: 10px;
 	height: 10px;
 	border-radius: 50%;
-	background: #9e9e9e;
+	background: var(--color-neutral);
 }
 
 .provenance-indicator[data-provenance='live'] .provenance-indicator-dot {
-	background: #2e7d32;
+	background: var(--color-success);
 }
 
 .provenance-indicator[data-provenance='saved'] .provenance-indicator-dot {
-	background: #f9a825;
+	background: var(--color-warning);
 }
 
 .provenance-indicator[data-provenance='updating'] .provenance-indicator-dot {
-	background: #0078ff;
+	background: var(--color-brand);
 	animation: provenance-indicator-pulse 1.2s ease-in-out infinite;
 }
 
 .provenance-indicator[data-provenance='failed'] .provenance-indicator-dot {
-	background: #d32f2f;
+	background: var(--color-danger);
 }
 
 .provenance-indicator[data-provenance='offline'] .provenance-indicator-dot {
