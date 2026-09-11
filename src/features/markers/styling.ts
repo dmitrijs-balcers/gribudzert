@@ -7,8 +7,8 @@ import type {
 	WaterSourceType,
 } from '../../domain';
 import { formatDistance } from '../../domain';
-import type { Glyph } from './presentation';
-import { NON_DRINKABLE_BADGE_COLOR, presentationOf, VIEWPOINT_BADGE_COLORS } from './presentation';
+import type { Glyph } from '../presentation';
+import { NON_DRINKABLE_BADGE_COLOR, presentationOf, VIEWPOINT_BADGE_COLORS } from '../presentation';
 import './markers.css';
 
 export const NEAREST_MARKER_CLASS = 'nearest-marker';
@@ -107,7 +107,6 @@ const VIEWPOINT_BADGE_SIZE_PX: Readonly<Record<ViewpointProminence, number>> = {
 	notable: 40,
 };
 const TAIL_HEIGHT_PX = 7;
-const POPUP_ANCHOR_GAP_PX = 6;
 
 const classNames = (...names: readonly (string | false | undefined)[]): string =>
 	names.filter((name): name is string => typeof name === 'string' && name !== '').join(' ');
@@ -171,7 +170,6 @@ export const createFacilityIcon = (appearance: MarkerAppearance): L.DivIcon => {
 		className: iconClassNameOf(appearance),
 		iconSize: [size, tailTipY],
 		iconAnchor: [size / 2, tailTipY],
-		popupAnchor: [0, -(tailTipY + POPUP_ANCHOR_GAP_PX)],
 	});
 };
 

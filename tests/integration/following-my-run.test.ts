@@ -37,21 +37,23 @@ describe('Following my run while the map stays open', () => {
 		expect(app.beelineVisible()).toBe(true);
 	});
 
-	it('re-ranks the nearest point only after moving 25 m, skipping while a popup is open and catching up once it closes', async () => {
+	it('re-ranks the nearest point only after moving 25 m, skipping while a sheet is open and catching up once it closes', async () => {
 		const app = await renderApp({ geolocation: { position: USER } });
 		await waitFor(() => expect(nearestFacilityType(app)).toBe('drinking_water'));
 
 		const nonDrinkableIndex = app
 			.markers()
 			.findIndex((marker) => marker.classList.contains('non-drinkable-marker'));
-		app.openPopupOf(nonDrinkableIndex);
-		await waitFor(() => expect(app.popup()).not.toBeNull());
+		app.tapMarker(nonDrinkableIndex);
+		await waitFor(() => expect(app.sheet()).not.toBeNull());
+		const liveBefore = app.sheet()?.querySelector('.detail-sheet-live')?.textContent;
 
 		app.geolocation.moveTo({ lat: RIGA.lat, lon: RIGA.lon });
 		await new Promise((resolve) => setTimeout(resolve, 100));
 		expect(nearestFacilityType(app)).toBe('drinking_water');
+		expect(app.sheet()?.querySelector('.detail-sheet-live')?.textContent).not.toBe(liveBefore);
 
-		app.closePopup();
+		app.closeSheet();
 		await waitFor(() => expect(nearestFacilityType(app)).toBe('water_tap'));
 	});
 

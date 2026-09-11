@@ -1,7 +1,7 @@
 import * as L from 'leaflet';
 import type { LayerName } from '../core/config';
 import type { LayerKind } from '../app/layers';
-import { VIEWPOINT_STARBURST_PATHS } from '../features/markers/presentation';
+import { VIEWPOINT_STARBURST_PATHS } from '../features/presentation';
 import './layer-picker.css';
 
 export const LAYER_PICKER_BUTTON_LABEL = 'Choose what to show on the map';

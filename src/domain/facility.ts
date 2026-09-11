@@ -26,7 +26,27 @@ export type WaterSourceType =
 	| 'water_tap'
 	| 'water_point';
 
-type FacilityBase = {
+export type ExternalLinkKind = 'wikipedia' | 'wikidata' | 'website' | 'commons' | 'photo';
+
+export type ExternalLink = {
+	readonly kind: ExternalLinkKind;
+	readonly url: string;
+	readonly label: string;
+};
+
+export type Photo = {
+	readonly thumbnailUrl: string;
+	readonly pageUrl: string;
+};
+
+export type FacilityMedia = {
+	readonly links: readonly ExternalLink[];
+	readonly photo: Photo | null;
+};
+
+export const NO_MEDIA: FacilityMedia = { links: [], photo: null };
+
+export type FacilityBase = {
 	readonly id: FacilityId;
 	readonly osm: OsmRef;
 	readonly coordinates: Coordinates;
@@ -34,6 +54,7 @@ type FacilityBase = {
 	readonly operator?: string;
 	readonly note?: string;
 	readonly openingHours?: string;
+	readonly media: FacilityMedia;
 };
 
 export type WaterFacility = FacilityBase & {
@@ -105,6 +126,11 @@ const isRecord = (value: unknown): value is UnknownRecord =>
 const isOsmType = (value: unknown): value is OsmType =>
 	value === 'node' || value === 'way' || value === 'relation';
 
+const parseString = (value: unknown): string | null => (typeof value === 'string' ? value : null);
+
+const parseFiniteNumber = (value: unknown): number | null =>
+	typeof value === 'number' && Number.isFinite(value) ? value : null;
+
 const parseOsmRef = (value: unknown): OsmRef | null => {
 	if (!isRecord(value)) {
 		return null;
@@ -127,31 +153,74 @@ const parseCoordinatesField = (value: unknown): Coordinates | null => {
 	return coordinates(lat, lon);
 };
 
-type ParsedOptionalString =
-	| { readonly present: false }
-	| { readonly present: true; readonly value: string };
+type Parsed<T> = { readonly present: false } | { readonly present: true; readonly value: T };
 
-const parseOptionalString = (value: unknown): ParsedOptionalString | null => {
+const parseOptional = <T>(
+	value: unknown,
+	parse: (value: unknown) => T | null
+): Parsed<T> | null => {
 	if (value === undefined) {
 		return { present: false };
 	}
-	if (typeof value === 'string') {
-		return { present: true, value };
+	const parsed = parse(value);
+	return parsed === null ? null : { present: true, value: parsed };
+};
+
+const isExternalLinkKind = (value: unknown): value is ExternalLinkKind =>
+	value === 'wikipedia' ||
+	value === 'wikidata' ||
+	value === 'website' ||
+	value === 'commons' ||
+	value === 'photo';
+
+const parseExternalLink = (value: unknown): ExternalLink | null => {
+	if (!isRecord(value)) {
+		return null;
 	}
-	return null;
+	const { kind, url, label } = value;
+	if (!isExternalLinkKind(kind) || typeof url !== 'string' || typeof label !== 'string') {
+		return null;
+	}
+	return { kind, url, label };
 };
 
-type ParsedFacilityBase = {
-	readonly id: FacilityId;
-	readonly osm: OsmRef;
-	readonly coordinates: Coordinates;
-	readonly name?: string;
-	readonly operator?: string;
-	readonly note?: string;
-	readonly openingHours?: string;
+const isExternalLink = (link: ExternalLink | null): link is ExternalLink => link !== null;
+
+const parseLinks = (value: unknown): readonly ExternalLink[] | null => {
+	if (!Array.isArray(value)) {
+		return null;
+	}
+	const links = value.map(parseExternalLink);
+	return links.every(isExternalLink) ? links : null;
 };
 
-const parseFacilityBase = (record: UnknownRecord): ParsedFacilityBase | null => {
+const parsePhoto = (value: unknown): Photo | null => {
+	if (!isRecord(value)) {
+		return null;
+	}
+	const { thumbnailUrl, pageUrl } = value;
+	if (typeof thumbnailUrl !== 'string' || typeof pageUrl !== 'string') {
+		return null;
+	}
+	return { thumbnailUrl, pageUrl };
+};
+
+export const parseMedia = (value: unknown): FacilityMedia | null => {
+	if (!isRecord(value)) {
+		return null;
+	}
+	const links = parseLinks(value.links);
+	if (links === null) {
+		return null;
+	}
+	if (value.photo === null) {
+		return { links, photo: null };
+	}
+	const photo = parsePhoto(value.photo);
+	return photo === null ? null : { links, photo };
+};
+
+const parseFacilityBase = (record: UnknownRecord): FacilityBase | null => {
 	const osm = parseOsmRef(record.osm);
 	if (osm === null || record.id !== facilityId(osm)) {
 		return null;
@@ -160,11 +229,18 @@ const parseFacilityBase = (record: UnknownRecord): ParsedFacilityBase | null => 
 	if (parsedCoordinates === null) {
 		return null;
 	}
-	const name = parseOptionalString(record.name);
-	const operator = parseOptionalString(record.operator);
-	const note = parseOptionalString(record.note);
-	const openingHours = parseOptionalString(record.openingHours);
-	if (name === null || operator === null || note === null || openingHours === null) {
+	const name = parseOptional(record.name, parseString);
+	const operator = parseOptional(record.operator, parseString);
+	const note = parseOptional(record.note, parseString);
+	const openingHours = parseOptional(record.openingHours, parseString);
+	const media = parseOptional(record.media, parseMedia);
+	if (
+		name === null ||
+		operator === null ||
+		note === null ||
+		openingHours === null ||
+		media === null
+	) {
 		return null;
 	}
 	return {
@@ -175,6 +251,7 @@ const parseFacilityBase = (record: UnknownRecord): ParsedFacilityBase | null => 
 		...(operator.present ? { operator: operator.value } : {}),
 		...(note.present ? { note: note.value } : {}),
 		...(openingHours.present ? { openingHours: openingHours.value } : {}),
+		media: media.present ? media.value : NO_MEDIA,
 	};
 };
 
@@ -250,12 +327,9 @@ const parseViewpointFacility = (record: UnknownRecord): ViewpointFacility | null
 	if (!isViewpointProminence(record.prominence)) {
 		return null;
 	}
-	const description = parseOptionalString(record.description);
-	if (description === null) {
-		return null;
-	}
-	const elevation = record.elevation;
-	if (elevation !== undefined && (typeof elevation !== 'number' || !Number.isFinite(elevation))) {
+	const description = parseOptional(record.description, parseString);
+	const elevation = parseOptional(record.elevation, parseFiniteNumber);
+	if (description === null || elevation === null) {
 		return null;
 	}
 	return {
@@ -263,7 +337,7 @@ const parseViewpointFacility = (record: UnknownRecord): ViewpointFacility | null
 		kind: 'viewpoint',
 		prominence: record.prominence,
 		...(description.present ? { description: description.value } : {}),
-		...(elevation !== undefined ? { elevation } : {}),
+		...(elevation.present ? { elevation: elevation.value } : {}),
 	};
 };
 

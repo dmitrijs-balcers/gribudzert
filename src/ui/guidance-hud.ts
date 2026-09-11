@@ -1,7 +1,7 @@
 import * as L from 'leaflet';
 import type { Heading, Meters } from '../domain';
 import { formatDistance } from '../domain';
-import type { Glyph } from '../features/markers/presentation';
+import type { Glyph } from '../features/presentation';
 
 export type GuidanceHudView =
 	| { readonly kind: 'hidden' }

@@ -1,5 +1,6 @@
 import type {
 	Facility,
+	FacilityBase,
 	OsmRef,
 	ToiletFacility,
 	ViewpointFacility,
@@ -11,6 +12,7 @@ import type {
 } from './facility';
 import { facilityId } from './facility';
 import type { Coordinates } from './geo';
+import { mediaFromTags } from './media';
 
 export type OsmTags = Readonly<Record<string, string>>;
 
@@ -84,7 +86,7 @@ const parseElevation = (value: string | undefined): number | undefined => {
 	return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-const baseFields = (osm: OsmRef, coordinates: Coordinates, tags: OsmTags) => ({
+const baseFields = (osm: OsmRef, coordinates: Coordinates, tags: OsmTags): FacilityBase => ({
 	id: facilityId(osm),
 	osm,
 	coordinates,
@@ -92,6 +94,7 @@ const baseFields = (osm: OsmRef, coordinates: Coordinates, tags: OsmTags) => ({
 	...(tags.operator !== undefined ? { operator: tags.operator } : {}),
 	...(tags.note !== undefined ? { note: tags.note } : {}),
 	...(tags.opening_hours !== undefined ? { openingHours: tags.opening_hours } : {}),
+	media: mediaFromTags(tags),
 });
 
 const waterFacilityFromTags = (

@@ -1,6 +1,22 @@
 export type { AppHandle } from './bootstrap';
 export { bootstrap, MAP_CONTAINER_ID } from './bootstrap';
 export type {
+	GuidanceAppEffect,
+	GuidanceAppEvent,
+	GuidanceAppState,
+	GuidancePorts,
+	GuidanceRuntime,
+	SheetSelection,
+} from './guidance';
+export {
+	applyGuidanceApp,
+	createGuidanceRuntime,
+	hudViewOf,
+	initialGuidanceAppState,
+	sheetViewOf,
+	targetOf,
+} from './guidance';
+export type {
 	FacilityLayer,
 	FacilityLayerGroup,
 	FacilityLayers,

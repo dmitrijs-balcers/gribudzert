@@ -1,10 +1,14 @@
 import * as L from 'leaflet';
+import { trackMarkerClicked } from '../../analytics';
 import type { Facility, Located } from '../../domain';
-import type { PopupContext } from './popup';
-import { attachPopupHandlers, createPopupContent } from './popup';
 import { appearanceOf, createFacilityIcon, rootAttributesOf } from './styling';
 
-export type FacilityLayer = L.FeatureGroup<L.Marker>;
+export type MarkerHandlers = {
+	readonly onSelect: (item: Located<Facility>) => void;
+};
+
+export const SELECTED_MARKER_CLASS = 'facility-marker--selected';
+export const SELECTED_MARKER_Z_OFFSET = 1000;
 
 const applyRootAttributes = (
 	marker: L.Marker,
@@ -33,15 +37,18 @@ export function createFacilityMarker(item: Located<Facility>): L.Marker {
 	return marker;
 }
 
-export function addMarkers(
-	items: readonly Located<Facility>[],
-	layer: FacilityLayer,
-	popupContext: PopupContext
-): void {
-	for (const item of items) {
-		const marker = createFacilityMarker(item);
-		marker.addTo(layer);
-		marker.bindPopup(createPopupContent(item, popupContext.platform));
-		attachPopupHandlers(marker, item.facility, { onSelect: popupContext.onSelect });
-	}
-}
+export const attachSelectHandler = (
+	marker: L.Marker,
+	item: Located<Facility>,
+	handlers: MarkerHandlers
+): void => {
+	marker.on('click', () => {
+		trackMarkerClicked(item.facility.kind);
+		handlers.onSelect(item);
+	});
+};
+
+export const setMarkerHighlighted = (marker: L.Marker, highlighted: boolean): void => {
+	marker.getElement()?.classList.toggle(SELECTED_MARKER_CLASS, highlighted);
+	marker.setZIndexOffset(highlighted ? SELECTED_MARKER_Z_OFFSET : 0);
+};

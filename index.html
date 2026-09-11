@@ -12,7 +12,6 @@
             content="Find free drinking water taps and public toilets near you on an interactive OpenStreetMap-based map."
         />
         <meta name="theme-color" content="#0078ff" />
-        <!-- Translucent status bar in iOS standalone mode so map tiles render under the notch -->
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -22,7 +21,6 @@
 
         <link rel="manifest" href="manifest.json" />
 
-        <!-- Umami analytics: stripped by vite.config.ts unless building in production mode -->
         <script
             defer
             data-analytics="umami"
@@ -32,10 +30,6 @@
         ></script>
 
         <style>
-            /*
-             * Safe-area insets (notch, home indicator, rounded corners).
-             * Resolve to 0 on devices without them. Requires viewport-fit=cover.
-             */
             :root {
                 --safe-top: env(safe-area-inset-top, 0px);
                 --safe-right: env(safe-area-inset-right, 0px);
@@ -47,7 +41,6 @@
             body {
                 height: 100%;
                 margin: 0;
-                /* Stop rubber-band / pull-to-refresh from moving the map page */
                 overscroll-behavior: none;
                 overflow: hidden;
                 font-family:
@@ -62,32 +55,15 @@
                 -moz-osx-font-smoothing: grayscale;
             }
 
-            /*
-             * Map fills the whole screen edge to edge, including under the
-             * notch and home indicator. position:fixed + inset:0 tracks the
-             * real visual viewport on iOS (100vh does not shrink for the
-             * Safari toolbar). Tiles go under the notch; controls are padded
-             * out of it below.
-             */
             #map {
                 position: fixed;
                 inset: 0;
                 width: 100%;
                 height: 100%;
-                /* A double tap zooms; it must never select the word under the finger. */
                 -webkit-user-select: none;
                 user-select: none;
             }
 
-            #map .leaflet-popup-content {
-                -webkit-user-select: text;
-                user-select: text;
-            }
-
-            /*
-             * Push Leaflet's corner control containers out of the safe areas.
-             * Scoped to #map so these beat leaflet.css, which Vite injects later.
-             */
             #map .leaflet-top {
                 top: var(--safe-top);
             }
@@ -120,7 +96,6 @@
                 text-decoration: none;
             }
 
-            /* Adjust default leafet control button appearance */
             .leaflet-bar a {
                 display: inline-flex;
                 align-items: center;
@@ -130,104 +105,16 @@
                 font-size: 18px;
             }
 
-            /* Make layer control less obtrusive on small screens */
             @media (max-width: 600px) {
                 .info {
                     display: none;
                 }
             }
 
-            /* Popup action styles (directions, guide me) - prominent & accessible */
-            .leaflet-popup-content-wrapper {
-                font-size: 14px;
-            }
-
-            .popup-actions {
-                margin-top: 8px;
-                display: flex;
-                gap: 8px;
-                align-items: center;
-                justify-content: flex-start;
-                flex-wrap: wrap;
-            }
-
-            .navigate-btn {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                box-sizing: border-box;
-                padding: 8px 10px;
-                border-radius: 8px;
-                border: 0;
-                background: linear-gradient(180deg, var(--color-brand), #0063d1);
-                color: white;
-                box-shadow: 0 3px 8px rgba(3, 102, 214, 0.2);
-                font: inherit;
-                font-weight: 600;
-                text-decoration: none;
-                cursor: pointer;
-                transition:
-                    transform 120ms ease,
-                    box-shadow 120ms ease,
-                    opacity 120ms ease;
-                -webkit-tap-highlight-color: transparent;
-            }
-
-            /* Outranks Leaflet's ".leaflet-container a" link colour */
-            .leaflet-container a.navigate-btn {
-                color: white;
-            }
-
-            .navigate-btn:active {
-                transform: translateY(1px) scale(0.995);
-            }
-
-            .navigate-btn:focus {
-                outline: 3px solid rgba(0, 120, 255, 0.25);
-                outline-offset: 2px;
-            }
-
-            .navigate-btn .icon {
-                display: inline-block;
-                width: 18px;
-                height: 18px;
-                line-height: 18px;
-                text-align: center;
-                font-size: 14px;
-            }
-
-            /* Secondary action styles (OpenStreetMap link) kept minimal */
-            .popup-secondary {
-                background: transparent;
-                border: none;
-                color: var(--color-brand);
-                text-decoration: underline;
-                font-size: 13px;
-                cursor: pointer;
-                padding: 0;
-            }
-
-            /* Make popups more comfortable on small screens */
-            @media (max-width: 420px) {
-                .navigate-btn {
-                    width: 100%;
-                    justify-content: center;
-                }
-                .popup-actions {
-                    flex-direction: column;
-                    align-items: stretch;
-                }
-            }
-
-            /*
-             * Splash: JS-free so it paints before any script arrives on a slow
-             * network. Animates only transform and opacity (compositor-only).
-             * src/ui/splash.ts fades it out via .splash-hidden and removes it.
-             */
             #splash {
                 position: fixed;
                 inset: 0;
-                z-index: 2000; /* above Leaflet (<= 1000) */
+                z-index: 2000;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -257,7 +144,6 @@
                 transform: scale(1.04);
             }
 
-            /* Drop and rings share one 3s loop: fall 0.18–0.78s, impact at 0.78s */
             .splash-glyph {
                 --splash-loop: 3s;
                 --splash-impact: 0.78s;
@@ -276,7 +162,6 @@
                 animation: splash-drop var(--splash-loop) infinite;
             }
 
-            /* Flattened rings at the contact point, staggered after impact */
             .splash-ring {
                 position: absolute;
                 left: -12px;
@@ -319,7 +204,6 @@
                 animation: splash-reveal 600ms ease-out 6s forwards;
             }
 
-            /* Appear → gravity fall → squash → springy settle → rest → fade */
             @keyframes splash-drop {
                 0% { transform: translateY(-44px) scale(0.92, 1.12); opacity: 0; animation-timing-function: ease-out; }
                 6% { transform: translateY(-40px) scale(0.92, 1.12); opacity: 1; animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
@@ -340,7 +224,6 @@
                 to { opacity: 1; }
             }
 
-            /* Reduced motion: static drop at rest, no rings, opacity fades only */
             @media (prefers-reduced-motion: reduce) {
                 .splash-glyph svg {
                     animation: none;
@@ -367,7 +250,6 @@
                     <span class="splash-ring" aria-hidden="true"></span>
                     <span class="splash-ring" aria-hidden="true"></span>
                     <span class="splash-ring" aria-hidden="true"></span>
-                    <!-- Drop from public/icons/icon.svg -->
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="136 99 240 272"

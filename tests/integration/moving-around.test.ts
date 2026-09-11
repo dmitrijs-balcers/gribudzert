@@ -35,10 +35,11 @@ const zoomOutIntoANewEmptyArea = (app: AppHandle): void => {
 
 const ID_PATTERN = /ID: \d+/;
 
-const idsShownInPopups = (app: AppHandle): readonly string[] =>
+const idsShownInSheets = (app: AppHandle): readonly string[] =>
 	app.markers().map((_, index) => {
-		app.openPopupOf(index);
-		return ID_PATTERN.exec(app.popupText())?.[0] ?? '';
+		app.tapMarker(index);
+		app.expandSheet();
+		return ID_PATTERN.exec(app.sheetText())?.[0] ?? '';
 	});
 
 const FAR_KEYBOARD_PAN_FRACTION_OF_VIEWPORT_WIDTH = 0.4;
@@ -99,8 +100,8 @@ describe('Moving around the map', () => {
 
 		await waitFor(() => expect(app.markers().length).toBeGreaterThanOrEqual(2));
 		await new Promise((resolve) => setTimeout(resolve, 100));
-		expect(idsShownInPopups(app)).toEqual(expect.arrayContaining(['ID: 501', 'ID: 502']));
-		expect(idsShownInPopups(app)).not.toContain('ID: 401');
+		expect(idsShownInSheets(app)).toEqual(expect.arrayContaining(['ID: 501', 'ID: 502']));
+		expect(idsShownInSheets(app)).not.toContain('ID: 401');
 	});
 
 	it('announces an empty area once, then stays quiet until the cooldown has passed', async () => {

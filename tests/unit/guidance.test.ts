@@ -64,7 +64,7 @@ describe('Being guided to a chosen facility', () => {
 		expect(initialGuidanceState).toEqual({ kind: 'nearest' });
 	});
 
-	it('follows the facility the visitor picked from its popup', () => {
+	it('follows the facility the visitor picked from its marker', () => {
 		expect(guidedTo(toilet)).toEqual({ kind: 'chosen', facility: toilet });
 	});
 

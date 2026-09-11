@@ -72,7 +72,7 @@
 	position: absolute;
 	left: calc(16px + var(--safe-left, 0px));
 	right: calc(16px + var(--safe-right, 0px));
-	bottom: calc(16px + var(--safe-bottom, 0px));
+	bottom: calc(var(--sheet-height, 0px) + 16px + var(--safe-bottom, 0px));
 	width: max-content;
 	max-width: calc(100% - 32px - var(--safe-left, 0px) - var(--safe-right, 0px));
 	margin-inline: auto;

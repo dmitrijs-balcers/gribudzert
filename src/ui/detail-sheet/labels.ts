@@ -1,0 +1,12 @@
+export const DETAIL_SHEET_CLASS = 'detail-sheet';
+export const DETAIL_SHEET_TITLE_ID = 'detail-sheet-title';
+export const CLOSE_LABEL = 'Close';
+export const DETAILS_LABEL = 'Details';
+export const LESS_LABEL = 'Less';
+export const COLLAPSE_LABEL = 'Show less';
+export const DIRECTIONS_LABEL = 'Directions';
+export const OSM_LINK_LABEL = 'OpenStreetMap';
+export const NEAREST_TAG = 'Nearest water';
+export const PHOTO_CREDIT = 'Wikimedia Commons';
+export const PROVENANCE = 'Data © OpenStreetMap contributors';
+export const SHEET_HEIGHT_PROPERTY = '--sheet-height';

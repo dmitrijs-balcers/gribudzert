@@ -4,6 +4,7 @@ import type { Coordinates } from '../../src/domain';
 import {
 	coordinates,
 	facilityFromTags,
+	NO_MEDIA,
 	parseFacility,
 	viewpointProminenceOf,
 } from '../../src/domain';
@@ -68,9 +69,11 @@ describe('Finding viewpoints', () => {
 		expect(namedMarker?.classList.contains('notable-marker')).toBe(false);
 
 		if (notableMarker !== undefined) {
-			app.openPopupOf(allMarkers.indexOf(notableMarker));
-			await waitFor(() => expect(app.popupText()).toContain('Cathedral Hill'));
-			expect(app.popupText()).toContain('Elevation: 42 m');
+			app.tapMarker(allMarkers.indexOf(notableMarker));
+			await waitFor(() => expect(app.sheetText()).toContain('Cathedral Hill'));
+			app.expandSheet();
+			expect(app.sheetText()).toContain('Elevation: 42 m');
+			expect(app.sheetText()).toContain('Panoramic view over the old town');
 		}
 
 		app.toggleLayer('Viewpoints');
@@ -124,6 +127,46 @@ describe('viewpoint facility round-trip', () => {
 
 		const roundTripped = parseFacility(JSON.parse(JSON.stringify(facility)));
 		expect(roundTripped).toEqual(facility);
+		expect(roundTripped?.media.photo).not.toBeNull();
+		expect(roundTripped?.media.links).toHaveLength(2);
+	});
+
+	it('still accepts a cached viewpoint saved before media was stored, with no media', () => {
+		const facility = facilityFromTags(
+			{ type: 'node', id: 303 },
+			requireCoordinates(56.954, 24.109),
+			NOTABLE_VIEWPOINT.tags
+		);
+		const { media, ...legacy } = JSON.parse(JSON.stringify(facility));
+		expect(media.photo).not.toBeNull();
+
+		expect(parseFacility(legacy)).toEqual({ ...legacy, media: NO_MEDIA });
+	});
+
+	it('rejects a cached viewpoint whose media links carry an unknown kind', () => {
+		const facility = facilityFromTags(
+			{ type: 'node', id: 303 },
+			requireCoordinates(56.954, 24.109),
+			NOTABLE_VIEWPOINT.tags
+		);
+		const tampered = {
+			...facility,
+			media: { links: [{ kind: 'myspace', url: 'https://x', label: 'x' }], photo: null },
+		};
+		expect(parseFacility(tampered)).toBeNull();
+	});
+
+	it('rejects a cached viewpoint whose media is malformed', () => {
+		const facility = facilityFromTags(
+			{ type: 'node', id: 303 },
+			requireCoordinates(56.954, 24.109),
+			NOTABLE_VIEWPOINT.tags
+		);
+		expect(parseFacility({ ...facility, media: 'none' })).toBeNull();
+		expect(parseFacility({ ...facility, media: { links: [] } })).toBeNull();
+		expect(
+			parseFacility({ ...facility, media: { links: [], photo: { pageUrl: 'x' } } })
+		).toBeNull();
 	});
 
 	it('rejects a viewpoint with an invalid prominence value', () => {

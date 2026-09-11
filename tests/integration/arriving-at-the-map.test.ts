@@ -35,17 +35,20 @@ describe('Arriving at the map', () => {
 
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		expect(app.userLocation()).toEqual({ markers: 0, circles: 0 });
-		app.openPopupOf(nearestIndex(app.markers()));
+		app.tapMarker(nearestIndex(app.markers()));
+		app.expandSheet();
 		await waitFor(() =>
-			expect(app.popupText()).toContain(`ID: ${SEASONAL_TAP_NEAR_RIGA_CENTRE.id}`)
+			expect(app.sheetText()).toContain(`ID: ${SEASONAL_TAP_NEAR_RIGA_CENTRE.id}`)
 		);
+		app.closeSheet();
 
 		app.geolocation.respondWith({ position: USER });
 
 		await waitFor(() => expect(app.userLocation()).toEqual({ markers: 1, circles: 1 }));
 		await waitFor(() => {
-			app.openPopupOf(nearestIndex(app.markers()));
-			expect(app.popupText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`);
+			app.tapMarker(nearestIndex(app.markers()));
+			app.expandSheet();
+			expect(app.sheetText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`);
 		});
 	});
 
@@ -59,7 +62,7 @@ describe('Arriving at the map', () => {
 		expect(padded.north - padded.south).toBeGreaterThan(raw.north - raw.south);
 	});
 
-	it('draws the non-drinkable source with the crossed-out icon and warns in its popup', async () => {
+	it('draws the non-drinkable source with the crossed-out icon and warns in its sheet', async () => {
 		const app = await renderApp();
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 
@@ -72,9 +75,10 @@ describe('Arriving at the map', () => {
 		expect(nonDrinkableMarker.getAttribute('data-facility-kind')).toBe('water');
 		expect(nonDrinkableMarker.getAttribute('title')).toContain('not drinkable');
 
-		app.openPopupOf(app.markers().indexOf(crossed[0] as Element));
-		await waitFor(() => expect(app.popupText()).toContain('Not Drinkable'));
-		expect(app.popupText()).toContain(`ID: ${NON_DRINKABLE.id}`);
+		app.tapMarker(app.markers().indexOf(crossed[0] as Element));
+		app.expandSheet();
+		await waitFor(() => expect(app.sheetText()).toContain('Not Drinkable'));
+		expect(app.sheetText()).toContain(`ID: ${NON_DRINKABLE.id}`);
 	});
 
 	it('names every water marker with its facility kind and type, and flags the nearest one', async () => {
@@ -91,7 +95,7 @@ describe('Arriving at the map', () => {
 		expect(nearestMarker.getAttribute('title')).toContain('nearest');
 	});
 
-	it('highlights the water point nearest to the visitor and describes it in its popup', async () => {
+	it('highlights the water point nearest to the visitor and describes it in its sheet', async () => {
 		const app = await renderApp({ geolocation: { position: USER } });
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 
@@ -99,15 +103,19 @@ describe('Arriving at the map', () => {
 		expect(index).toBeGreaterThanOrEqual(0);
 		expect(app.markers().filter((m) => m.classList.contains('nearest-marker'))).toHaveLength(1);
 
-		app.openPopupOf(index);
-		await waitFor(() => expect(app.popup()).not.toBeNull());
-		const popup = app.popup() as HTMLElement;
+		app.tapMarker(index);
+		await waitFor(() => expect(app.sheet()).not.toBeNull());
+		const sheet = app.sheet() as HTMLElement;
 
-		expect(app.popupText()).toContain('Drinking Water');
-		expect(app.popupText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`);
-		expect(app.popupText()).toMatch(/Distance: \d+m/);
-		expect(app.popupText()).toContain('Nearest water point');
-		expect(within(popup).getByRole('link', { name: 'Open on OpenStreetMap' })).toHaveProperty(
+		expect(app.sheetText()).toContain('Drinking Water');
+		expect(app.sheetText()).toMatch(/\d+m · [NESW]{1,2}/);
+		expect(app.sheetText()).toContain('Nearest water');
+		expect(sheet.querySelector('.detail-sheet-live')?.getAttribute('aria-live')).toBe('polite');
+
+		app.expandSheet();
+		expect(app.sheetText()).toContain(`ID: ${NEAREST_TAP_TO_USER.id}`);
+		expect(app.sheetText()).toContain('Data © OpenStreetMap contributors');
+		expect(within(sheet).getByRole('link', { name: 'OpenStreetMap' })).toHaveProperty(
 			'href',
 			expect.stringContaining(`/node/${NEAREST_TAP_TO_USER.id}`)
 		);
@@ -139,11 +147,12 @@ describe('Arriving at the map', () => {
 		await waitFor(() => expect(app.markers()).toHaveLength(WATER_MARKER_COUNT));
 		expect(app.userLocation()).toEqual({ markers: 0, circles: 0 });
 
-		app.openPopupOf(nearestIndex(app.markers()));
+		app.tapMarker(nearestIndex(app.markers()));
+		app.expandSheet();
 		await waitFor(() =>
-			expect(app.popupText()).toContain(`ID: ${SEASONAL_TAP_NEAR_RIGA_CENTRE.id}`)
+			expect(app.sheetText()).toContain(`ID: ${SEASONAL_TAP_NEAR_RIGA_CENTRE.id}`)
 		);
-		expect(app.popupText()).toContain('Water Tap');
-		expect(app.popupText()).toContain('Seasonal: yes');
+		expect(app.sheetText()).toContain('Water Tap');
+		expect(app.sheetText()).toContain('Seasonal');
 	});
 });
