@@ -605,7 +605,7 @@ export type AppHandle = {
 		type: GesturePointerType,
 		point: { x: number; y: number },
 		pointerId?: number
-	) => void;
+	) => boolean;
 };
 
 export type RenderOptions = {
@@ -668,7 +668,7 @@ const dispatchGesturePointer = (
 	type: GesturePointerType,
 	point: { readonly x: number; readonly y: number },
 	pointerId: number
-): void => {
+): boolean =>
 	container.dispatchEvent(
 		new PointerEvent(type, {
 			bubbles: true,
@@ -680,7 +680,6 @@ const dispatchGesturePointer = (
 			pointerType: 'touch',
 		})
 	);
-};
 
 const TILE_ZOOM_PATTERN = /tile\.openstreetmap\.org\/(\d+)\//;
 

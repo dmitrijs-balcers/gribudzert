@@ -1,4 +1,5 @@
 import type * as L from 'leaflet';
+import { point as leafletPoint } from 'leaflet';
 import { timestampNow } from '../../domain';
 import { createContinuousZoom } from './continuous-zoom';
 import type { GestureEffect, GestureEvent, GesturePoint, GestureState } from './gesture';
@@ -41,6 +42,12 @@ export const createOneHandZoomHandler = (
 				map.dragging.enable();
 				map.getContainer().classList.remove(GESTURE_ACTIVE_CLASS);
 				return;
+			case 'tapZoomIn':
+				map.setZoomAround(
+					leafletPoint(effect.anchor.x, effect.anchor.y),
+					map.getZoom() + (map.options.zoomDelta ?? 1)
+				);
+				return;
 			default: {
 				const exhaustive: never = effect;
 				throw new Error(`Unhandled one-hand zoom effect: ${JSON.stringify(exhaustive)}`);
@@ -66,6 +73,11 @@ export const createOneHandZoomHandler = (
 			pointerCount: activePointerIds.size,
 			zoom: map.getZoom(),
 		});
+		if (state.kind === 'armed') {
+			// The second tap is ours: stop the browser's own double-tap actions
+			// (word selection, synthetic mouse events and dblclick).
+			event.preventDefault();
+		}
 	};
 
 	const onPointerMove = (event: PointerEvent): void => {

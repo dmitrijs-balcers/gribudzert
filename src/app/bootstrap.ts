@@ -158,6 +158,7 @@ export const mapOptionsFor = (input: {
 	zoom: DEFAULT_ZOOM,
 	zoomControl: !input.coarsePointer,
 	zoomSnap: input.coarsePointer ? 0 : 1,
+	doubleClickZoom: !input.coarsePointer,
 });
 
 const createMap = (center: L.LatLngTuple, coarsePointer: boolean): L.Map => {
