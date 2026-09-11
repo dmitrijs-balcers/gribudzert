@@ -11,7 +11,12 @@ import {
 	isToiletFacility,
 	isWaterFacility,
 } from '../../src/domain';
-import { ACCESSIBLE_TOILET, NEAREST_TO_USER, SEASONAL_TAP, USER } from '../fixtures';
+import {
+	ACCESSIBLE_TOILET,
+	NEAREST_TAP_TO_USER,
+	SEASONAL_TAP_NEAR_RIGA_CENTRE,
+	USER,
+} from '../fixtures';
 
 const facilityAt = (
 	osm: { readonly type: 'node' | 'way'; readonly id: number },
@@ -29,7 +34,9 @@ const facilityAt = (
 	return facility;
 };
 
-const waterAt = (element: typeof NEAREST_TO_USER | typeof SEASONAL_TAP): WaterFacility => {
+const waterAt = (
+	element: typeof NEAREST_TAP_TO_USER | typeof SEASONAL_TAP_NEAR_RIGA_CENTRE
+): WaterFacility => {
 	const facility = facilityAt(element, element, element.tags);
 	if (!isWaterFacility(facility)) {
 		throw new Error('fixture is not a water point');
@@ -45,8 +52,8 @@ const toiletAt = (element: typeof ACCESSIBLE_TOILET): ToiletFacility => {
 	return facility;
 };
 
-const nearestTap = waterAt(NEAREST_TO_USER);
-const seasonalTap = waterAt(SEASONAL_TAP);
+const nearestTap = waterAt(NEAREST_TAP_TO_USER);
+const seasonalTap = waterAt(SEASONAL_TAP_NEAR_RIGA_CENTRE);
 const toilet = toiletAt(ACCESSIBLE_TOILET);
 
 const guidedTo = (facility: Facility): GuidanceState =>
