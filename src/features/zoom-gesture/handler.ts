@@ -73,6 +73,11 @@ export const createOneHandZoomHandler = (
 			pointerCount: activePointerIds.size,
 			zoom: map.getZoom(),
 		});
+		if (state.kind === 'armed') {
+			// The second tap is ours: stop the browser's own double-tap actions
+			// (word selection, synthetic mouse events and dblclick).
+			event.preventDefault();
+		}
 	};
 
 	const onPointerMove = (event: PointerEvent): void => {

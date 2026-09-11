@@ -59,6 +59,18 @@ describe('One-hand zoom on mobile', () => {
 		expect(app.draggingEnabled()).toBe(true);
 	});
 
+	it('blocks the browser default only on the second tap of a double tap', async () => {
+		const app = await renderApp({ pointer: 'coarse' });
+		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM));
+
+		expect(app.gesturePointer('pointerdown', TAP_POINT)).toBe(true);
+		app.gesturePointer('pointerup', TAP_POINT);
+		expect(app.gesturePointer('pointerdown', TAP_POINT)).toBe(false);
+		app.gesturePointer('pointerup', TAP_POINT);
+
+		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM + 1));
+	});
+
 	it('does not zoom on two taps that are too far apart', async () => {
 		const app = await renderApp({ pointer: 'coarse' });
 		await waitFor(() => expect(app.tileZoom()).toBe(DEFAULT_ZOOM));

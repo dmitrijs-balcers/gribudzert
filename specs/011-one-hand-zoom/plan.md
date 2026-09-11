@@ -26,7 +26,10 @@ zoom control and mouse-wheel zoom untouched.
 4. If the second tap lifts without sliding more than ~10 px, it is a plain double tap: the
    map zooms in one level (`zoomDelta`) around the tap point, animated, as in other map
    apps. Leaflet's own `doubleClickZoom` is switched off on coarse pointers so a browser-
-   synthesised `dblclick` cannot zoom a second time.
+   synthesised `dblclick` cannot zoom a second time. The confirmed second tap's `pointerdown`
+   is `preventDefault`ed so the browser's own double-tap actions (word selection, compat
+   mouse events) never fire, and `#map` carries `user-select: none` (popup content stays
+   selectable) so no double tap on the attribution, scale bar or HUD selects text.
 5. If the finger moves more than 30 px before the second tap lands, the gesture never arms:
    it was a pan, not a double-tap-and-slide, and normal one-finger panning proceeds
    untouched.
