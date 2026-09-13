@@ -19,7 +19,7 @@ export type MarkerRenderer = {
 	readonly destroy: () => void;
 };
 
-const MARKER_KINDS: readonly FacilityKind[] = ['water', 'toilet', 'viewpoint'];
+const MARKER_KINDS: readonly FacilityKind[] = ['water', 'toilet', 'viewpoint', 'fuel'];
 
 type RenderedKind = {
 	readonly items: readonly Located<Facility>[];

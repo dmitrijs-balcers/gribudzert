@@ -45,6 +45,12 @@ export const VIEWPOINT_BADGE_COLORS: Readonly<Record<ViewpointProminence, string
 	notable: '#2E7D32',
 };
 
+export const FUEL_PRESENTATION: FacilityPresentation = {
+	glyph: emoji('⛽'),
+	label: 'Gas Station',
+	badgeColor: '#E53935',
+};
+
 export const NON_DRINKABLE_BADGE_COLOR = '#FF5722';
 
 export const presentationOf = (facility: Facility): FacilityPresentation => {
@@ -53,6 +59,8 @@ export const presentationOf = (facility: Facility): FacilityPresentation => {
 			return TOILET_PRESENTATION;
 		case 'viewpoint':
 			return VIEWPOINT_PRESENTATION;
+		case 'fuel':
+			return FUEL_PRESENTATION;
 		case 'water':
 			return WATER_SOURCE_PRESENTATION[facility.sourceType];
 		default: {

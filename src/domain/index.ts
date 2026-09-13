@@ -22,6 +22,7 @@ export type {
 	FacilityId,
 	FacilityKind,
 	FacilityMedia,
+	FuelFacility,
 	OsmRef,
 	OsmType,
 	Photo,
@@ -36,6 +37,8 @@ export type {
 } from './facility';
 export {
 	facilityId,
+	fuelStationLabel,
+	isFuelFacility,
 	isToiletFacility,
 	isViewpointFacility,
 	isWaterFacility,
@@ -133,6 +136,7 @@ export {
 export type { OsmTags } from './osm';
 export {
 	facilityFromTags,
+	isFuelTags,
 	isToiletTags,
 	isViewpointTags,
 	viewpointProminenceOf,

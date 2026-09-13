@@ -110,6 +110,34 @@ export const VIEWPOINT_ELEMENTS: readonly OverpassElement[] = [
 	NOTABLE_VIEWPOINT,
 ];
 
+export const isFuelQuery = (query: string): boolean => query.includes('"amenity"="fuel"');
+
+export const BRANDED_FUEL_STATION = {
+	type: 'node',
+	id: 401,
+	lat: 56.956,
+	lon: 24.111,
+	tags: {
+		amenity: 'fuel',
+		brand: 'Circle K',
+		name: 'Circle K Brīvības',
+		opening_hours: '24/7',
+		toilets: 'yes',
+	},
+} as const satisfies OverpassElement;
+
+export const UNBRANDED_FUEL_STATION = {
+	type: 'way',
+	id: 402,
+	center: { lat: 56.9565, lon: 24.1115 },
+	tags: { amenity: 'fuel' },
+} as const satisfies OverpassElement;
+
+export const FUEL_ELEMENTS: readonly OverpassElement[] = [
+	BRANDED_FUEL_STATION,
+	UNBRANDED_FUEL_STATION,
+];
+
 export const waterNodesAt = (
 	center: { readonly lat: number; readonly lon: number },
 	ids: readonly number[]

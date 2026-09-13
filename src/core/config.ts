@@ -68,6 +68,7 @@ export const LAYER_NAMES = {
 	WATER: 'Drinking Points',
 	TOILET: 'Public Toilets',
 	VIEWPOINT: 'Viewpoints',
+	FUEL: 'Gas Stations',
 } as const;
 
 export type LayerName = (typeof LAYER_NAMES)[keyof typeof LAYER_NAMES];

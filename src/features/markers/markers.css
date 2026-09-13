@@ -41,6 +41,25 @@
 	pointer-events: none;
 }
 
+.facility-marker-toilet-mark {
+	position: absolute;
+	top: -7px;
+	right: -7px;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--surface-control);
+	border: 1px solid rgba(0, 0, 0, 0.15);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	line-height: 1;
+	user-select: none;
+	pointer-events: none;
+}
+
 .facility-marker-tail {
 	position: relative;
 	flex-shrink: 0;
@@ -132,6 +151,28 @@
 
 .facility-marker--selected.facility-marker--viewpoint {
 	--marker-selected-ring: var(--accent-viewpoint-soft);
+}
+
+.facility-marker--selected.facility-marker--fuel {
+	--marker-selected-ring: var(--accent-fuel-soft);
+}
+
+.facility-marker-name {
+	flex-shrink: 0;
+	margin-top: 3px;
+	max-width: 110px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	background: var(--surface-control);
+	color: #222222;
+	font-size: var(--font-size-xs);
+	font-weight: 600;
+	line-height: 1.4;
+	padding: 1px 6px;
+	border-radius: var(--radius-pill);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+	white-space: nowrap;
+	pointer-events: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
