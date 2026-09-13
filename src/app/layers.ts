@@ -8,7 +8,7 @@ import type { FetchError } from '../types/errors';
 
 export type LayerKind = FacilityKind;
 
-export const LAYER_KINDS: readonly LayerKind[] = ['water', 'toilet', 'viewpoint'];
+export const LAYER_KINDS: readonly LayerKind[] = ['water', 'toilet', 'viewpoint', 'fuel'];
 
 export type FacilityLayerGroup = L.FeatureGroup<L.Marker>;
 
@@ -30,6 +30,8 @@ export const labelOf = (kind: LayerKind): LayerName => {
 			return LAYER_NAMES.TOILET;
 		case 'viewpoint':
 			return LAYER_NAMES.VIEWPOINT;
+		case 'fuel':
+			return LAYER_NAMES.FUEL;
 		default: {
 			const exhaustive: never = kind;
 			return exhaustive;
@@ -55,6 +57,7 @@ export const createFacilityLayers = (
 	water: createFacilityLayer('water', selectors.water),
 	toilet: createFacilityLayer('toilet', selectors.toilet),
 	viewpoint: createFacilityLayer('viewpoint', selectors.viewpoint),
+	fuel: createFacilityLayer('fuel', selectors.fuel),
 });
 
 export type LayerHost = Pick<L.Map, 'addLayer' | 'removeLayer'>;
@@ -90,6 +93,7 @@ export const locateFacilities = (
 			return markNearest(located);
 		case 'toilet':
 		case 'viewpoint':
+		case 'fuel':
 			return located;
 		default: {
 			const exhaustive: never = kind;

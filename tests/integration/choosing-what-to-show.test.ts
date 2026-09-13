@@ -25,7 +25,7 @@ describe('Choosing what to show on the map', () => {
 		expect((popover as HTMLElement | null)?.hidden).toBe(true);
 	});
 
-	it('opens on click with the three layer switches in order and the correct initial state', async () => {
+	it('opens on click with the four layer switches in order and the correct initial state', async () => {
 		const app = await renderApp();
 
 		const button = app.container.querySelector('.layer-picker-button');
@@ -38,11 +38,12 @@ describe('Choosing what to show on the map', () => {
 		const tiles = Array.from(popover.querySelectorAll('.layer-picker-tile'));
 		expect(
 			tiles.map((tile) => tile.querySelector('.layer-picker-tile-label')?.textContent?.trim())
-		).toEqual(['Drinking Points', 'Public Toilets', 'Viewpoints']);
+		).toEqual(['Drinking Points', 'Public Toilets', 'Viewpoints', 'Gas Stations']);
 		expect(tiles.map((tile) => tile.getAttribute('aria-checked'))).toEqual([
 			'true',
 			'false',
 			'false',
+			'true',
 		]);
 	});
 

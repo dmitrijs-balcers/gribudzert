@@ -28,6 +28,8 @@ export const subjectOf = (kind: LayerKind): string => {
 			return 'public toilets';
 		case 'viewpoint':
 			return 'viewpoints';
+		case 'fuel':
+			return 'gas stations';
 		default: {
 			const exhaustive: never = kind;
 			return exhaustive;
@@ -70,7 +72,8 @@ export const locationErrorMessage = (error: LocationError): string => {
 	}
 };
 
-export const emptyAreaMessage = (kind: LayerKind): string => {
+/** Gas stations are a companion layer that is on by default, so an empty area stays quiet. */
+export const emptyAreaMessage = (kind: LayerKind): string | null => {
 	switch (kind) {
 		case 'water':
 			return 'No water points found in this area. Try zooming out or panning to a different location.';
@@ -78,6 +81,8 @@ export const emptyAreaMessage = (kind: LayerKind): string => {
 			return 'No public toilets found in this area.';
 		case 'viewpoint':
 			return 'No viewpoints found in this area.';
+		case 'fuel':
+			return null;
 		default: {
 			const exhaustive: never = kind;
 			return exhaustive;

@@ -2,6 +2,7 @@ import * as L from 'leaflet';
 import type { LayerName } from '../core/config';
 import type { LayerKind } from '../app/layers';
 import { VIEWPOINT_STARBURST_PATHS } from '../features/presentation';
+import { FUEL_PUMP_PATHS } from './detail-sheet/icons';
 import './layer-picker.css';
 
 export const LAYER_PICKER_BUTTON_LABEL = 'Choose what to show on the map';
@@ -53,6 +54,7 @@ const TILE_ICON_MARKUP: Readonly<Record<LayerKind, string>> = {
 		'<path d="M16.5 9 v11 M13.5 15 h6 l-1.5-5 a1.5 1.5 0 0 0-3 0 Z"></path>' +
 		'</svg>',
 	viewpoint: `<svg class="layer-picker-tile-svg layer-picker-tile-svg--fill" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${VIEWPOINT_STARBURST_PATHS}</svg>`,
+	fuel: `<svg class="layer-picker-tile-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${FUEL_PUMP_PATHS}</svg>`,
 };
 
 const isCheckedTile = (tile: HTMLButtonElement): boolean =>

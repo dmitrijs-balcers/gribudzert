@@ -267,10 +267,11 @@ const settleFetchable = (
 			});
 		} else {
 			effects.push({ kind: 'track-empty-area', layer: render.kind });
-			if (canNotifyEmptyArea(emptyAreaNotifiedAt, render.kind, now)) {
+			const message = emptyAreaMessage(render.kind);
+			if (message !== null && canNotifyEmptyArea(emptyAreaNotifiedAt, render.kind, now)) {
 				effects.push({
 					kind: 'notify',
-					request: { kind: 'toast', message: emptyAreaMessage(render.kind), tone: 'neutral' },
+					request: { kind: 'toast', message, tone: 'neutral' },
 				});
 				emptyAreaNotifiedAt = { ...emptyAreaNotifiedAt, [render.kind]: now };
 			}

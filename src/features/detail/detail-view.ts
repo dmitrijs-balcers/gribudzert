@@ -7,6 +7,7 @@ import type {
 	Facility,
 	FacilityId,
 	FacilityKind,
+	FuelFacility,
 	GuidanceCourse,
 	Heading,
 	Located,
@@ -33,6 +34,7 @@ export type FactIcon =
 	| 'seasonal'
 	| 'bottle'
 	| 'operator'
+	| 'brand'
 	| 'note';
 
 export type DetailFact = {
@@ -155,6 +157,10 @@ const viewpointFacts = (facility: ViewpointFacility): readonly (DetailFact | nul
 		: fact('elevation', 'Elevation', `${facility.elevation} m`),
 ];
 
+const fuelFacts = (facility: FuelFacility): readonly (DetailFact | null)[] => [
+	facility.brand === undefined ? null : fact('brand', 'Brand', facility.brand),
+];
+
 const kindFacts = (facility: Facility): readonly (DetailFact | null)[] => {
 	switch (facility.kind) {
 		case 'water':
@@ -163,6 +169,8 @@ const kindFacts = (facility: Facility): readonly (DetailFact | null)[] => {
 			return toiletFacts(facility);
 		case 'viewpoint':
 			return viewpointFacts(facility);
+		case 'fuel':
+			return fuelFacts(facility);
 		default: {
 			const exhaustive: never = facility;
 			return exhaustive;
@@ -187,6 +195,13 @@ const liveOf = (item: Located<Facility>, course: GuidanceCourse | null): DetailL
 				bearing: course.bearing,
 				compassPoint: compassPointOf(course.bearing),
 			};
+
+const titleOf = (facility: Facility, kindLabel: string): string => {
+	if (facility.name !== undefined) {
+		return facility.name;
+	}
+	return facility.kind === 'fuel' && facility.brand !== undefined ? facility.brand : kindLabel;
+};
 
 const destinationNameOf = (facility: Facility, kindLabel: string): string =>
 	facility.name ?? `${kindLabel} ${facility.osm.id}`;
@@ -241,7 +256,7 @@ export const detailViewOf = (
 		id: facility.id,
 		kind: facility.kind,
 		kindLabel,
-		title: facility.name ?? kindLabel,
+		title: titleOf(facility, kindLabel),
 		nearest: item.isNearest,
 		identity: `${facility.osm.type} ${facility.osm.id}`,
 		osmId: facility.osm.id,

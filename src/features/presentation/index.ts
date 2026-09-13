@@ -1,5 +1,6 @@
 export type { FacilityPresentation, Glyph } from './presentation';
 export {
+	FUEL_PRESENTATION,
 	NON_DRINKABLE_BADGE_COLOR,
 	presentationOf,
 	TOILET_PRESENTATION,

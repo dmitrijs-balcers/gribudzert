@@ -41,6 +41,11 @@
 	--sheet-accent-soft: var(--accent-viewpoint-soft);
 }
 
+.detail-sheet[data-kind='fuel'] {
+	--sheet-accent: var(--accent-fuel);
+	--sheet-accent-soft: var(--accent-fuel-soft);
+}
+
 @media (min-width: 900px) {
 	.detail-sheet {
 		right: auto;

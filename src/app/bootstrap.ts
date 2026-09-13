@@ -43,6 +43,7 @@ import { toTileBounds } from '../features/navigation/bounds';
 import { createUserInteractionSource } from '../features/navigation/user-interaction';
 import { createOneHandZoomHandler } from '../features/zoom-gesture';
 import drinkingWater from '../oql/drinking_water.overpassql?raw';
+import fuelStations from '../oql/fuel_stations.overpassql?raw';
 import publicToilets from '../oql/public_toilets.overpassql?raw';
 import viewpoints from '../oql/viewpoints.overpassql?raw';
 import { createDetailSheet } from '../ui/detail-sheet';
@@ -222,6 +223,7 @@ const bootstrapOrThrow = async (
 		water: overpassSelector(drinkingWater),
 		toilet: overpassSelector(publicToilets),
 		viewpoint: overpassSelector(viewpoints),
+		fuel: overpassSelector(fuelStations),
 	});
 
 	const userLayer: UserLocationLayer = createUserLocationLayer(map);
@@ -255,7 +257,12 @@ const bootstrapOrThrow = async (
 	onTeardown(sheet.destroy);
 
 	const markerRenderer = createMarkerRenderer(
-		{ water: layers.water.group, toilet: layers.toilet.group, viewpoint: layers.viewpoint.group },
+		{
+			water: layers.water.group,
+			toilet: layers.toilet.group,
+			viewpoint: layers.viewpoint.group,
+			fuel: layers.fuel.group,
+		},
 		{ onSelect: (item) => guidanceRuntime.dispatch({ kind: 'facility-selected', item }) }
 	);
 	onTeardown(markerRenderer.destroy);
@@ -382,6 +389,7 @@ const bootstrapOrThrow = async (
 		water: layers.water.active,
 		toilet: layers.toilet.active,
 		viewpoint: layers.viewpoint.active,
+		fuel: layers.fuel.active,
 	});
 
 	const layerPicker: LayerPicker = createLayerPicker({
@@ -405,6 +413,7 @@ const bootstrapOrThrow = async (
 	layerPicker.control.addTo(map);
 
 	enableLayer(layers.water, map);
+	enableLayer(layers.fuel, map);
 	layerPicker.render(layerActiveState());
 
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;

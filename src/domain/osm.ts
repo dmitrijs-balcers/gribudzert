@@ -1,6 +1,7 @@
 import type {
 	Facility,
 	FacilityBase,
+	FuelFacility,
 	OsmRef,
 	ToiletFacility,
 	ViewpointFacility,
@@ -53,6 +54,8 @@ export const waterSourceTypeOf = (tags: OsmTags): WaterSourceType | null =>
 export const isToiletTags = (tags: OsmTags): boolean => tags.amenity === 'toilets';
 
 export const isViewpointTags = (tags: OsmTags): boolean => tags.tourism === 'viewpoint';
+
+export const isFuelTags = (tags: OsmTags): boolean => tags.amenity === 'fuel';
 
 const hasPhotoOrArticle = (tags: OsmTags): boolean =>
 	tags.image !== undefined ||
@@ -142,6 +145,16 @@ const viewpointFacilityFromTags = (
 	};
 };
 
+const fuelFacilityFromTags = (
+	osm: OsmRef,
+	coordinates: Coordinates,
+	tags: OsmTags
+): FuelFacility => ({
+	...baseFields(osm, coordinates, tags),
+	kind: 'fuel',
+	...(tags.brand !== undefined ? { brand: tags.brand } : {}),
+});
+
 export const facilityFromTags = (
 	osm: OsmRef,
 	coordinates: Coordinates,
@@ -149,6 +162,10 @@ export const facilityFromTags = (
 ): Facility | null => {
 	if (isToiletTags(tags)) {
 		return toiletFacilityFromTags(osm, coordinates, tags);
+	}
+
+	if (isFuelTags(tags)) {
+		return fuelFacilityFromTags(osm, coordinates, tags);
 	}
 
 	if (isViewpointTags(tags)) {

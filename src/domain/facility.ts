@@ -87,7 +87,12 @@ export type ViewpointFacility = FacilityBase & {
 	readonly elevation?: number;
 };
 
-export type Facility = WaterFacility | ToiletFacility | ViewpointFacility;
+export type FuelFacility = FacilityBase & {
+	readonly kind: 'fuel';
+	readonly brand?: string;
+};
+
+export type Facility = WaterFacility | ToiletFacility | ViewpointFacility | FuelFacility;
 
 export type FacilityKind = Facility['kind'];
 
@@ -100,6 +105,13 @@ export const isToiletFacility = (facility: Facility): facility is ToiletFacility
 export const isViewpointFacility = (facility: Facility): facility is ViewpointFacility =>
 	facility.kind === 'viewpoint';
 
+export const isFuelFacility = (facility: Facility): facility is FuelFacility =>
+	facility.kind === 'fuel';
+
+/** The name shown under a fuel marker: the brand, then the station name. */
+export const fuelStationLabel = (facility: FuelFacility): string | null =>
+	facility.brand ?? facility.name ?? null;
+
 export const wheelchairAccessOf = (facility: Facility): WheelchairAccess => {
 	switch (facility.kind) {
 		case 'water':
@@ -107,6 +119,7 @@ export const wheelchairAccessOf = (facility: Facility): WheelchairAccess => {
 		case 'toilet':
 			return facility.accessibility.wheelchair;
 		case 'viewpoint':
+		case 'fuel':
 			return 'unknown';
 		default: {
 			const exhaustive: never = facility;
@@ -341,6 +354,22 @@ const parseViewpointFacility = (record: UnknownRecord): ViewpointFacility | null
 	};
 };
 
+const parseFuelFacility = (record: UnknownRecord): FuelFacility | null => {
+	const base = parseFacilityBase(record);
+	if (base === null) {
+		return null;
+	}
+	const brand = parseOptional(record.brand, parseString);
+	if (brand === null) {
+		return null;
+	}
+	return {
+		...base,
+		kind: 'fuel',
+		...(brand.present ? { brand: brand.value } : {}),
+	};
+};
+
 export const parseFacility = (value: unknown): Facility | null => {
 	if (!isRecord(value)) {
 		return null;
@@ -352,6 +381,8 @@ export const parseFacility = (value: unknown): Facility | null => {
 			return parseToiletFacility(value);
 		case 'viewpoint':
 			return parseViewpointFacility(value);
+		case 'fuel':
+			return parseFuelFacility(value);
 		default:
 			return null;
 	}

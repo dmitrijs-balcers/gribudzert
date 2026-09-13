@@ -63,6 +63,7 @@ const scene = (): Scene => {
 		water: L.featureGroup<L.Marker>().addTo(map),
 		toilet: L.featureGroup<L.Marker>().addTo(map),
 		viewpoint: L.featureGroup<L.Marker>().addTo(map),
+		fuel: L.featureGroup<L.Marker>().addTo(map),
 	};
 	const renderer = createMarkerRenderer(groups, { onSelect: () => undefined });
 	return {
