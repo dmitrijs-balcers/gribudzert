@@ -31,6 +31,8 @@ export type MarkerAppearance = {
 	readonly distanceLabel: string | null;
 	/** Always-visible caption under the badge, e.g. a gas station's brand. */
 	readonly nameLabel: string | null;
+	/** Small corner mark on the badge when the place is known to have a toilet. */
+	readonly hasToilet: boolean;
 	readonly prominence: ViewpointProminence | null;
 };
 
@@ -51,9 +53,13 @@ const facilityTypeOf = (facility: Facility): WaterSourceType | 'toilet' | 'viewp
 const nameLabelOf = (facility: Facility): string | null =>
 	facility.kind === 'fuel' ? fuelStationLabel(facility) : null;
 
+const hasToiletOf = (facility: Facility): boolean =>
+	facility.kind === 'fuel' && facility.toilets === 'yes';
+
 const accessibleLabelOf = (
 	label: string,
 	nameLabel: string | null,
+	hasToilet: boolean,
 	potability: MarkerPotability,
 	emphasis: MarkerEmphasis,
 	distanceLabel: string | null,
@@ -62,6 +68,9 @@ const accessibleLabelOf = (
 	const suffixes: string[] = [];
 	if (nameLabel !== null) {
 		suffixes.push(nameLabel);
+	}
+	if (hasToilet) {
+		suffixes.push('with toilet');
 	}
 	if (potability === 'not-drinkable') {
 		suffixes.push('not drinkable');
@@ -85,6 +94,7 @@ export const appearanceOf = (facility: Facility, options: AppearanceOptions): Ma
 	const distanceLabel = options.isNearest ? formatDistance(options.distance) : null;
 	const prominence = facility.kind === 'viewpoint' ? facility.prominence : null;
 	const nameLabel = nameLabelOf(facility);
+	const hasToilet = hasToiletOf(facility);
 	const badgeColor =
 		prominence === null
 			? badgeColorOf(potability, presentation.badgeColor)
@@ -95,6 +105,7 @@ export const appearanceOf = (facility: Facility, options: AppearanceOptions): Ma
 		accessibleLabel: accessibleLabelOf(
 			presentation.label,
 			nameLabel,
+			hasToilet,
 			potability,
 			emphasis,
 			distanceLabel,
@@ -107,6 +118,7 @@ export const appearanceOf = (facility: Facility, options: AppearanceOptions): Ma
 		facilityType: facilityTypeOf(facility),
 		distanceLabel,
 		nameLabel,
+		hasToilet,
 		prominence,
 	};
 };
@@ -141,6 +153,9 @@ const facilityBadgeHtml = (appearance: MarkerAppearance, size: number): string =
 	(appearance.prominence === 'bare' ? '' : facilityGlyphHtml(appearance.glyph)) +
 	(appearance.potability === 'not-drinkable'
 		? '<span class="facility-marker-strike" aria-hidden="true"></span>'
+		: '') +
+	(appearance.hasToilet
+		? '<span class="facility-marker-toilet-mark" aria-hidden="true">🚻</span>'
 		: '') +
 	'</div>';
 

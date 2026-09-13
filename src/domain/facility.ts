@@ -90,6 +90,7 @@ export type ViewpointFacility = FacilityBase & {
 export type FuelFacility = FacilityBase & {
 	readonly kind: 'fuel';
 	readonly brand?: string;
+	readonly toilets: YesNoUnknown;
 };
 
 export type Facility = WaterFacility | ToiletFacility | ViewpointFacility | FuelFacility;
@@ -360,13 +361,14 @@ const parseFuelFacility = (record: UnknownRecord): FuelFacility | null => {
 		return null;
 	}
 	const brand = parseOptional(record.brand, parseString);
-	if (brand === null) {
+	if (brand === null || !isYesNoUnknown(record.toilets)) {
 		return null;
 	}
 	return {
 		...base,
 		kind: 'fuel',
 		...(brand.present ? { brand: brand.value } : {}),
+		toilets: record.toilets,
 	};
 };
 

@@ -12,14 +12,15 @@ export const FUEL_PUMP_PATHS =
 	'<path d="M7 6.5h5v4H7z"></path>' +
 	'<path d="M14 10h2a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V9.5l-2.5-2.5"></path>';
 
+const TOILET_PATHS =
+	'<circle cx="7.5" cy="5" r="2"></circle>' +
+	'<path d="M7.5 9v11M4.5 14v-3a3 3 0 0 1 6 0v3"></path>' +
+	'<circle cx="16.5" cy="5" r="2"></circle>' +
+	'<path d="M16.5 9v11M13.5 15h6l-1.5-5a1.5 1.5 0 0 0-3 0Z"></path>';
+
 const KIND_ICONS: Readonly<Record<FacilityKind, string>> = {
 	water: svg('<path d="M12 3.5C9 8 6 11 6 14.5a6 6 0 0 0 12 0C18 11 15 8 12 3.5Z"></path>'),
-	toilet: svg(
-		'<circle cx="7.5" cy="5" r="2"></circle>' +
-			'<path d="M7.5 9v11M4.5 14v-3a3 3 0 0 1 6 0v3"></path>' +
-			'<circle cx="16.5" cy="5" r="2"></circle>' +
-			'<path d="M16.5 9v11M13.5 15h6l-1.5-5a1.5 1.5 0 0 0-3 0Z"></path>'
-	),
+	toilet: svg(TOILET_PATHS),
 	viewpoint: svg(
 		'<path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12Z"></path>' +
 			'<circle cx="12" cy="12" r="3"></circle>'
@@ -66,6 +67,7 @@ const FACT_ICONS: Readonly<Record<FactIcon, string>> = {
 	brand: svg(
 		'<path d="M3.5 12.5V5a1.5 1.5 0 0 1 1.5-1.5h7.5l8 8-9 9-8-8Z"></path><circle cx="8" cy="8" r="1.5"></circle>'
 	),
+	toilets: svg(TOILET_PATHS),
 	note: svg(
 		'<path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8Z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path>'
 	),

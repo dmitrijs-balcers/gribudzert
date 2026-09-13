@@ -35,6 +35,7 @@ export type FactIcon =
 	| 'bottle'
 	| 'operator'
 	| 'brand'
+	| 'toilets'
 	| 'note';
 
 export type DetailFact = {
@@ -159,6 +160,7 @@ const viewpointFacts = (facility: ViewpointFacility): readonly (DetailFact | nul
 
 const fuelFacts = (facility: FuelFacility): readonly (DetailFact | null)[] => [
 	facility.brand === undefined ? null : fact('brand', 'Brand', facility.brand),
+	yesNoFact('toilets', facility.toilets, { yes: 'Toilet available', no: 'No toilet' }),
 ];
 
 const kindFacts = (facility: Facility): readonly (DetailFact | null)[] => {

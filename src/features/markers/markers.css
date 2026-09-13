@@ -41,6 +41,25 @@
 	pointer-events: none;
 }
 
+.facility-marker-toilet-mark {
+	position: absolute;
+	top: -7px;
+	right: -7px;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--surface-control);
+	border: 1px solid rgba(0, 0, 0, 0.15);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	line-height: 1;
+	user-select: none;
+	pointer-events: none;
+}
+
 .facility-marker-tail {
 	position: relative;
 	flex-shrink: 0;

@@ -153,6 +153,7 @@ const fuelFacilityFromTags = (
 	...baseFields(osm, coordinates, tags),
 	kind: 'fuel',
 	...(tags.brand !== undefined ? { brand: tags.brand } : {}),
+	toilets: parseYesNo(tagValue(tags, 'toilets')),
 });
 
 export const facilityFromTags = (

@@ -117,7 +117,13 @@ export const BRANDED_FUEL_STATION = {
 	id: 401,
 	lat: 56.956,
 	lon: 24.111,
-	tags: { amenity: 'fuel', brand: 'Circle K', name: 'Circle K Brīvības', opening_hours: '24/7' },
+	tags: {
+		amenity: 'fuel',
+		brand: 'Circle K',
+		name: 'Circle K Brīvības',
+		opening_hours: '24/7',
+		toilets: 'yes',
+	},
 } as const satisfies OverpassElement;
 
 export const UNBRANDED_FUEL_STATION = {

@@ -57,6 +57,27 @@ describe('Finding gas stations', () => {
 		expect(branded?.getAttribute('title')).toContain('Circle K');
 	});
 
+	it('marks a station with a small toilet sign only when OSM says it has one', async () => {
+		const app = await renderApp({
+			overpass: (request) =>
+				isFuelQuery(request.query) ? [...WATER_ELEMENTS, ...FUEL_ELEMENTS] : WATER_ELEMENTS,
+		});
+		await waitFor(() =>
+			expect(app.markers()).toHaveLength(WATER_MARKER_COUNT + FUEL_ELEMENTS.length)
+		);
+
+		const hasToiletMark = (marker: Element): boolean =>
+			marker.querySelector('.facility-marker-toilet-mark') !== null;
+		const [withToilet, withoutToilet] = [...fuelMarkersOf(app.markers())].sort(
+			(a, b) => Number(hasToiletMark(b)) - Number(hasToiletMark(a))
+		);
+
+		expect(withToilet?.getAttribute('title')).toContain('Circle K');
+		expect(withToilet?.getAttribute('title')).toContain('with toilet');
+		expect(hasToiletMark(withoutToilet as Element)).toBe(false);
+		expect(withoutToilet?.getAttribute('title')).not.toContain('toilet');
+	});
+
 	it('opens the station details with its name, brand and hours', async () => {
 		const app = await renderApp({
 			overpass: (request) =>
@@ -76,6 +97,7 @@ describe('Finding gas stations', () => {
 		app.expandSheet();
 		expect(app.sheetText()).toContain('Circle K');
 		expect(app.sheetText()).toContain('24/7');
+		expect(app.sheetText()).toContain('Toilet available');
 	});
 
 	it('drops the stations when the layer is switched off and does not ask for them again', async () => {
